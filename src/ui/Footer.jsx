@@ -24,6 +24,12 @@ export default function Footer() {
                 {item.label}
               </a>
             ))}
+            <a
+              href="#/cotizacion?d=demo"
+              className="text-[13px] text-cream-2 transition-colors duration-300 hover:text-ember"
+            >
+              Cotización de ejemplo
+            </a>
             {import.meta.env.VITE_ADMIN !== 'off' && (
               <a
                 href="#/admin"

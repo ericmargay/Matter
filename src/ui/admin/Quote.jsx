@@ -60,7 +60,7 @@ export default function Quote({ token }) {
     )
   }
 
-  const { cliente, obra, rooms, lineas, totales, folio, fecha, vigencia, topologia, aps, garantia } = data
+  const { cliente, obra, rooms, lineas, totales, folio, fecha, vigencia, topologia, aps, garantia, demo } = data
 
   const emitida = new Date(fecha ?? Date.now())
   const vence = new Date(emitida)
@@ -74,7 +74,7 @@ export default function Quote({ token }) {
           <Logo size={18} spin={false} />
           <span className="display text-[15px]">{brand.name}</span>
         </a>
-        <span className="text-[11px] text-cream-3">Cotización {folio}</span>
+        <span className="text-[11px] text-cream-3">Cotización {folio}{demo ? " · ejemplo" : ""}</span>
         <div className="ml-auto flex gap-2">
           <button
             onClick={() => navigator.clipboard?.writeText(location.href)}
@@ -90,6 +90,16 @@ export default function Quote({ token }) {
           </button>
         </div>
       </div>
+
+      {demo && (
+        <div className="mx-auto mb-3 max-w-[880px] px-5">
+          <p className="rounded-xl border border-ember/35 bg-ember/10 px-4 py-2.5 text-[12px] leading-relaxed text-cream-2">
+            <strong className="text-ember">Cotización de ejemplo.</strong> Cliente, domicilio y RFC son
+            ficticios, y las tarifas son de demostración. Sirve para ver cómo llega el documento a un
+            cliente real.
+          </p>
+        </div>
+      )}
 
       <article className="mx-auto max-w-[880px] rounded-2xl border border-line bg-ink-2 p-7 print:max-w-none print:rounded-none print:border-0 print:bg-white print:p-0 print:text-black">
         <header className="flex flex-wrap items-start justify-between gap-6 border-b border-line pb-5">
