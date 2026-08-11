@@ -40,13 +40,17 @@ function Row({ k, v, mono }) {
 export default function Quote({ token }) {
   const data = useMemo(() => decodeQuote(token), [token])
 
-  if (!data) {
+  if (!data || data.outdated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-ink px-6 text-center">
         <div>
-          <p className="display text-2xl text-cream">Esta cotización no se pudo abrir</p>
-          <p className="mt-2 text-[13px] text-cream-3">
-            El enlace está incompleto o se cortó al copiarlo. Pídenos que te lo mandemos de nuevo.
+          <p className="display text-2xl text-cream">
+            {data?.outdated ? 'Esta cotización es de una versión anterior' : 'Esta cotización no se pudo abrir'}
+          </p>
+          <p className="mt-2 max-w-sm text-[13px] leading-relaxed text-cream-3">
+            {data?.outdated
+              ? 'El formato del enlace cambió y este ya no trae las partidas. Vuelve a generarla desde el levantamiento y se arregla.'
+              : 'El enlace está incompleto o se cortó al copiarlo. Pídenos que te lo mandemos de nuevo.'}
           </p>
           <a href="#/" className="mt-5 inline-block rounded-full border border-line px-4 py-2 text-[13px] text-cream-2">
             Ir al sitio
@@ -218,7 +222,7 @@ export default function Quote({ token }) {
                     {r.m} m² · {r.t}
                   </span>
                 </div>
-                <div className="mt-1 text-[11px] text-cream-2 print:text-neutral-700">{r.u} dispositivos</div>
+                <div className="mt-1 text-[11px] text-cream-2 print:text-neutral-700">{r.u ?? 0} dispositivos</div>
               </div>
             ))}
           </div>

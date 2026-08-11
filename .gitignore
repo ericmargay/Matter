@@ -26,3 +26,7 @@ dist-ssr
 # Los modelos SÍ se versionan (3.8 MB): el runner de CI no tiene Blender y
 # no queremos que el despliegue dependa de que Poly Haven esté disponible.
 # Para regenerarlos: npm run assets && npm run models
+
+# Tarifas reales del negocio. rates.js trae valores de demostración que sí
+# se versionan; los verdaderos viven aquí y nunca salen de tu máquina.
+src/content/rates.local.js

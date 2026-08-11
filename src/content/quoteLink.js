@@ -11,6 +11,9 @@
  * cotización que ya se mandó sigue diciendo lo que se cotizó.
  */
 
+/** Sube este número cada vez que cambie la forma del paquete. */
+export const SCHEMA = 2
+
 const b64url = {
   encode(str) {
     const bytes = new TextEncoder().encode(str)
@@ -45,6 +48,9 @@ export function buildQuotePayload(survey, q, net, claves) {
   })
 
   return {
+    // versión del formato: si cambia la forma del paquete, los enlaces
+    // viejos se detectan y se avisa en vez de pintar una cotización en ceros
+    s: SCHEMA,
     f: survey.folio,
     d: new Date().toISOString().slice(0, 10),
     v: Number(survey.extras?.vigencia) || 15,
@@ -83,13 +89,22 @@ export function encodeQuote(payload) {
   return b64url.encode(JSON.stringify(payload))
 }
 
+/**
+ * @returns el paquete, `null` si el enlace está roto, o `{ outdated: true }`
+ *          si se generó con una versión anterior del formato.
+ */
 export function decodeQuote(token) {
   try {
     const p = JSON.parse(b64url.decode(token))
+
+    // un enlace de antes de SCHEMA 2 traía los ids del catálogo en vez de
+    // las partidas resueltas; pintarlo daría totales en cero y "Invalid Date"
+    if (p.s !== SCHEMA || !Array.isArray(p.L) || !p.T) return { outdated: true }
+
     return {
-      folio: p.f,
+      folio: p.f ?? '—',
       fecha: p.d,
-      vigencia: p.v,
+      vigencia: Number(p.v) || 15,
       cliente: p.c ?? {},
       obra: p.o ?? {},
       rooms: p.r ?? [],

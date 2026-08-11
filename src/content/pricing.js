@@ -9,22 +9,20 @@ import { DEVICES } from './catalog'
  * horas reales de cuadrilla, no de un porcentaje sobre el equipo.
  */
 
-/* ── mano de obra ─────────────────────────────────────────────── */
+/* ── mano de obra y tarifas ──────────────────────────────────────
+   Los números viven en rates.js (demo, versionado) y se pisan con
+   rates.local.js si existe (real, en .gitignore). import.meta.glob no
+   truena cuando el archivo no está: devuelve un objeto vacío. */
+import { LABOR_TIERS as DEMO_LABOR, RATES as DEMO_RATES } from './rates'
 
-/**
- * Cuánto cuesta instalar UNA pieza, por dificultad.
- * Base: cuadrilla de dos (técnico + ayudante) a ~$650/hora con traslado
- * prorrateado. El nivel sale del tiempo que se lleva la pieza, no del
- * precio del aparato: una persiana barata se instala igual de lento que
- * una cara.
- */
-export const LABOR_TIERS = {
-  plug: { label: 'Enchufar', price: 120, mins: 10, hint: 'Se conecta y se empareja. Contactos, bocinas, hubs.' },
-  simple: { label: 'Simple', price: 260, mins: 25, hint: 'Adherible o de rosca. Focos, sensores de pila, tiras.' },
-  medio: { label: 'Medio', price: 520, mins: 50, hint: 'Abrir caja y cablear. Dimmers, botoneras, módulos.' },
-  alto: { label: 'Alto', price: 1150, mins: 110, hint: 'Ajuste mecánico o cable nuevo. Persianas, cerraduras, cámaras.' },
-  obra: { label: 'Con obra', price: 2200, mins: 210, hint: 'Requiere plomero, albañil o corte. Válvulas, empotrados.' },
-}
+const overrides = import.meta.glob('./rates.local.js', { eager: true })
+const local = Object.values(overrides)[0]
+
+/** true cuando el panel corre con las tarifas inventadas. */
+export const USING_DEMO_RATES = !local
+
+export const LABOR_TIERS = { ...DEMO_LABOR, ...(local?.LABOR_TIERS ?? {}) }
+export const RATES = { ...DEMO_RATES, ...(local?.RATES ?? {}) }
 
 /** Reglas por categoría; ganan sobre la inferencia por alimentación. */
 const LABOR_BY_CAT = {
@@ -52,26 +50,6 @@ export function laborTier(device) {
   if (device.cat === 'control') return 'medio'
   if (device.cat === 'clima' && device.power === 'cableado') return 'alto'
   return LABOR_BY_CAT[device.cat] ?? LABOR_BY_POWER[device.power] ?? 'simple'
-}
-
-/* ── servicios ────────────────────────────────────────────────── */
-
-export const RATES = {
-  levantamientoBase: 1500, // hasta 150 m² y un nivel, zona metropolitana
-  levantamientoM2: 8, // por m² arriba de 150
-  levantamientoNivel: 450, // por cada nivel adicional
-  levantamientoIncluidoM2: 150,
-
-  puntoRed: 850, // cable Cat6, jack, ponchado, patch y prueba de certificación
-  escena: 350, // diseño, programación y ajuste con el cliente presente
-  entrenamiento: 1200, // sesión con toda la familia, incluida la persona que ayuda
-  documentacion: 900, // planos as-built, credenciales y etiquetado del rack
-
-  puestaEnMarchaPct: 0.06, // sobre el equipo: pruebas, firmware y afinación
-  viaticoKm: 14, // fuera de zona metropolitana, ida y vuelta
-  garantiaMeses: 12,
-
-  iva: 0.16,
 }
 
 /** El levantamiento se descuenta del total si el cliente instala con nosotros. */

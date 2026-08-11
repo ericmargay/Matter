@@ -96,7 +96,10 @@ export const CLAVE_UNIDAD = { pieza: 'H87', servicio: 'E48' }
 
 
 /** Total en letra, como lo pide el formato de factura. */
-export function enLetra(n) {
+export function enLetra(value) {
+  // un total roto no debe convertirse en "undefinedundefined MIL PESOS NaN/100"
+  const n = Number.isFinite(Number(value)) ? Number(value) : 0
+
   const UNI = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE', 'DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE', 'DIECISÉIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE', 'VEINTE']
   const DEC = ['', '', 'VEINTI', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA']
   const CEN = ['', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS']
