@@ -1,0 +1,323 @@
+@import 'tailwindcss';
+
+/* ─────────────────────────────────────────────────────────────
+   Matter — sistema de diseño
+   La tesis visual: la casa es cálida (ámbar, madera, crema),
+   la red es fría (azul thread). Todo el sitio vive en esa tensión.
+   ───────────────────────────────────────────────────────────── */
+@theme {
+  --color-ink: #0a0908;
+  --color-ink-2: #131110;
+  --color-ink-3: #1d1a17;
+  --color-line: #2a2521;
+
+  --color-cream: #f7f2ea;
+  /* cream-2 y cream-3 quedan sobre #131110: 8.9:1 y 5.4:1 de contraste */
+  --color-cream-2: #d6cdc0;
+  --color-cream-3: #9c9388;
+
+  --color-ember: #ff9a4d;
+  --color-ember-2: #ffc48a;
+  --color-ember-3: #7a3f14;
+
+  --color-thread: #7fa6ff;
+  --color-thread-2: #b9cdff;
+
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+  background: var(--color-ink);
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: var(--color-cream);
+  font-family: var(--font-sans);
+  font-weight: 300;
+  overflow-x: hidden;
+}
+
+/* Lenis */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+::selection {
+  background: var(--color-ember);
+  color: var(--color-ink);
+}
+
+canvas {
+  display: block;
+  touch-action: pan-y;
+}
+
+/* ── utilidades de tipografía ───────────────────────────────── */
+.display {
+  font-family: var(--font-display);
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  line-height: 0.98;
+}
+
+.eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--color-cream-3);
+}
+
+.lede {
+  font-size: clamp(1rem, 1.6vw, 1.1875rem);
+  line-height: 1.6;
+  color: var(--color-cream-2);
+  font-weight: 300;
+}
+
+/* ── grano de película: le quita el look "plástico" al 3D ───── */
+.grain::after {
+  content: '';
+  position: fixed;
+  inset: -50%;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 6s steps(6) infinite;
+}
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  17% { transform: translate(-3%, -2%); }
+  33% { transform: translate(2%, -4%); }
+  50% { transform: translate(-2%, 3%); }
+  67% { transform: translate(3%, 1%); }
+  83% { transform: translate(-1%, -3%); }
+}
+
+/* ── animaciones de entrada ─────────────────────────────────── */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(110%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spot {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes trickle {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(320%); }
+}
+
+/* ── logo animado ───────────────────────────────────────────── */
+/* El contorno de la casa mide ~46 unidades de largo. El pulso es un guion
+   corto que recorre esa longitud; el hueco largo lo deja invisible el resto
+   del ciclo, que es lo que da la sensación de latido y no de rotación. */
+.logo-pulse {
+  stroke-dasharray: 7 40;
+  animation: logo-run 3.6s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+@keyframes logo-run {
+  from { stroke-dashoffset: 47; }
+  to { stroke-dashoffset: 0; }
+}
+
+.logo-dot {
+  transform-origin: 16px 17px;
+  animation: logo-breath 3.6s ease-in-out infinite;
+}
+@keyframes logo-breath {
+  0%, 62%, 100% { opacity: 0.72; transform: scale(1); }
+  78% { opacity: 1; transform: scale(1.18); }
+}
+
+.logo-halo {
+  transform-origin: 16px 17px;
+  animation: logo-halo 3.6s ease-in-out infinite;
+}
+@keyframes logo-halo {
+  0%, 58%, 100% { opacity: 0; transform: scale(0.55); }
+  80% { opacity: 0.55; transform: scale(1); }
+}
+
+/* ── orbes del asistente ────────────────────────────────────── */
+.orb {
+  position: relative;
+  display: flex;
+  height: 34px;
+  width: 34px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-cream) 8%, transparent);
+  transition: transform 0.5s var(--ease-out-expo), box-shadow 0.5s;
+}
+.orb-on {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-cream) 10%, transparent);
+}
+
+/* Siri: degradado que gira y respira */
+.orb-siri {
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from 0deg,
+    #ff5e7a, #ff9a4d, #ffd166, #4ad9c8, #5b9dff, #a77dff, #ff5e7a
+  );
+  filter: blur(5px);
+  animation: orb-spin 4.5s linear infinite;
+  opacity: 0.55;
+}
+.orb-on .orb-siri {
+  animation-duration: 1.4s;
+  opacity: 1;
+}
+@keyframes orb-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Google: los cuatro puntos saltando */
+.orb-dot {
+  display: block;
+  height: 5px;
+  width: 5px;
+  border-radius: 999px;
+  animation: orb-bounce 1s ease-in-out infinite;
+}
+@keyframes orb-bounce {
+  0%, 100% { transform: scaleY(1); }
+  40% { transform: scaleY(2.6); }
+}
+
+/* Alexa: anillos cian que se expanden */
+.orb-ring {
+  position: absolute;
+  inset: 5px;
+  border-radius: 999px;
+  border: 2px solid #46c8f5;
+  opacity: 0.75;
+}
+.orb-on .orb-ring {
+  animation: orb-expand 1.6s var(--ease-out-expo) infinite;
+}
+.orb-ring-2 {
+  animation-delay: 0.55s !important;
+  border-color: #1f7fd6;
+}
+@keyframes orb-expand {
+  0% { transform: scale(0.55); opacity: 0.9; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+/* Home Assistant: pulso ámbar */
+.orb-pulse {
+  height: 13px;
+  width: 13px;
+  border-radius: 999px;
+  background: var(--color-ember);
+  box-shadow: 0 0 12px var(--color-ember);
+}
+.orb-on .orb-pulse {
+  animation: orb-breathe 0.9s ease-in-out infinite;
+}
+@keyframes orb-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.5); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb-siri, .orb-dot, .orb-ring, .orb-pulse { animation: none !important; }
+}
+
+/* ── hotspots del 3D ────────────────────────────────────────── */
+.hotspot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.hotspot-dot {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--color-ember);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-ember) 22%, transparent);
+}
+.hotspot-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 1px solid var(--color-ember);
+  animation: ping 2.4s var(--ease-out-expo) infinite;
+}
+@keyframes ping {
+  0% { transform: scale(1); opacity: 0.9; }
+  70%, 100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* En móvil las etiquetas se salen de pantalla y encima chocan entre ellas.
+   Se quedan solo los puntos pulsando; los nombres ya están en el panel. */
+@media (max-width: 767px) {
+  .hotspot-label {
+    display: none;
+  }
+}
+
+.hotspot-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.01em;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  color: var(--color-cream);
+  background: color-mix(in srgb, var(--color-ink) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-cream) 12%, transparent);
+  backdrop-filter: blur(10px);
+  transition: border-color 0.4s var(--ease-out-expo), color 0.4s;
+}
+.hotspot:hover .hotspot-label {
+  border-color: color-mix(in srgb, var(--color-ember) 55%, transparent);
+}
+
+/* ── scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--color-ink); }
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-ember-3); }
+
+@media (prefers-reduced-motion: reduce) {
+  .grain::after,
+  .hotspot-dot::after,
+  .logo-pulse,
+  .logo-dot,
+  .logo-halo {
+    animation: none;
+  }
+  .logo-halo { opacity: 0.3; }
+  * { scroll-behavior: auto !important; }
+}
