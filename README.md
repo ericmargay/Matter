@@ -246,14 +246,46 @@ La página de cotización **sí** se publica: es lo que se le manda al cliente,
 y va autocontenida (las partidas viajan resueltas dentro del enlace, sin el
 catálogo ni el modelo de costos detrás).
 
-### Otro host (Railway, Vercel, un VPS)
+### Railway (con panel y login)
 
 ```bash
-BASE_PATH=/ VITE_ADMIN=on npm run build   # dist/ es estático puro
+npm run build:all    # dist/ público + dist-admin/ panel
+npm start            # servidor Express
 ```
 
-Ahí sí conviene dejar el panel encendido y ponerle autenticación de verdad
-delante — con un host propio ya hay dónde ponerla.
+Son **dos compilaciones separadas** a propósito:
+
+| Salida | Ruta | Contenido |
+| --- | --- | --- |
+| `dist/` | `/` | Sitio público, `VITE_ADMIN=off` |
+| `dist-admin/` | `/panel` | Panel completo, detrás de login |
+
+Si fuera una sola, el chunk del panel viviría en `/assets/` y cualquiera
+podría pedirlo por su URL con el catálogo y las tarifas dentro. Al vivir en
+otra carpeta, el middleware de sesión sí lo cubre. Comprobado: sin cookie,
+ese archivo responde 302.
+
+El login tiene que ser del lado del servidor porque el ruteo del sitio es
+por hash (`#/admin`) y **el hash nunca llega al servidor** — por eso el
+panel cuelga de una ruta real.
+
+Variables en Railway:
+
+```
+PANEL_USERS=margay:scrypt$sal$hash,carpio:scrypt$sal$hash
+SESSION_SECRET=<64 hex>
+NODE_ENV=production
+```
+
+Para agregar o cambiar a alguien:
+
+```bash
+npm run hash-password -- nombre     # pide la contraseña sin mostrarla
+```
+
+Las contraseñas se guardan con scrypt y sal por usuario; la sesión es una
+cookie firmada con HMAC que dura 12 horas. Nunca hay contraseñas en claro ni
+en el repo ni en las variables.
 
 ### Sobre el repositorio
 
@@ -265,6 +297,33 @@ público eso es legible por cualquiera.
 GitHub Pages desde un repo privado requiere plan Pro. Si prefieres el plan
 gratuito, hay que hacerlo público — y antes de eso conviene sacar los
 números a un archivo que no se versione.
+
+## Rendimiento
+
+Medido, no adivinado — si vuelve a ponerse lento, mide antes de tocar nada.
+El estado al que hay que volver: **~440 ms de bloqueo del hilo principal y
+70+ fps**. Lo que lo rompió una vez y puede volver a romperlo:
+
+1. **Luces.** Cada `pointLight` encarece el shader de *todos* los materiales
+   de la escena. Se llegó a 30 y el sitio se fue a 40 fps. El techo son
+   ~18: una luminaria decorativa debe brillar por emisivo + bloom, no con
+   luz real.
+2. **Compilación de shaders síncrona.** `<Preload all />` de drei llama a
+   `gl.compile()` y congelaba la página 2.4 s de un golpe. Se usa
+   `compileAsync()` (ver `Precompile` en `Experience.jsx`). No lo cambies de
+   vuelta.
+3. **Mallas repetidas.** Barandales, escalera y celosía van por
+   `InstancedMesh` con el helper `Repeat` de `props.jsx`. Un barandal de 7 m
+   son ~50 balaustres; sueltos son 50 llamadas de dibujo.
+4. **Texturas de los modelos.** Poly Haven las trae a 1k. Después de
+   `npm run models` conviene bajarlas:
+   ```bash
+   for f in public/models/*/textures/*.jpg; do sips -Z 512 -s format jpeg -s formatOptions 78 "$f" --out "$f"; done
+   ```
+   De 2.4 MB a 483 KB sin diferencia visible.
+
+Las texturas procedurales de `textures.js` cuestan 44 ms en total: no son el
+problema, no las optimices por instinto.
 
 ## Créditos
 
