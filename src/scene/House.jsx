@@ -474,11 +474,15 @@ function Exterior() {
         ))}
 
         {/* arbotantes de fachada */}
-        {[-3.9, 0.9].map((x) => (
+        {/* dos arbotantes, una sola luz real: la segunda no aportaba nada
+            que el emisivo y el bloom no den ya */}
+        {[-3.9, 0.9].map((x, i) => (
           <group key={x} position={[x, 0, HOUSE.z + 0.16]}>
             <B p={[0, 2.1, 0]} s={[0.1, 0.34, 0.09]} m={M.metal} shadow={false} />
             <mesh position={[0, 2.1, 0.06]} scale={[0.07, 0.26, 0.02]} geometry={G.box} material={M.bulb} />
-            <pointLight position={[0, 2.05, 0.4]} intensity={3.5} distance={4.5} decay={2} color="#ffab63" />
+            {i === 0 && (
+              <pointLight position={[2.5, 2.05, 0.5]} intensity={5} distance={7} decay={2} color="#ffab63" />
+            )}
           </group>
         ))}
 

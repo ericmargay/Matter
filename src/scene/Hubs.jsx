@@ -49,7 +49,10 @@ function Pop({ children, delay = 0 }) {
   return <group ref={ref}>{children}</group>
 }
 
-/* ── formas ────────────────────────────────────────────────────── */
+/* ── formas ──────────────────────────────────────────────────────
+   Ninguna lleva luz real: brillan por material emisivo y el bloom hace
+   el resto. Cinco aparatos × una pointLight cada uno encarecía el shader
+   de toda la escena para iluminar diez centímetros. */
 
 /** Apple TV: caja negra bajita con un LED tímido al frente. */
 function Box({ tone }) {
@@ -76,7 +79,6 @@ function Orb({ tone }) {
         <ringGeometry args={[0.028, 0.045, 24]} />
         <meshStandardMaterial color="#000" emissive={tone} emissiveIntensity={1.8} roughness={1} side={2} />
       </mesh>
-      <pointLight position={[0, 0.1, 0]} intensity={0.35} distance={0.9} decay={2} color={tone} />
     </group>
   )
 }
@@ -96,7 +98,6 @@ function Screen({ tone }) {
           <meshStandardMaterial color="#000" emissive={tone} emissiveIntensity={0.85} roughness={1} />
         </mesh>
       </group>
-      <pointLight position={[0, 0.16, 0.2]} intensity={0.5} distance={1.2} decay={2} color={tone} />
     </group>
   )
 }
@@ -126,7 +127,6 @@ function Panel({ tone }) {
       <mesh position={[0, 0, 0.01]} scale={[0.25, 0.17, 1]} geometry={G.plane}>
         <meshStandardMaterial color="#000" emissive={tone} emissiveIntensity={0.9} roughness={1} />
       </mesh>
-      <pointLight position={[0, 0, 0.35]} intensity={0.7} distance={1.6} decay={2} color={tone} />
     </group>
   )
 }
@@ -165,7 +165,6 @@ function Server({ tone }) {
           />
         </mesh>
       ))}
-      <pointLight position={[0, 0.08, 0.1]} intensity={0.3} distance={0.8} decay={2} color={tone} />
     </group>
   )
 }

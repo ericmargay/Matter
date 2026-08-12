@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { RoundedBox } from '@react-three/drei'
 import { M, G } from './materials'
 import { dim } from './home'
-import { B, C } from './props'
+import { B, C, Repeat } from './props'
 import { useStore } from '../store/store'
 
 /**
@@ -133,55 +133,42 @@ export function TowelRail({ position, rotation, w = 0.6 }) {
 
 /** Escalera recta. Sube en +z desde el origen. */
 export function Stairs({ position, rotation, steps = 16, rise = 0.194, run = 0.26, w = 1.2 }) {
+  const partes = useMemo(() => {
+    const huellas = []
+    const peraltes = []
+    const tiras = []
+    for (let i = 0; i < steps; i++) {
+      huellas.push({ p: [0, (i + 1) * rise - 0.02, i * run + run / 2], s: [w, 0.04, run] })
+      peraltes.push({ p: [0, (i + 0.5) * rise, i * run], s: [w, rise, 0.03] })
+      // tira LED bajo huellas alternas: se ve caro y cuesta poco
+      if (i % 2 === 0) tiras.push({ p: [0, i * rise + 0.03, i * run + 0.01], s: [w * 0.8, 0.012, 0.012] })
+    }
+    return { huellas, peraltes, tiras }
+  }, [steps, rise, run, w])
+
   return (
     <group position={position} rotation={rotation}>
-      {Array.from({ length: steps }, (_, i) => (
-        <group key={i}>
-          {/* huella */}
-          <mesh
-            geometry={G.box}
-            material={M.wood}
-            position={[0, (i + 1) * rise - 0.02, i * run + run / 2]}
-            scale={[w, 0.04, run]}
-            castShadow
-            receiveShadow
-          />
-          {/* peralte */}
-          <mesh
-            geometry={G.box}
-            material={M.woodDark}
-            position={[0, (i + 0.5) * rise, i * run]}
-            scale={[w, rise, 0.03]}
-          />
-          {/* tira LED bajo cada huella: el detalle que se ve caro y cuesta poco */}
-          {i % 2 === 0 && (
-            <mesh
-              geometry={G.box}
-              material={M.strip}
-              position={[0, i * rise + 0.03, i * run + 0.01]}
-              scale={[w * 0.8, 0.012, 0.012]}
-            />
-          )}
-        </group>
-      ))}
+      <Repeat items={partes.huellas} material={M.wood} />
+      <Repeat items={partes.peraltes} material={M.woodDark} shadow={false} />
+      <Repeat items={partes.tiras} material={M.strip} shadow={false} />
     </group>
   )
 }
 
 /** Barandal de balcón o cubo de escalera: postes + pasamanos. */
 export function Railing({ position, rotation, length = 4, height = 1.02, gap = 0.14 }) {
-  const n = Math.max(2, Math.round(length / gap))
+  // un barandal de 7 m son ~50 balaustres; instanciados son una sola malla
+  const balaustres = useMemo(() => {
+    const n = Math.max(2, Math.round(length / gap))
+    return Array.from({ length: n }, (_, i) => ({
+      p: [-length / 2 + (length * (i + 0.5)) / n, height / 2, 0],
+      s: [0.018, height, 0.018],
+    }))
+  }, [length, height, gap])
+
   return (
     <group position={position} rotation={rotation}>
-      {Array.from({ length: n }, (_, i) => (
-        <mesh
-          key={i}
-          geometry={G.box}
-          material={M.metal}
-          position={[-length / 2 + (length * (i + 0.5)) / n, height / 2, 0]}
-          scale={[0.018, height, 0.018]}
-        />
-      ))}
+      <Repeat items={balaustres} material={M.metal} shadow={false} />
       <mesh
         geometry={G.box}
         material={M.metalWarm}

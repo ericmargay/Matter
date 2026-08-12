@@ -30,3 +30,5 @@ dist-ssr
 # Tarifas reales del negocio. rates.js trae valores de demostración que sí
 # se versionan; los verdaderos viven aquí y nunca salen de tu máquina.
 src/content/rates.local.js
+
+dist-admin

@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RoundedBox } from '@react-three/drei'
@@ -16,6 +16,39 @@ import { getPainting, createScreenTexture } from './textures'
  *
  * Convención: el origen de cada pieza está en el CENTRO DE SU BASE.
  */
+
+/**
+ * Repite una geometría con InstancedMesh.
+ *
+ * Un barandal de 7 m son ~50 balaustres; cinco barandales, 250 mallas y 250
+ * llamadas de dibujo. Como instancias son una sola. Lo mismo con los
+ * peldaños de la escalera y los listones del muro de madera.
+ */
+export function Repeat({ items, material, geometry = G.box, shadow = true }) {
+  const ref = useRef()
+
+  useLayoutEffect(() => {
+    const d = new THREE.Object3D()
+    items.forEach((it, i) => {
+      d.position.set(...it.p)
+      d.scale.set(...it.s)
+      d.rotation.set(...(it.r ?? [0, 0, 0]))
+      d.updateMatrix()
+      ref.current.setMatrixAt(i, d.matrix)
+    })
+    ref.current.instanceMatrix.needsUpdate = true
+    ref.current.computeBoundingSphere()
+  }, [items])
+
+  return (
+    <instancedMesh
+      ref={ref}
+      args={[geometry, material, items.length]}
+      castShadow={shadow}
+      receiveShadow={shadow}
+    />
+  )
+}
 
 /** Caja: el ladrillo de toda la escena. */
 export function B({ p = [0, 0, 0], s = [1, 1, 1], m = M.wood, r, shadow = true }) {
@@ -313,11 +346,9 @@ export function Wardrobe({ position, rotation, w = 1.8 }) {
 
 /** Barra baja + gabinete alto + tira LED. La tira es el punto de venta. */
 export function KitchenRun({ position, rotation, w = 3.4, room = 'cocina' }) {
-  const a = useRef()
-  const b = useRef()
   const strip = useMemo(() => M.strip.clone(), [])
 
-  useDimmed(room, { lights: [a, b], mats: [strip], intensity: 3.4, emissive: 2.6, minEmissive: 0.02 })
+  useDimmed(room, { mats: [strip], emissive: 3.2, minEmissive: 0.02 })
 
   return (
     <group position={position} rotation={rotation}>
@@ -335,8 +366,8 @@ export function KitchenRun({ position, rotation, w = 3.4, room = 'cocina' }) {
       <mesh position={[0, 1.48, 0]} scale={[w - 0.2, 0.025, 0.05]} geometry={G.box} material={strip} />
       {/* dos luces baratas leen mejor que un rectAreaLight (que además
           exige inicializar RectAreaLightUniformsLib a mano) */}
-      <pointLight ref={a} position={[-w / 4, 1.4, 0.24]} intensity={0} distance={2.6} decay={2} />
-      <pointLight ref={b} position={[w / 4, 1.4, 0.24]} intensity={0} distance={2.6} decay={2} />
+      {/* la tira solo emite: el colgante de la isla es el que alumbra.
+          Cada pointLight extra encarece el shader de TODOS los materiales. */}
       {/* jaladeras */}
       {[-1, 0, 1].map((i) => (
         <B key={i} p={[i * (w / 3.4), 0.68, 0.32]} s={[w / 5, 0.02, 0.02]} m={M.metalWarm} shadow={false} />
@@ -429,8 +460,6 @@ export function Monitor({ position, rotation, w = 1.05 }) {
       <C p={[0, 0.14, 0]} s={[0.04, 0.28, 0.04]} m={M.metal} shadow={false} />
       <B p={[0, 0.46, 0]} s={[w, 0.42, 0.03]} m={M.black} />
       <B p={[0, 0.46, 0.019]} s={[w - 0.04, 0.38, 0.005]} m={M.screen} shadow={false} />
-      {/* la luz que rebota del monitor es la mitad del look de un escritorio nocturno */}
-      <pointLight position={[0, 0.5, 0.4]} intensity={1.6} distance={2.2} decay={2} color="#7fa6ff" />
     </group>
   )
 }
@@ -572,18 +601,19 @@ export function Blinds({ position, rotation, w = 1.4, h = 1.5, open = 0.35, room
 
 /** Muro de listones: el detalle que hace que un render se vea "de revista". */
 export function SlatWall({ position, rotation, w = 3, h = 2.6, count = 26 }) {
+  const listones = useMemo(
+    () =>
+      Array.from({ length: count }, (_, i) => ({
+        p: [-w / 2 + (w * (i + 0.5)) / count, h / 2, 0.03],
+        s: [(w / count) * 0.45, h, 0.06],
+      })),
+    [w, h, count],
+  )
+
   return (
     <group position={position} rotation={rotation}>
       <B p={[0, h / 2, -0.03]} s={[w, h, 0.05]} m={M.woodDark} shadow={false} />
-      {Array.from({ length: count }, (_, i) => (
-        <B
-          key={i}
-          p={[-w / 2 + (w * (i + 0.5)) / count, h / 2, 0.03]}
-          s={[(w / count) * 0.45, h, 0.06]}
-          m={M.wallAccent}
-          shadow={false}
-        />
-      ))}
+      <Repeat items={listones} material={M.wallAccent} shadow={false} />
     </group>
   )
 }
@@ -612,8 +642,6 @@ export function Artwork({ position, rotation, w = 0.6, h = 0.8, art = 0 }) {
  * el punto focal del cuarto, y en Thread además repite la malla.
  */
 export function Nanoleaf({ position, rotation, room = 'sala', size = 0.19 }) {
-  const light = useRef()
-
   // panal: coordenadas axiales de nueve hexágonos
   const cells = useMemo(
     () => [
@@ -623,9 +651,12 @@ export function Nanoleaf({ position, rotation, room = 'sala', size = 0.19 }) {
     [],
   )
 
+  /* Tres materiales, no nueve: con el degradado corriendo, el ojo no
+     distingue nueve tonos de tres en un panal de 60 cm — y son seis
+     programas de shader menos que compilar. */
   const mats = useMemo(
     () =>
-      cells.map(
+      [0, 1, 2].map(
         () =>
           new THREE.MeshStandardMaterial({
             color: '#08070a',
@@ -634,7 +665,7 @@ export function Nanoleaf({ position, rotation, room = 'sala', size = 0.19 }) {
             roughness: 1,
           }),
       ),
-    [cells],
+    [],
   )
 
   const geo = useMemo(() => new THREE.CylinderGeometry(size, size, 0.035, 6), [size])
@@ -644,13 +675,9 @@ export function Nanoleaf({ position, rotation, room = 'sala', size = 0.19 }) {
     const t = clock.elapsedTime
     mats.forEach((m, i) => {
       // el degradado corre por el panal en vez de parpadear todo junto
-      m.emissive.setHSL((t * 0.045 + i * 0.055) % 1, 0.62, 0.55)
-      m.emissiveIntensity = 0.06 + d.level * 2.8
+      m.emissive.setHSL((t * 0.045 + i * 0.16) % 1, 0.62, 0.55)
+      m.emissiveIntensity = 0.06 + d.level * 3.4
     })
-    if (light.current) {
-      light.current.intensity = d.level * 3.2
-      light.current.color.setHSL((t * 0.045) % 1, 0.5, 0.6)
-    }
   })
 
   const dx = size * 1.5
@@ -662,12 +689,11 @@ export function Nanoleaf({ position, rotation, room = 'sala', size = 0.19 }) {
         <mesh
           key={i}
           geometry={geo}
-          material={mats[i]}
+          material={mats[i % 3]}
           position={[q * dx, (r + q / 2) * dy, 0]}
           rotation={[Math.PI / 2, 0, 0]}
         />
       ))}
-      <pointLight ref={light} position={[dx, dy * 0.4, 0.5]} intensity={0} distance={4} decay={2} />
     </group>
   )
 }
@@ -707,7 +733,6 @@ export function ArcLamp({ position, rotation, room = 'sala' }) {
 
 /** Lámpara de mesa con pantalla de tela. */
 export function TableLamp({ position, room = 'sala', scale = 1 }) {
-  const light = useRef()
   const shade = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
@@ -720,7 +745,7 @@ export function TableLamp({ position, room = 'sala', scale = 1 }) {
     [],
   )
 
-  useDimmed(room, { light, mats: [shade], intensity: 2.6, emissive: 1.8, minEmissive: 0.02 })
+  useDimmed(room, { mats: [shade], emissive: 2.4, minEmissive: 0.02 })
 
   return (
     <group position={position} scale={scale}>
@@ -729,24 +754,21 @@ export function TableLamp({ position, room = 'sala', scale = 1 }) {
       <mesh position={[0, 0.32, 0]} scale={[0.19, 0.17, 0.19]} material={shade} castShadow>
         <cylinderGeometry args={[0.75, 1, 1, 20, 1, true]} />
       </mesh>
-      <pointLight ref={light} position={[0, 0.3, 0]} intensity={0} distance={2.6} decay={2} />
     </group>
   )
 }
 
 /** Arbotante de muro: luz indirecta hacia arriba y hacia abajo. */
 export function Sconce({ position, rotation, room = 'sala' }) {
-  const light = useRef()
   const glow = useMemo(() => M.strip.clone(), [])
 
-  useDimmed(room, { light, mats: [glow], intensity: 1.8, emissive: 2.4, minEmissive: 0.02 })
+  useDimmed(room, { mats: [glow], emissive: 3, minEmissive: 0.02 })
 
   return (
     <group position={position} rotation={rotation}>
       <B p={[0, 0, 0]} s={[0.09, 0.3, 0.07]} m={M.metal} shadow={false} />
       <mesh position={[0, 0.16, 0.01]} scale={[0.07, 0.012, 0.05]} geometry={G.box} material={glow} />
       <mesh position={[0, -0.16, 0.01]} scale={[0.07, 0.012, 0.05]} geometry={G.box} material={glow} />
-      <pointLight ref={light} position={[0, 0, 0.22]} intensity={0} distance={2.4} decay={2} />
     </group>
   )
 }

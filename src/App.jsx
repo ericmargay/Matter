@@ -34,6 +34,10 @@ const Experience = lazy(() => import('./scene/Experience'))
  */
 const ADMIN_ENABLED = import.meta.env.VITE_ADMIN !== 'off'
 
+/** VITE_ADMIN=on marca la compilación que sirve Railway en /panel/: ahí la
+ *  raíz ES el panel, no el sitio. */
+const ADMIN_ONLY = import.meta.env.VITE_ADMIN === 'on'
+
 const Admin = ADMIN_ENABLED ? lazy(() => import('./ui/admin/Admin')) : null
 const Quote = lazy(() => import('./ui/admin/Quote'))
 
@@ -62,6 +66,15 @@ function detectQuality() {
 
 export default function App() {
   const route = useHashRoute()
+
+  // en la compilación del panel, entrar sin hash abre el levantamiento
+  if (ADMIN_ONLY && !route.startsWith('#/')) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-ink" />}>
+        <Admin section="levantamiento" />
+      </Suspense>
+    )
+  }
 
   // #/cotizacion?d=<payload> — la cotización viaja dentro del propio enlace
   if (route.startsWith('#/cotizacion')) {

@@ -9,12 +9,17 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "models": "node scripts/fetch-models.mjs",
-    "assets": "/Applications/Blender.app/Contents/MacOS/Blender --background --python blender/build_assets.py"
+    "assets": "/Applications/Blender.app/Contents/MacOS/Blender --background --python blender/build_assets.py",
+    "build:admin": "VITE_ADMIN=on BASE_PATH=/panel/ vite build --outDir dist-admin",
+    "build:all": "BASE_PATH=/ VITE_ADMIN=off vite build && npm run build:admin",
+    "start": "node server/index.js",
+    "hash-password": "node scripts/hash-password.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "@react-three/postprocessing": "^3.0.5",
+    "express": "^5.2.1",
     "lenis": "^1.3.26",
     "postprocessing": "^6.39.4",
     "react": "^19.2.8",
@@ -30,5 +35,8 @@
     "oxlint": "^1.75.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.2.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

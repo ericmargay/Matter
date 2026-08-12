@@ -1,6 +1,6 @@
-import { Suspense, useMemo, useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, Lightformer, AdaptiveDpr, Preload } from '@react-three/drei'
+import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Environment, Lightformer, AdaptiveDpr } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette, SMAA, N8AO } from '@react-three/postprocessing'
 import * as THREE from 'three'
 
@@ -88,6 +88,33 @@ function CameraRig() {
       camera.updateProjectionMatrix()
     }
   })
+
+  return null
+}
+
+/**
+ * Compila los shaders antes del primer frame, pero sin congelar la página.
+ *
+ * `<Preload all />` de drei llama a gl.compile(), que es SÍNCRONO: con ~60
+ * programas y una docena de luces eso son segundos de hilo principal
+ * bloqueado — la página se ve cargada pero no responde a nada.
+ *
+ * compileAsync() usa KHR_parallel_shader_compile cuando el driver lo tiene,
+ * así que la compilación ocurre en paralelo y solo esperamos el resultado.
+ */
+function Precompile() {
+  const { gl, scene, camera } = useThree()
+
+  useEffect(() => {
+    let vivo = true
+    const listo = gl.compileAsync
+      ? gl.compileAsync(scene, camera)
+      : Promise.resolve().then(() => gl.compile(scene, camera))
+    listo.then(() => vivo && useStore.getState().setReady(true))
+    return () => {
+      vivo = false
+    }
+  }, [gl, scene, camera])
 
   return null
 }
@@ -216,7 +243,7 @@ export default function Experience({ active = true }) {
         <House />
         <MeshNetwork />
         <Hotspots />
-        <Preload all />
+        <Precompile />
       </Suspense>
 
       <CameraRig />

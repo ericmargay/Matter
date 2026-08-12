@@ -74,6 +74,13 @@ export default function Admin({ section = 'levantamiento' }) {
             <a href="#/" className="text-[12px] text-cream-3 transition-colors hover:text-cream">
               ← Sitio
             </a>
+            {/* el logout es POST: un GET lo dispararía cualquier imagen o
+                prefetch del navegador */}
+            <form method="post" action="/panel/logout">
+              <button type="submit" className="text-[12px] text-cream-3 transition-colors hover:text-ember">
+                Salir
+              </button>
+            </form>
           </div>
         </div>
       </header>
