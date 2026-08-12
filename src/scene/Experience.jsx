@@ -33,21 +33,29 @@ function CameraRig() {
     scrollState.net = s.net
 
     const portrait = size.height > size.width
+    const dist = want.current.distanceTo(wantTarget.current)
 
-    /* Encuadre horizontal: en pantallas anchas el texto va a la izquierda,
-       así que recorremos la cámara hacia su izquierda para que la casa quede
-       en la mitad derecha. Es un paneo, no una rotación: el ángulo no cambia.
+    /* Parallax de mouse, también escalado: en un plano abierto 0.7 m es un
+       gesto sutil; dentro de un baño de 4 m te saca por la pared. */
+    const sway = THREE.MathUtils.clamp(dist / 18, 0.06, 1)
+    want.current.x += pointer.x * 0.7 * sway
+    want.current.y += pointer.y * 0.4 * sway
 
-       Pero en los capítulos de cuarto (3–6) la derecha la ocupa el centro
-       de control, y con el paneo completo la casa se metía debajo. Ahí el
-       encuadre se centra entre los dos paneles. La transición es continua
-       para que no dé un brinco al cambiar de capítulo. */
+    /* El desplazamiento de encuadre se mide en metros, así que a 25 m de la
+       casa mover 2 m no se nota y a 3 m de un mueble te mete dentro del
+       muro. Se escala con la distancia: los capítulos inmersivos apenas se
+       corren, los de maqueta se corren completo. */
+    const escala = THREE.MathUtils.clamp(dist / 14, 0.12, 1)
+
+    // en los cuartos la banda derecha la ocupa el centro de control, así
+    // que el encuadre se centra entre los dos paneles en vez de empujar
     const f = scrollState.progress * (CHAPTER_COUNT - 1)
-    // capítulos 3–10 son los de cuarto: ahí vive el centro de control
-    const panelled =
-      THREE.MathUtils.smoothstep(f, 2.4, 3.0) * (1 - THREE.MathUtils.smoothstep(f, 10.0, 10.7))
-    const pan = size.width >= 1024 ? THREE.MathUtils.lerp(-2.1, -0.95, panelled) : 0
+    const conPanel =
+      THREE.MathUtils.smoothstep(f, 4.4, 5.0) * (1 - THREE.MathUtils.smoothstep(f, 11.0, 11.7))
 
+    // con la tarjeta compacta basta un empujón chico; el de 2.1 m era
+    // para el panel grande de antes y ahora descuadra los planos cerrados
+    const pan = size.width >= 1024 ? THREE.MathUtils.lerp(-1.2, -0.7, conPanel) * escala : 0
     if (pan) {
       fwd.current.copy(wantTarget.current).sub(want.current).normalize()
       right.current.crossVectors(fwd.current, UP).normalize()
@@ -55,17 +63,14 @@ function CameraRig() {
       wantTarget.current.addScaledVector(right.current, pan)
     }
 
-    /* Encuadre vertical: en vertical el panel de texto se come la mitad de
-       abajo. Bajamos cámara y objetivo a la par (traslación pura) para que
-       la casa suba en cuadro en lugar de quedar detrás del panel. */
+    /* En vertical el panel de texto se come la parte baja. Bajamos cámara y
+       objetivo a la par (traslación pura) para que la escena suba en cuadro,
+       otra vez proporcional a la distancia. */
     if (portrait) {
-      want.current.y -= 2.3
-      wantTarget.current.y -= 2.3
+      const bias = 2.0 * escala
+      want.current.y -= bias
+      wantTarget.current.y -= bias
     }
-
-    // parallax de mouse: mínimo, solo para que la escena no se sienta congelada
-    want.current.x += pointer.x * 0.7
-    want.current.y += pointer.y * 0.4
 
     // amortiguado independiente del framerate
     const k = 1 - Math.pow(0.0015, Math.min(dt, 0.05))
@@ -168,7 +173,7 @@ function Lighting({ shadows }) {
       </directionalLight>
 
       {/* relleno cálido desde el frente: simula la luz que sale de la casa */}
-      <directionalLight ref={warm} position={[10, 5, 14]} intensity={0.45} color="#ff9a4d" />
+      <directionalLight ref={warm} position={[-5, 5, 16]} intensity={0.45} color="#ff9a4d" />
 
       {/* acento del ecosistema */}
       <directionalLight ref={accent} position={[6, 12, -12]} intensity={0.5} color="#ffffff" />
@@ -227,7 +232,7 @@ export default function Experience({ active = true }) {
         powerPreference: 'high-performance',
         toneMapping: THREE.ACESFilmicToneMapping,
       }}
-      camera={{ position: [16, 9.5, 18], fov: 30, near: 0.5, far: 120 }}
+      camera={{ position: [-1.6, 2.7, 17.5], fov: 46, near: 0.08, far: 140 }}
       onCreated={({ gl }) => {
         gl.toneMappingExposure = 1.05
       }}

@@ -3,7 +3,7 @@ import * as THREE from 'three'
 /**
  * Coreografía de cámara.
  *
- * Un keyframe por capítulo, en el mismo orden que content/site.js.
+ * Un keyframe por capítulo, en el mismo orden que content/tour.js.
  *   pos    — posición de la cámara
  *   target — a dónde mira
  *   cut    — 0 casa cerrada · 1 casa abierta (dollhouse)
@@ -12,51 +12,61 @@ import * as THREE from 'three'
  *   net    — 0 casa sólida · 1 casa apagada con la malla Thread encima
  *   fov    — se interpola también; da sensación de lente
  *
- * `up` es lo que resuelve el problema de los dos niveles: para mirar un
- * cuarto de planta baja la losa de arriba estorba, así que desaparece. Al
- * subir de capítulo vuelve. En el corte los dos pisos se separan en el aire,
- * que es el momento donde se entiende que la casa tiene dos plantas.
+ * El recorrido ENTRA a la casa en vez de sobrevolarla. Los primeros
+ * capítulos van a altura de ojo (1.6–2.6 m) con lente ancho, y la casa
+ * permanece CERRADA (`cut: 0`): con el techo puesto y los muros opacos,
+ * un cuarto se siente cuarto. La vista de maqueta se guarda para un solo
+ * momento —el levantamiento— donde sí aporta.
  *
  * La casa mide 16 × 10 en planta (x: -8..8, z: -5..5); PB en y=0 y PA en y=3.1.
+ * Fachada en z=5: portón centrado en x=-5.6, puerta principal en x=-1.0.
  */
 export const KEYFRAMES = [
-  // 0 · exterior — la casa completa desde la calle, de noche
-  { pos: [24, 13, 30], target: [0, 2.4, 0], cut: 0, up: 1, lift: 0, net: 0, fov: 30 },
+  /* 0 · desde la calle — el encuadre abre apuntando al portón y a la
+       puerta, que es de lo que trata el primer capítulo */
+  { pos: [-2.0, 2.8, 15.5], target: [-4.6, 2.1, 5.2], cut: 0, up: 1, lift: 0, net: 0, fov: 48 },
 
-  // 1 · llegada — a nivel de calle, frente al garage
-  { pos: [-6.4, 2.8, 20], target: [-5.6, 1.8, 5.2], cut: 0, up: 1, lift: 0, net: 0, fov: 42 },
+  // 1 · la llegada — a un lado de la rampa, el coche cruza de frente
+  { pos: [-0.4, 2.0, 12.5], target: [-5.2, 1.5, 6.0], cut: 0, up: 1, lift: 0, net: 0, fov: 54 },
 
-  // 2 · corte — el techo se va y los dos pisos se separan
+  // 2 · dentro del garage, junto al portón
+  { pos: [-3.45, 1.95, 4.65], target: [-6.2, 1.15, 1.9], cut: 0, up: 1, lift: 0, net: 0, fov: 58 },
+
+  // 3 · recibidor, mirando la consola donde vive el tag NFC
+  { pos: [-0.5, 1.65, 4.3], target: [-2.75, 1.3, 2.0], cut: 0, up: 1, lift: 0, net: 0, fov: 58 },
+
+  // 4 · el levantamiento — el único momento de maqueta, y por eso pega
   { pos: [21, 19, 24], target: [0, 2.6, 0], cut: 1, up: 1, lift: 1, net: 0, fov: 28 },
 
   // ── planta baja: la losa de arriba se quita para poder ver ──
-  // 3 · recibidor (frente-centro)
-  { pos: [4.5, 7.0, 16.5], target: [-1.0, 0.6, 3.0], cut: 1, up: 0, lift: 0, net: 0, fov: 30 },
-  // 4 · sala (frente-derecha)
-  { pos: [11.5, 7.6, 15.5], target: [4.4, 0.6, 2.8], cut: 1, up: 0, lift: 0, net: 0, fov: 30 },
-  // 5 · cocina (fondo-derecha)
+  // 5 · sala
+  { pos: [7.2, 7.8, 17.0], target: [4.6, 0.6, 2.6], cut: 1, up: 0, lift: 0, net: 0, fov: 30 },
+  // 6 · cocina
   { pos: [15.5, 8.0, 6.5], target: [4.6, 0.6, -2.2], cut: 1, up: 0, lift: 0, net: 0, fov: 30 },
-  // 6 · medio baño (fondo-centro)
+  // 7 · medio baño
   { pos: [2.0, 6.2, -12.5], target: [-1.0, 0.7, -3.4], cut: 1, up: 0, lift: 0, net: 0, fov: 32 },
 
   // ── planta alta ─────────────────────────────────────────────
-  // 7 · recámara (fondo-derecha)
+  // 8 · recámara
   { pos: [15.5, 10.8, 6.0], target: [4.6, 3.7, -2.4], cut: 1, up: 1, lift: 0, net: 0, fov: 30 },
-  // 8 · baño principal (fondo-centro)
+  // 9 · baño principal
   { pos: [1.5, 9.6, -12.0], target: [-1.0, 3.8, -3.1], cut: 1, up: 1, lift: 0, net: 0, fov: 32 },
-  // 9 · estudio (fondo-izquierda)
-  { pos: [-14.5, 10.2, -5.0], target: [-5.6, 3.7, -2.7], cut: 1, up: 1, lift: 0, net: 0, fov: 30 },
-  // 10 · balcón (frente-derecha, arriba)
+  // 10 · estudio
+  { pos: [-15.0, 9.8, -2.5], target: [-5.6, 3.7, -2.7], cut: 1, up: 1, lift: 0, net: 0, fov: 30 },
+  // 11 · balcón
   { pos: [11.2, 8.4, 13.2], target: [5.2, 3.5, 2.4], cut: 1, up: 1, lift: 0, net: 0, fov: 30 },
 
-  // 11 · red — cenital, la casa se apaga y la malla se enciende
+  // 12 · red — cenital, la casa se apaga y la malla se enciende
   { pos: [1.0, 27, 22], target: [0, 1.8, 0], cut: 1, up: 1, lift: 0, net: 1, fov: 30 },
 ]
 
 export const CHAPTER_COUNT = KEYFRAMES.length
 
-/** Capítulos donde la cámara mira la planta alta. */
-export const UPPER_CHAPTERS = new Set([7, 8, 9, 10])
+/** El capítulo del levantamiento: el único con vista de maqueta. */
+export const CORTE = 4
+
+/** Capítulos con centro de control (los de cuarto). */
+export const ROOM_CHAPTERS = [3, 5, 6, 7, 8, 9, 10, 11]
 
 /** Suaviza el tramo entre capítulos: sin esto el movimiento se siente robótico. */
 const smooth = (t) => t * t * (3 - 2 * t)
@@ -103,5 +113,5 @@ export function activeChapter(progress) {
  */
 export function arrivalProgress(progress) {
   const f = THREE.MathUtils.clamp(progress, 0, 1) * (CHAPTER_COUNT - 1)
-  return THREE.MathUtils.clamp((f - 0.35) / 1.25, 0, 1)
+  return THREE.MathUtils.clamp((f - 0.3) / 1.3, 0, 1)
 }

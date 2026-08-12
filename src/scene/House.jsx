@@ -481,7 +481,9 @@ function Exterior() {
             <B p={[0, 2.1, 0]} s={[0.1, 0.34, 0.09]} m={M.metal} shadow={false} />
             <mesh position={[0, 2.1, 0.06]} scale={[0.07, 0.26, 0.02]} geometry={G.box} material={M.bulb} />
             {i === 0 && (
-              <pointLight position={[2.5, 2.05, 0.5]} intensity={5} distance={7} decay={2} color="#ffab63" />
+              /* colocado en el arbotante mismo, entre el portón y la puerta:
+                 baña las dos cosas que se ven en el primer capítulo */
+              <pointLight position={[-0.6, 2.0, 0.9]} intensity={9} distance={11} decay={1.7} color="#ffab63" />
             )}
           </group>
         ))}

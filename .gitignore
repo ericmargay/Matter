@@ -32,3 +32,8 @@ dist-ssr
 src/content/rates.local.js
 
 dist-admin
+
+# Variables de entorno locales. Las de producción viven en Railway.
+.env
+.env.*
+!.env.example

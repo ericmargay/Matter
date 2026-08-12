@@ -139,8 +139,8 @@ export default function Assistant({ compact = false }) {
             {listening ? 'Escuchando…' : replying ? eco.short : `Pídeselo a ${eco.short}`}
           </span>
           <span
-            className={`block truncate text-[13px] transition-colors duration-300 ${
-              replying ? 'text-ember-2' : 'text-cream'
+            className={`block text-[13px] leading-snug transition-colors duration-300 ${
+              replying ? 'text-ember-2' : 'truncate text-cream'
             }`}
           >
             {replying ? entry.reply : `“${wake}, ${entry.command}”`}

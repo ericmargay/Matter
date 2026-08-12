@@ -12,31 +12,39 @@ export const chapters = [
     id: 'exterior',
     eyebrow: 'Antes de entrar',
     title: 'La casa te ve llegar',
-    body: 'Son las 9:40 de la noche. La casa no está apagada: está esperando. El pasillo lleva media hora al 30% porque el sensor de la calle vio pasar gente, y las luces del segundo piso ya bajaron solas a tono cálido.',
-    devices: ['Sensor exterior', 'Cámara con detección', 'Luz perimetral', 'Horarios por astro'],
+    body: 'Son las 9:40. El sensor de la calle ya encendió el arbotante al 30% y la cámara distinguió que el coche que se acerca es el tuyo, no el del vecino.',
+    devices: ['Sensor exterior', 'Cámara con detección', 'Arbotante al 30%', 'Horarios por astro'],
   },
   {
     id: 'llegada',
     room: 'garage',
+    eyebrow: 'La llegada',
+    title: 'El portón sube antes de que frenes',
+    body: 'Tu teléfono cruza la geocerca y basta una frase. Nada de control remoto que se pierde ni clave que se le olvida a alguien.',
+    devices: ['Portón Matter', 'Geocerca', 'Apertura por voz'],
+  },
+  {
+    id: 'garage',
+    room: 'garage',
     eyebrow: 'El garage',
-    title: 'Llegas sin bajar la ventana',
-    body: 'El coche entra a la cuadra y tu teléfono cruza la geocerca. No hay control remoto que se pierda ni clave que se le olvide a nadie: dices una frase y el portón sube. Adentro, la luz se enciende antes que tú te bajes y se apaga tres minutos después.',
-    devices: ['Portón Matter', 'Geocerca', 'Sensor de presencia', 'Luz con apagado por tiempo'],
+    title: 'La luz ya estaba encendida',
+    body: 'El sensor de presencia prende antes de que abras la puerta del coche, y apaga tres minutos después de que entras a la casa. Nunca lo tocas.',
+    devices: ['Sensor de presencia', 'Luz con apagado por tiempo', 'Contacto del portón'],
+  },
+  {
+    id: 'recibidor',
+    room: 'recibidor',
+    eyebrow: 'El recibidor',
+    title: 'Un tag de 40 pesos y se acabó',
+    body: 'Llegas con las manos ocupadas. Acercas el teléfono a la consola y corre la escena completa: luz al 40%, clima a 23° y alarma desarmada.',
+    devices: ['Chapa NFC', 'Sensor de presencia', 'Desarme de alarma', 'Botonera de escenas'],
   },
   {
     id: 'corte',
     eyebrow: 'El levantamiento',
     title: 'Dos plantas, un solo sistema',
-    body: 'Antes de cotizar levantamos los dos niveles: mapa de calor del WiFi piso por piso, muros de tabique contados, registro eléctrico ubicado y una revisión de qué apagadores tienen neutro. La escalera es donde se cae la señal en casi todas las casas de dos pisos.',
+    body: 'Antes de cotizar levantamos los dos niveles: mapa de calor por piso, muros contados y revisión de qué apagadores tienen neutro. La escalera es donde se cae la señal en casi todas las casas de dos pisos.',
     devices: ['Mapa por nivel', 'Plano de dispositivos', 'Revisión eléctrica', 'Puntos de red'],
-  },
-  {
-    id: 'recibidor',
-    room: 'recibidor',
-    eyebrow: 'Recibidor',
-    title: 'Los primeros diez segundos',
-    body: 'Entras con las manos ocupadas. Nadie va a sacar el teléfono. El sensor del recibidor prende la luz al 40%, la alarma se desarma sola porque reconoció tu teléfono, y el tag NFC de la consola corre la escena "Llegué" si prefieres tocarlo.',
-    devices: ['Sensor de presencia', 'Tag NFC', 'Desarme de alarma', 'Botonera de escenas'],
   },
   {
     id: 'sala',
@@ -128,37 +136,37 @@ export const assistant = {
     action: { type: 'scene', room: 'recibidor', scene: 'llegue' },
     reply: 'Bienvenido. Desarmé la alarma y dejé la entrada al 40%.',
   },
-  4: {
+  5: {
     command: 'pon una película',
     action: { type: 'scene', room: 'sala', scene: 'cine' },
     reply: 'Listo. Bajé las persianas y encendí la pantalla.',
   },
-  5: {
+  6: {
     command: 'voy a cocinar',
     action: { type: 'scene', room: 'cocina', scene: 'cocinar' },
     reply: 'Cocina al 95% en 4000K. La campana también está encendida.',
   },
-  6: {
+  7: {
     command: 'modo noche en el baño',
     action: { type: 'scene', room: 'bano', scene: 'noche' },
     reply: 'Luz al 5% en ámbar. No va a deslumbrar a nadie.',
   },
-  7: {
+  8: {
     command: 'buenas noches',
     action: { type: 'scene', room: 'recamara', scene: 'noche' },
     reply: 'Buenas noches. Cerré la persiana y dejé la guía de piso lista.',
   },
-  8: {
+  9: {
     command: 'enciende el espejo',
     action: { type: 'scene', room: 'banoP', scene: 'espejo' },
     reply: 'Espejo en 4000K y extractor encendido.',
   },
-  9: {
+  10: {
     command: 'estoy en junta',
     action: { type: 'scene', room: 'estudio', scene: 'junta' },
     reply: 'Puse la luz de junta en rojo y silencié el timbre.',
   },
-  10: {
+  11: {
     command: 'dale de comer a Nube',
     action: { type: 'feed' },
     reply: 'Servida su ración. Quedan once en la tolva.',
@@ -189,7 +197,7 @@ export const roomControls = {
     toggles: [],
   },
   sala: {
-    chapter: 4,
+    chapter: 5,
     label: 'Sala',
     scenes: [
       { id: 'estar', name: 'Estar', icon: 'sofa', set: { level: 0.68, warmth: 0.85, tv: false, blinds: 0.35 } },
@@ -205,7 +213,7 @@ export const roomControls = {
     toggles: [{ key: 'tv', icon: 'tv', label: 'Pantalla' }],
   },
   cocina: {
-    chapter: 5,
+    chapter: 6,
     label: 'Cocina',
     scenes: [
       { id: 'cocinar', name: 'Cocinar', icon: 'pot', set: { level: 0.95, warmth: 0.15 } },
@@ -220,7 +228,7 @@ export const roomControls = {
     toggles: [],
   },
   bano: {
-    chapter: 6,
+    chapter: 7,
     label: 'Medio baño',
     scenes: [
       { id: 'dia', name: 'Día', icon: 'brightness', set: { level: 1, warmth: 0.3, fan: false } },
@@ -235,7 +243,7 @@ export const roomControls = {
     toggles: [{ key: 'fan', icon: 'blinds', label: 'Extractor' }],
   },
   recamara: {
-    chapter: 7,
+    chapter: 8,
     label: 'Recámara',
     scenes: [
       { id: 'despertar', name: 'Despertar', icon: 'sunrise', set: { level: 0.72, warmth: 0.55, blinds: 0.75 } },
@@ -251,7 +259,7 @@ export const roomControls = {
     toggles: [],
   },
   banoP: {
-    chapter: 8,
+    chapter: 9,
     label: 'Baño principal',
     scenes: [
       { id: 'espejo', name: 'Espejo', icon: 'brightness', set: { level: 0.95, warmth: 0.2, fan: true } },
@@ -266,7 +274,7 @@ export const roomControls = {
     toggles: [{ key: 'fan', icon: 'blinds', label: 'Extractor' }],
   },
   estudio: {
-    chapter: 9,
+    chapter: 10,
     label: 'Estudio',
     scenes: [
       { id: 'trabajo', name: 'Trabajo', icon: 'work', set: { level: 0.88, warmth: 0.35, busy: false } },
@@ -281,7 +289,7 @@ export const roomControls = {
     toggles: [{ key: 'busy', icon: 'meeting', label: 'En junta' }],
   },
   balcon: {
-    chapter: 10,
+    chapter: 11,
     label: 'Balcón',
     scenes: [
       { id: 'tarde', name: 'Tarde', icon: 'sunrise', set: { level: 0.3, warmth: 0.9 } },

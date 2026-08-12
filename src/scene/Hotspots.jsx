@@ -4,6 +4,7 @@ import { DEVICES } from './devices'
 import { ecosystems } from '../content/site'
 import { useStore } from '../store/store'
 import { ROOMS, LEVEL_Y } from './layout'
+import { CORTE } from './chapters'
 
 /**
  * Etiquetas de cuarto: solo en el capítulo del levantamiento, donde los dos
@@ -81,7 +82,7 @@ export default function Hotspots() {
 
   if (!spots) return null
 
-  if (chapter === 2) {
+  if (chapter === CORTE) {
     return (
       <>
         {ROOM_LABELS.map((r) => (

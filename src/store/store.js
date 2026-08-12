@@ -90,7 +90,13 @@ export const useStore = create((set, get) => ({
      el portón es un motor con dos estados y el alimentador es un
      evento puntual que la escena anima a partir de su marca de tiempo. */
   garageOpen: false,
-  setGarage: (garageOpen) => set({ garageOpen }),
+  setGarage: (garageOpen) =>
+    set((s) => ({
+      garageOpen,
+      // el sensor de presencia enciende antes de que te bajes del coche;
+      // no es un extra de la demo, es la automatización que se cuenta
+      home: { ...s.home, garage: { ...s.home.garage, level: garageOpen ? 0.9 : 0, warmth: 0.45 } },
+    })),
 
   fedAt: 0,
   feed: () => {
