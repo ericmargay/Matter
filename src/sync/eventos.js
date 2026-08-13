@@ -1,0 +1,263 @@
+/**
+ * El modelo de cambios — compartido por el navegador y el servidor.
+ *
+ * La decisión de fondo: no se sincroniza el estado, se sincronizan los
+ * CAMBIOS. Cada cosa que alguien toca es un evento con autor y hora; el
+ * estado es lo que queda de aplicarlos en orden.
+ *
+ * Sale gratis lo que se pidió: el historial no es una bitácora que haya que
+ * mantener aparte y que se pueda olvidar de escribir — es literalmente la
+ * misma lista de eventos con la que se arma el estado. Si algo aparece en la
+ * pantalla, aparece en el historial, porque llegó por ahí.
+ *
+ * Este archivo lo corre Node tal cual (sin build): por eso no importa nada de
+ * React ni usa sintaxis de JSX.
+ */
+
+export const uid = (p) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
+
+/* ── secciones del proyecto ───────────────────────────────────────
+   Sirven para agrupar el historial: "qué se movió en el equipo" es una
+   pregunta distinta de "qué se movió en los datos fiscales". */
+export const SECCIONES = {
+  proyecto: 'Proyecto',
+  cliente: 'Cliente',
+  obra: 'Propiedad',
+  cuartos: 'Habitaciones',
+  equipo: 'Equipo',
+  servicios: 'Servicios',
+}
+
+export const ESTADOS = [
+  { id: 'levantamiento', label: 'En levantamiento' },
+  { id: 'cotizado', label: 'Cotizado' },
+  { id: 'instalacion', label: 'En instalación' },
+  { id: 'cerrado', label: 'Cerrado' },
+]
+
+const CLIENTE_VACIO = {
+  nombre: '',
+  razonSocial: '',
+  rfc: '',
+  regimen: '612',
+  cp: '',
+  usoCfdi: 'G03',
+  formaPago: '03',
+  metodoPago: 'PUE',
+  email: '',
+  tel: '',
+  direccion: '',
+}
+
+const OBRA_VACIA = { tipo: 'Casa', m2: 180, niveles: 2, zona: 'Zona metropolitana' }
+
+const EXTRAS_VACIOS = {
+  puntosRed: 4,
+  escenas: 8,
+  km: 0,
+  descuentoPct: 0,
+  acreditaLevantamiento: true,
+  vigencia: 15,
+}
+
+export const nuevoCuarto = (nombre = 'Cuarto', m2 = 15, tipo = 'interior') => ({
+  id: uid('r'),
+  nombre,
+  m2,
+  tipo,
+  notas: '',
+  items: {},
+})
+
+/** Folio legible: MTR-AAMM-NNN */
+export function nuevoFolio(fecha = new Date()) {
+  const yy = String(fecha.getFullYear()).slice(2)
+  const mm = String(fecha.getMonth() + 1).padStart(2, '0')
+  const n = String(Math.floor(Math.random() * 900) + 100)
+  return `MTR-${yy}${mm}-${n}`
+}
+
+export function nuevoProyecto({ nombre = '', cliente = {}, obra = {}, extras = {}, rooms } = {}) {
+  return {
+    id: uid('p'),
+    folio: nuevoFolio(),
+    nombre: nombre.trim() || 'Proyecto sin nombre',
+    estado: 'levantamiento',
+    archivado: false,
+    cliente: { ...CLIENTE_VACIO, ...cliente },
+    obra: { ...OBRA_VACIA, ...obra },
+    extras: { ...EXTRAS_VACIOS, ...extras },
+    rooms: rooms ?? [
+      nuevoCuarto('Sala', 28),
+      nuevoCuarto('Cocina', 22),
+      nuevoCuarto('Recámara principal', 24),
+    ],
+  }
+}
+
+/* ── aplicar un evento ────────────────────────────────────────────
+   `estado` es { proyectos: [...] }. Siempre inmutable: el cliente vuelve a
+   renderizar por identidad y mutar en el lugar lo dejaría sin repintar. */
+
+const mapa = (proyectos, id, fn) => proyectos.map((p) => (p.id === id ? fn(p) : p))
+
+export function aplicar(estado, ev) {
+  const ps = estado.proyectos
+  const toca = (fn) => ({ ...estado, proyectos: mapa(ps, ev.proyectoId, fn) })
+
+  switch (ev.tipo) {
+    case 'proyecto.crear':
+      // idempotente: si el evento se reprocesa no duplica el proyecto
+      return ps.some((p) => p.id === ev.datos.proyecto.id)
+        ? estado
+        : { ...estado, proyectos: [ev.datos.proyecto, ...ps] }
+
+    case 'proyecto.editar':
+      return toca((p) => ({ ...p, ...ev.datos.patch }))
+
+    case 'proyecto.eliminar':
+      return { ...estado, proyectos: ps.filter((p) => p.id !== ev.proyectoId) }
+
+    case 'cliente.editar':
+      return toca((p) => ({ ...p, cliente: { ...p.cliente, ...ev.datos.patch } }))
+
+    case 'obra.editar':
+      return toca((p) => ({ ...p, obra: { ...p.obra, ...ev.datos.patch } }))
+
+    case 'servicios.editar':
+      return toca((p) => ({ ...p, extras: { ...p.extras, ...ev.datos.patch } }))
+
+    case 'cuarto.agregar':
+      return toca((p) =>
+        p.rooms.some((r) => r.id === ev.datos.cuarto.id)
+          ? p
+          : { ...p, rooms: [...p.rooms, ev.datos.cuarto] },
+      )
+
+    case 'cuarto.editar':
+      return toca((p) => ({
+        ...p,
+        rooms: p.rooms.map((r) => (r.id === ev.datos.cuartoId ? { ...r, ...ev.datos.patch } : r)),
+      }))
+
+    case 'cuarto.eliminar':
+      return toca((p) => ({ ...p, rooms: p.rooms.filter((r) => r.id !== ev.datos.cuartoId) }))
+
+    /* Cantidad ABSOLUTA, no incremento. Si dos socios mueven la misma pieza al
+       mismo tiempo, un incremento se aplicaría dos veces y la cuenta quedaría
+       mal; con cantidad absoluta el último gana y ambos ven lo mismo. */
+    case 'equipo.cantidad':
+      return toca((p) => ({
+        ...p,
+        rooms: p.rooms.map((r) =>
+          r.id !== ev.datos.cuartoId
+            ? r
+            : { ...r, items: { ...r.items, [ev.datos.deviceId]: Math.max(0, ev.datos.qty) } },
+        ),
+      }))
+
+    case 'equipo.vaciar':
+      return toca((p) => ({ ...p, rooms: p.rooms.map((r) => ({ ...r, items: {} })) }))
+
+    default:
+      return estado
+  }
+}
+
+/** Estado desde cero a partir del registro completo. */
+export function reducir(eventos) {
+  let estado = { proyectos: [] }
+  for (const ev of eventos) estado = aplicar(estado, ev)
+  return estado
+}
+
+/* ── historial legible ────────────────────────────────────────────
+   El resumen se calcula al leerlo, no se guarda: así un evento viejo se
+   sigue describiendo bien aunque cambiemos cómo se redacta. */
+
+const pluralPiezas = (n) => `${n} ${n === 1 ? 'pieza' : 'piezas'}`
+
+const CAMPOS = {
+  nombre: 'el nombre',
+  razonSocial: 'la razón social',
+  rfc: 'el RFC',
+  regimen: 'el régimen fiscal',
+  cp: 'el código postal',
+  usoCfdi: 'el uso del CFDI',
+  formaPago: 'la forma de pago',
+  metodoPago: 'el método de pago',
+  email: 'el correo',
+  tel: 'el WhatsApp',
+  direccion: 'la dirección',
+  tipo: 'el tipo',
+  m2: 'los metros',
+  niveles: 'los niveles',
+  zona: 'la zona',
+  puntosRed: 'los puntos de red',
+  escenas: 'las escenas',
+  km: 'los kilómetros fuera de zona',
+  descuentoPct: 'el descuento',
+  acreditaLevantamiento: 'la acreditación del levantamiento',
+  vigencia: 'la vigencia',
+  notas: 'las notas',
+  folio: 'el folio',
+}
+
+const lista = (patch) =>
+  Object.keys(patch ?? {})
+    .map((k) => CAMPOS[k] ?? k)
+    .join(', ')
+
+/**
+ * @param nombreDe  (deviceId) => nombre comercial. El servidor no conoce el
+ *                  catálogo, así que lo inyecta quien tenga cómo resolverlo.
+ */
+export function resumen(ev, nombreDe = (id) => id) {
+  const d = ev.datos ?? {}
+  switch (ev.tipo) {
+    case 'proyecto.crear':
+      return `Creó el proyecto ${d.proyecto?.nombre ?? ''}`.trim()
+    case 'proyecto.editar':
+      if ('estado' in d.patch) return `Movió el proyecto a ${estadoLabel(d.patch.estado)}`
+      if ('archivado' in d.patch) return d.patch.archivado ? 'Archivó el proyecto' : 'Desarchivó el proyecto'
+      if ('nombre' in d.patch) return `Renombró el proyecto a "${d.patch.nombre}"`
+      return `Cambió ${lista(d.patch)} del proyecto`
+    case 'proyecto.eliminar':
+      return 'Eliminó el proyecto'
+    case 'cliente.editar':
+      return `Cambió ${lista(d.patch)} del cliente`
+    case 'obra.editar':
+      return `Cambió ${lista(d.patch)} de la propiedad`
+    case 'servicios.editar':
+      return `Cambió ${lista(d.patch)}`
+    case 'cuarto.agregar':
+      return `Agregó la habitación ${d.cuarto?.nombre ?? ''}`.trim()
+    case 'cuarto.editar':
+      return `Cambió ${lista(d.patch)} de ${d.cuartoNombre ?? 'una habitación'}`
+    case 'cuarto.eliminar':
+      return `Eliminó la habitación ${d.cuartoNombre ?? ''}`.trim()
+    case 'equipo.cantidad': {
+      const nombre = nombreDe(d.deviceId)
+      const donde = d.cuartoNombre ? ` en ${d.cuartoNombre}` : ''
+      if (d.qty === 0) return `Quitó ${nombre}${donde}`
+      if (d.anterior === 0 || d.anterior == null) return `Agregó ${pluralPiezas(d.qty)} de ${nombre}${donde}`
+      return `Dejó ${nombre} en ${pluralPiezas(d.qty)}${donde}`
+    }
+    case 'equipo.vaciar':
+      return 'Vació todas las piezas del proyecto'
+    default:
+      return ev.tipo
+  }
+}
+
+export const estadoLabel = (id) => ESTADOS.find((e) => e.id === id)?.label ?? id
+
+/** A qué sección del proyecto pertenece cada tipo de evento. */
+export function seccionDe(tipo) {
+  if (tipo.startsWith('cliente.')) return 'cliente'
+  if (tipo.startsWith('obra.')) return 'obra'
+  if (tipo.startsWith('cuarto.')) return 'cuartos'
+  if (tipo.startsWith('equipo.')) return 'equipo'
+  if (tipo.startsWith('servicios.')) return 'servicios'
+  return 'proyecto'
+}

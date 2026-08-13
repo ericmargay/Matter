@@ -1,9 +1,22 @@
-import { useMemo } from 'react'
-import { DEVICES, CATEGORIES } from '../../content/catalog'
-import { FORMAS_PAGO, LABOR_TIERS, METODOS_PAGO, REGIMENES, USOS_CFDI, laborTier, networkCheck, quote, unitPrice } from '../../content/pricing'
-import { nuevoFolio, useSurvey } from '../../store/survey'
+import { useMemo, useState } from 'react'
+import { CATEGORIES, DEVICE_BY_ID } from '../../content/catalog'
+import {
+  FORMAS_PAGO,
+  LABOR_TIERS,
+  METODOS_PAGO,
+  REGIMENES,
+  USOS_CFDI,
+  laborTier,
+  networkCheck,
+  quote,
+  unitPrice,
+} from '../../content/pricing'
+import { nuevoFolio, useProyecto, useSurvey } from '../../store/survey'
 import { buildQuotePayload, encodeQuote } from '../../content/quoteLink'
 import { CLAVE_PROD_SERV, CLAVE_UNIDAD } from '../../content/fiscal'
+import DevicePhoto, { PhotoFrame } from '../catalog/DevicePhoto'
+import Historial, { HistorialSeccion } from './Historial'
+import RoomPicker from './RoomPicker'
 
 /**
  * Levantamiento.
@@ -11,6 +24,9 @@ import { CLAVE_PROD_SERV, CLAVE_UNIDAD } from '../../content/fiscal'
  * Un levantamiento no es una lista de compras: es cuartos con metros,
  * dispositivos repartidos entre ellos y una revisión de si la red aguanta.
  * De ahí sale la cotización, no al revés.
+ *
+ * Vive siempre dentro de un proyecto; quien decide que haya uno abierto es
+ * `Admin`, así que aquí se puede dar por hecho.
  */
 
 const money = (n) => `$${Math.round(n).toLocaleString('es-MX')}`
@@ -44,12 +60,22 @@ function Picker({ value, onChange, options }) {
   )
 }
 
-function Card({ title, right, children }) {
+/**
+ * Cada tarjeta lleva colgado el historial de SU sección.
+ *
+ * Puesto en el encabezado y no en una pantalla aparte por una razón práctica:
+ * la pregunta que uno se hace es "¿quién me movió esto?", y se la hace mirando
+ * el dato que le extrañó, no navegando a una bitácora general.
+ */
+function Card({ title, right, children, seccion, proyectoId }) {
   return (
     <section className="rounded-xl border border-line bg-ink-2">
-      <header className="flex items-center justify-between border-b border-line px-4 py-2.5">
+      <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
         <h2 className="text-[11px] tracking-[0.14em] text-cream-2 uppercase">{title}</h2>
-        {right}
+        <div className="flex items-center gap-2">
+          {right}
+          {seccion && <HistorialSeccion proyectoId={proyectoId} seccion={seccion} />}
+        </div>
       </header>
       <div className="p-4">{children}</div>
     </section>
@@ -57,16 +83,18 @@ function Card({ title, right, children }) {
 }
 
 /* ── un cuarto con sus piezas ─────────────────────────────────── */
-function Room({ room, active, onSelect }) {
+
+function Room({ room, active, onSelect, onAgregar }) {
   const updateRoom = useSurvey((s) => s.updateRoom)
   const removeRoom = useSurvey((s) => s.removeRoom)
   const bump = useSurvey((s) => s.bump)
 
   const items = Object.entries(room.items ?? {}).filter(([, q]) => q > 0)
   const subtotal = items.reduce((a, [id, q]) => {
-    const d = DEVICES.find((x) => x.id === id)
+    const d = DEVICE_BY_ID[id]
     return a + (d ? (unitPrice(d) + LABOR_TIERS[laborTier(d)].price) * q : 0)
   }, 0)
+  const piezas = items.reduce((a, [, q]) => a + q, 0)
 
   return (
     <div
@@ -78,7 +106,7 @@ function Room({ room, active, onSelect }) {
         <button
           onClick={onSelect}
           aria-pressed={active}
-          title="Agregar aquí lo que elijas en el catálogo"
+          title="Marcar como cuarto destino del catálogo"
           className={`h-4 w-4 flex-none rounded-full border transition-colors ${
             active ? 'border-ember bg-ember' : 'border-cream-3'
           }`}
@@ -122,13 +150,20 @@ function Room({ room, active, onSelect }) {
       {items.length > 0 && (
         <ul className="border-t border-line px-3 py-2">
           {items.map(([id, q]) => {
-            const d = DEVICES.find((x) => x.id === id)
+            const d = DEVICE_BY_ID[id]
             if (!d) return null
             return (
               <li key={id} className="flex items-center gap-2 py-1 text-[12px]">
-                <span className="w-8 flex-none text-right tabular-nums text-ember">{q}×</span>
+                {/* la miniatura no es adorno: en obra se reconoce el aparato
+                    por su forma mucho antes que por su nombre de catálogo */}
+                <PhotoFrame className="h-7 w-7 flex-none rounded">
+                  <DevicePhoto device={d} />
+                </PhotoFrame>
+                <span className="w-7 flex-none text-right tabular-nums text-ember">{q}×</span>
                 <span className="flex-1 truncate text-cream-2">{d.name}</span>
-                <span className="text-[10.5px] text-cream-3">{LABOR_TIERS[laborTier(d)].label}</span>
+                <span className="hidden text-[10.5px] text-cream-3 sm:inline">
+                  {LABOR_TIERS[laborTier(d)].label}
+                </span>
                 <span className="w-20 text-right tabular-nums text-cream-3">
                   {money((unitPrice(d) + LABOR_TIERS[laborTier(d)].price) * q)}
                 </span>
@@ -145,6 +180,16 @@ function Room({ room, active, onSelect }) {
         </ul>
       )}
 
+      <div className="flex flex-wrap items-center gap-2 border-t border-line px-3 py-2">
+        <button
+          onClick={onAgregar}
+          className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-cream-2 transition-colors hover:border-ember hover:text-ember"
+        >
+          + Agregar equipo a {room.nombre}
+        </button>
+        {piezas > 0 && <span className="text-[11px] text-cream-3">{piezas} piezas</span>}
+      </div>
+
       <input
         value={room.notas}
         onChange={(e) => updateRoom(room.id, { notas: e.target.value })}
@@ -156,16 +201,24 @@ function Room({ room, active, onSelect }) {
 }
 
 /* ── panel ────────────────────────────────────────────────────── */
+
 export default function Survey() {
+  const proyecto = useProyecto()
   const survey = useSurvey()
-  const { cliente, obra, rooms, extras, activeRoom } = survey
+  const [pickerRoomId, setPickerRoomId] = useState(null)
+
+  const { cliente, obra, rooms, extras, activeRoom } = proyecto
 
   const q = useMemo(() => quote({ obra, rooms, extras }), [obra, rooms, extras])
   const net = useMemo(() => networkCheck({ obra, rooms }), [obra, rooms])
 
+  // se relee del proyecto en cada render para que el selector vea las piezas
+  // que él mismo acaba de agregar
+  const pickerRoom = rooms.find((r) => r.id === pickerRoomId) ?? null
+
   const generar = () => {
-    const folio = survey.folio || nuevoFolio()
-    if (!survey.folio) survey.setFolio(folio)
+    const folio = proyecto.folio || nuevoFolio()
+    if (!proyecto.folio) survey.setFolio(folio)
 
     // las partidas se resuelven AQUÍ y viajan ya calculadas: la página
     // pública no necesita el catálogo, y el precio queda congelado
@@ -181,97 +234,91 @@ export default function Survey() {
     }))
 
     const token = encodeQuote(
-      buildQuotePayload({ ...survey, folio }, { ...q, equipo: equipoConCat }, net, claves),
+      buildQuotePayload({ ...proyecto, folio }, { ...q, equipo: equipoConCat }, net, claves),
     )
+    survey.setEstado(proyecto.id, 'cotizado')
     window.open(`${location.origin}${location.pathname}#/cotizacion?d=${token}`, '_blank')
   }
 
   const catCount = useMemo(() => {
     const c = {}
-    for (const r of rooms) for (const [id, n] of Object.entries(r.items ?? {})) {
-      const d = DEVICES.find((x) => x.id === id)
-      if (d && n > 0) c[d.cat] = (c[d.cat] ?? 0) + n
-    }
+    for (const r of rooms)
+      for (const [id, n] of Object.entries(r.items ?? {})) {
+        const d = DEVICE_BY_ID[id]
+        if (d && n > 0) c[d.cat] = (c[d.cat] ?? 0) + n
+      }
     return c
   }, [rooms])
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
       <div className="space-y-4">
-        {/* ── cliente ── */}
-        <Card title="Cliente y datos fiscales">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Nombre de contacto">
-              <Input value={cliente.nombre} onChange={(e) => survey.setCliente({ nombre: e.target.value })} placeholder="María Fernández" />
-            </Field>
-            <Field label="Razón social" hint="Exacta como aparece en la Constancia de Situación Fiscal">
-              <Input value={cliente.razonSocial} onChange={(e) => survey.setCliente({ razonSocial: e.target.value })} placeholder="FERNANDEZ LOPEZ MARIA" />
-            </Field>
-            <Field label="RFC">
-              <Input value={cliente.rfc} onChange={(e) => survey.setCliente({ rfc: e.target.value.toUpperCase() })} placeholder="FELM800101AB1" maxLength={13} />
-            </Field>
-            <Field label="C.P. fiscal" hint="Debe coincidir con el registrado ante el SAT">
-              <Input value={cliente.cp} onChange={(e) => survey.setCliente({ cp: e.target.value })} placeholder="03100" maxLength={5} />
-            </Field>
-            <Field label="Régimen fiscal">
-              <Picker value={cliente.regimen} onChange={(v) => survey.setCliente({ regimen: v })} options={REGIMENES} />
-            </Field>
-            <Field label="Uso del CFDI">
-              <Picker value={cliente.usoCfdi} onChange={(v) => survey.setCliente({ usoCfdi: v })} options={USOS_CFDI} />
-            </Field>
-            <Field label="Forma de pago">
-              <Picker value={cliente.formaPago} onChange={(v) => survey.setCliente({ formaPago: v })} options={FORMAS_PAGO} />
-            </Field>
-            <Field label="Método de pago">
-              <Picker value={cliente.metodoPago} onChange={(v) => survey.setCliente({ metodoPago: v })} options={METODOS_PAGO} />
-            </Field>
-            <Field label="Correo">
-              <Input type="email" value={cliente.email} onChange={(e) => survey.setCliente({ email: e.target.value })} placeholder="maria@correo.com" />
-            </Field>
-            <Field label="WhatsApp">
-              <Input value={cliente.tel} onChange={(e) => survey.setCliente({ tel: e.target.value })} placeholder="55 1234 5678" />
-            </Field>
-            <Field label="Dirección de la obra" wide>
-              <Input value={cliente.direccion} onChange={(e) => survey.setCliente({ direccion: e.target.value })} placeholder="Calle, número, colonia, alcaldía" />
-            </Field>
-          </div>
-        </Card>
-
-        {/* ── obra ── */}
-        <Card title="La propiedad">
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Field label="Tipo">
-              <Input value={obra.tipo} onChange={(e) => survey.setObra({ tipo: e.target.value })} />
-            </Field>
-            <Field label="Superficie m²" hint="Define el levantamiento y los APs">
-              <Input type="number" min="0" value={obra.m2} onChange={(e) => survey.setObra({ m2: Number(e.target.value) })} />
-            </Field>
-            <Field label="Niveles">
-              <Input type="number" min="1" value={obra.niveles} onChange={(e) => survey.setObra({ niveles: Number(e.target.value) })} />
-            </Field>
-            <Field label="Zona">
-              <Input value={obra.zona} onChange={(e) => survey.setObra({ zona: e.target.value })} />
-            </Field>
-          </div>
-        </Card>
-
-        {/* ── cuartos ── */}
+        {/* ── cuartos: primero, porque es lo que se captura caminando ── */}
         <Card
+          seccion="cuartos"
+          proyectoId={proyecto.id}
           title={`Habitaciones · ${rooms.length}`}
           right={
-            <button onClick={() => survey.addRoom()} className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-cream-2 transition-colors hover:border-ember hover:text-ember">
+            <button
+              onClick={() => survey.addRoom()}
+              className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-cream-2 transition-colors hover:border-ember hover:text-ember"
+            >
               + Agregar cuarto
             </button>
           }
         >
           <p className="mb-3 text-[11.5px] text-cream-3">
-            El círculo marca a qué cuarto se agregan las piezas que elijas en el catálogo.
-            Suma de metros capturados: <strong className="text-cream-2">{rooms.reduce((a, r) => a + (Number(r.m2) || 0), 0)} m²</strong> de {obra.m2} declarados.
+            El equipo se captura por habitación: entra al cuarto, mira qué hace falta y agrégalo ahí mismo.
+            Suma de metros capturados:{' '}
+            <strong className="text-cream-2">{rooms.reduce((a, r) => a + (Number(r.m2) || 0), 0)} m²</strong>{' '}
+            de {obra.m2} declarados.
           </p>
           <div className="space-y-2">
             {rooms.map((r) => (
-              <Room key={r.id} room={r} active={r.id === (activeRoom ?? rooms[0]?.id)} onSelect={() => survey.setActiveRoom(r.id)} />
+              <Room
+                key={r.id}
+                room={r}
+                active={r.id === (activeRoom ?? rooms[0]?.id)}
+                onSelect={() => survey.setActiveRoom(r.id)}
+                onAgregar={() => {
+                  survey.setActiveRoom(r.id)
+                  setPickerRoomId(r.id)
+                }}
+              />
             ))}
+            {rooms.length === 0 && (
+              <p className="py-6 text-center text-[12.5px] text-cream-3">
+                Todavía no hay cuartos. Agrega el primero para empezar a capturar.
+              </p>
+            )}
+          </div>
+        </Card>
+
+        {/* ── obra ── */}
+        <Card title="La propiedad" seccion="obra" proyectoId={proyecto.id}>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Field label="Tipo">
+              <Input value={obra.tipo} onChange={(e) => survey.setObra({ tipo: e.target.value })} />
+            </Field>
+            <Field label="Superficie m²" hint="Define el levantamiento y los APs">
+              <Input
+                type="number"
+                min="0"
+                value={obra.m2}
+                onChange={(e) => survey.setObra({ m2: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="Niveles">
+              <Input
+                type="number"
+                min="1"
+                value={obra.niveles}
+                onChange={(e) => survey.setObra({ niveles: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="Zona">
+              <Input value={obra.zona} onChange={(e) => survey.setObra({ zona: e.target.value })} />
+            </Field>
           </div>
         </Card>
 
@@ -295,7 +342,7 @@ export default function Survey() {
               [`${net.aps}/${net.apsSugeridos}`, 'access points'],
             ].map(([n, l]) => (
               <div key={l} className="rounded-lg border border-line px-3 py-2">
-                <div className="text-[15px] text-cream tabular-nums">{n}</div>
+                <div className="text-[15px] tabular-nums text-cream">{n}</div>
                 <div className="text-[10.5px] text-cream-3">{l}</div>
               </div>
             ))}
@@ -319,23 +366,135 @@ export default function Survey() {
           </ul>
         </Card>
 
+        {/* ── cliente ── */}
+        <Card title="Cliente y datos fiscales" seccion="cliente" proyectoId={proyecto.id}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Nombre de contacto">
+              <Input
+                value={cliente.nombre}
+                onChange={(e) => survey.setCliente({ nombre: e.target.value })}
+                placeholder="María Fernández"
+              />
+            </Field>
+            <Field label="Razón social" hint="Exacta como aparece en la Constancia de Situación Fiscal">
+              <Input
+                value={cliente.razonSocial}
+                onChange={(e) => survey.setCliente({ razonSocial: e.target.value })}
+                placeholder="FERNANDEZ LOPEZ MARIA"
+              />
+            </Field>
+            <Field label="RFC">
+              <Input
+                value={cliente.rfc}
+                onChange={(e) => survey.setCliente({ rfc: e.target.value.toUpperCase() })}
+                placeholder="FELM800101AB1"
+                maxLength={13}
+              />
+            </Field>
+            <Field label="C.P. fiscal" hint="Debe coincidir con el registrado ante el SAT">
+              <Input
+                value={cliente.cp}
+                onChange={(e) => survey.setCliente({ cp: e.target.value })}
+                placeholder="03100"
+                maxLength={5}
+              />
+            </Field>
+            <Field label="Régimen fiscal">
+              <Picker
+                value={cliente.regimen}
+                onChange={(v) => survey.setCliente({ regimen: v })}
+                options={REGIMENES}
+              />
+            </Field>
+            <Field label="Uso del CFDI">
+              <Picker
+                value={cliente.usoCfdi}
+                onChange={(v) => survey.setCliente({ usoCfdi: v })}
+                options={USOS_CFDI}
+              />
+            </Field>
+            <Field label="Forma de pago">
+              <Picker
+                value={cliente.formaPago}
+                onChange={(v) => survey.setCliente({ formaPago: v })}
+                options={FORMAS_PAGO}
+              />
+            </Field>
+            <Field label="Método de pago">
+              <Picker
+                value={cliente.metodoPago}
+                onChange={(v) => survey.setCliente({ metodoPago: v })}
+                options={METODOS_PAGO}
+              />
+            </Field>
+            <Field label="Correo">
+              <Input
+                type="email"
+                value={cliente.email}
+                onChange={(e) => survey.setCliente({ email: e.target.value })}
+                placeholder="maria@correo.com"
+              />
+            </Field>
+            <Field label="WhatsApp">
+              <Input
+                value={cliente.tel}
+                onChange={(e) => survey.setCliente({ tel: e.target.value })}
+                placeholder="55 1234 5678"
+              />
+            </Field>
+            <Field label="Dirección de la obra" wide>
+              <Input
+                value={cliente.direccion}
+                onChange={(e) => survey.setCliente({ direccion: e.target.value })}
+                placeholder="Calle, número, colonia, alcaldía"
+              />
+            </Field>
+          </div>
+        </Card>
+
         {/* ── servicios ── */}
-        <Card title="Servicios y ajustes">
+        <Card title="Servicios y ajustes" seccion="servicios" proyectoId={proyecto.id}>
           <div className="grid gap-3 sm:grid-cols-4">
             <Field label="Puntos de red">
-              <Input type="number" min="0" value={extras.puntosRed} onChange={(e) => survey.setExtras({ puntosRed: Number(e.target.value) })} />
+              <Input
+                type="number"
+                min="0"
+                value={extras.puntosRed}
+                onChange={(e) => survey.setExtras({ puntosRed: Number(e.target.value) })}
+              />
             </Field>
             <Field label="Escenas">
-              <Input type="number" min="0" value={extras.escenas} onChange={(e) => survey.setExtras({ escenas: Number(e.target.value) })} />
+              <Input
+                type="number"
+                min="0"
+                value={extras.escenas}
+                onChange={(e) => survey.setExtras({ escenas: Number(e.target.value) })}
+              />
             </Field>
             <Field label="Km fuera de zona">
-              <Input type="number" min="0" value={extras.km} onChange={(e) => survey.setExtras({ km: Number(e.target.value) })} />
+              <Input
+                type="number"
+                min="0"
+                value={extras.km}
+                onChange={(e) => survey.setExtras({ km: Number(e.target.value) })}
+              />
             </Field>
             <Field label="Descuento %">
-              <Input type="number" min="0" max="40" value={extras.descuentoPct} onChange={(e) => survey.setExtras({ descuentoPct: Number(e.target.value) })} />
+              <Input
+                type="number"
+                min="0"
+                max="40"
+                value={extras.descuentoPct}
+                onChange={(e) => survey.setExtras({ descuentoPct: Number(e.target.value) })}
+              />
             </Field>
             <Field label="Vigencia (días)">
-              <Input type="number" min="1" value={extras.vigencia} onChange={(e) => survey.setExtras({ vigencia: Number(e.target.value) })} />
+              <Input
+                type="number"
+                min="1"
+                value={extras.vigencia}
+                onChange={(e) => survey.setExtras({ vigencia: Number(e.target.value) })}
+              />
             </Field>
             <label className="flex items-center gap-2 self-end pb-1.5 text-[12px] text-cream-2 sm:col-span-3">
               <input
@@ -348,6 +507,8 @@ export default function Survey() {
             </label>
           </div>
         </Card>
+
+        <Historial proyectoId={proyecto.id} />
       </div>
 
       {/* ── resumen ── */}
@@ -397,7 +558,9 @@ export default function Survey() {
                   .slice(0, 6)
                   .map(([c, n]) => (
                     <div key={c} className="flex items-center gap-2 text-[11.5px]">
-                      <span className="flex-1 truncate text-cream-3">{CATEGORIES.find((x) => x.id === c)?.label}</span>
+                      <span className="flex-1 truncate text-cream-3">
+                        {CATEGORIES.find((x) => x.id === c)?.label}
+                      </span>
                       <span className="tabular-nums text-cream-2">{n}</span>
                     </div>
                   ))}
@@ -414,29 +577,32 @@ export default function Survey() {
           </button>
 
           <div className="mt-2 flex gap-2">
-            <a href="#/admin/catalogo" className="flex-1 rounded-lg border border-line px-3 py-2 text-center text-[12px] text-cream-2 transition-colors hover:border-cream/40">
-              Agregar equipo
+            <a
+              href="#/admin/catalogo"
+              className="flex-1 rounded-lg border border-line px-3 py-2 text-center text-[12px] text-cream-2 transition-colors hover:border-cream/40"
+            >
+              Ver catálogo
             </a>
             <button
-              onClick={() => confirm('¿Vaciar el levantamiento completo?') && survey.reset()}
+              onClick={() => confirm('¿Quitar todas las piezas de este proyecto?') && survey.vaciarPiezas()}
               className="rounded-lg border border-line px-3 py-2 text-[12px] text-cream-3 transition-colors hover:border-ember hover:text-ember"
             >
-              Vaciar
+              Vaciar piezas
             </button>
           </div>
 
-          {survey.folio && (
-            <p className="mt-3 text-[11px] text-cream-3">
-              Folio <span className="text-cream-2">{survey.folio}</span>
-            </p>
-          )}
+          <p className="mt-3 text-[11px] text-cream-3">
+            Folio <span className="text-cream-2">{proyecto.folio}</span>
+          </p>
         </div>
 
         <p className="mt-3 px-1 text-[11px] leading-relaxed text-cream-3">
-          El enlace de la cotización lleva los datos dentro: se puede mandar por WhatsApp y abre en
-          cualquier dispositivo sin servidor. Cuando haya backend, se cambia por un folio corto.
+          El enlace de la cotización lleva los datos dentro: se puede mandar por WhatsApp y abre en cualquier
+          dispositivo sin servidor. Cuando haya backend, se cambia por un folio corto.
         </p>
       </aside>
+
+      {pickerRoom && <RoomPicker room={pickerRoom} onCerrar={() => setPickerRoomId(null)} />}
     </div>
   )
 }

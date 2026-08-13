@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "models": "node scripts/fetch-models.mjs",
+    "photos": "node scripts/fetch-photos.mjs",
     "assets": "/Applications/Blender.app/Contents/MacOS/Blender --background --python blender/build_assets.py",
     "build:admin": "VITE_ADMIN=on BASE_PATH=/panel/ vite build --outDir dist-admin",
     "build:all": "BASE_PATH=/ VITE_ADMIN=off vite build && npm run build:admin",
@@ -25,6 +26,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "three": "^0.185.1",
+    "ws": "^8.21.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -33,6 +35,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
     "oxlint": "^1.75.0",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4.3.3",
     "vite": "^8.2.0"
   },

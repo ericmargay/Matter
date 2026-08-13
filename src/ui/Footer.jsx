@@ -25,6 +25,12 @@ export default function Footer() {
               </a>
             ))}
             <a
+              href="#/catalogo"
+              className="text-[13px] text-cream-2 transition-colors duration-300 hover:text-ember"
+            >
+              Catálogo de productos
+            </a>
+            <a
               href="#/cotizacion?d=demo"
               className="text-[13px] text-cream-2 transition-colors duration-300 hover:text-ember"
             >

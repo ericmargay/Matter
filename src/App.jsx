@@ -41,6 +41,12 @@ const ADMIN_ONLY = import.meta.env.VITE_ADMIN === 'on'
 const Admin = ADMIN_ENABLED ? lazy(() => import('./ui/admin/Admin')) : null
 const Quote = lazy(() => import('./ui/admin/Quote'))
 
+/** El catálogo para clientes SÍ es público: es lo que se manda por WhatsApp
+ *  cuando preguntan qué se le puede poner a la casa. Va en su propio chunk
+ *  porque arrastra las fichas de 91 productos y el sitio no lo necesita para
+ *  pintar el hero. */
+const Catalogo = lazy(() => import('./ui/Catalogo'))
+
 /** Ruteo por hash: #/admin abre el panel. Sin router ni servidor extra. */
 function useHashRoute() {
   const [hash, setHash] = useState(() => window.location.hash)
@@ -67,11 +73,12 @@ function detectQuality() {
 export default function App() {
   const route = useHashRoute()
 
-  // en la compilación del panel, entrar sin hash abre el levantamiento
+  // en la compilación del panel, entrar sin hash abre la lista de proyectos:
+  // es el primer paso del trabajo y desde ahí se entra al levantamiento
   if (ADMIN_ONLY && !route.startsWith('#/')) {
     return (
       <Suspense fallback={<div className="min-h-screen bg-ink" />}>
-        <Admin section="levantamiento" />
+        <Admin section="proyectos" />
       </Suspense>
     )
   }
@@ -86,9 +93,18 @@ export default function App() {
     )
   }
 
+  // #/catalogo — el catálogo que se le enseña al cliente
+  if (route.startsWith('#/catalogo')) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-ink" />}>
+        <Catalogo />
+      </Suspense>
+    )
+  }
+
   if (route.startsWith('#/admin')) {
     if (!ADMIN_ENABLED) return <AdminOff />
-    const section = route.split('/')[2]?.split('?')[0] || 'levantamiento'
+    const section = route.split('/')[2]?.split('?')[0] || 'proyectos'
     return (
       <Suspense fallback={<div className="min-h-screen bg-ink" />}>
         <Admin section={section} />
