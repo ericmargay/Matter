@@ -312,6 +312,25 @@ export const useSurvey = create((set, get) => ({
     const id = get().activoId
     if (id) despachar('equipo.vaciar', id, {})
   },
+
+  /**
+   * Guarda el plano de un cuarto.
+   *
+   * `que` es la frase que va al historial ("Colocó una cama", "Movió el
+   * apagador"). La arma quien llama porque es el único que sabe qué gesto
+   * acaba de hacer el usuario; desde aquí solo se vería un objeto cambiado.
+   *
+   * Va agrupado: arrastrar un mueble dispara decenas de posiciones por
+   * segundo y no tiene sentido mandarlas todas — ni a la red ni al historial.
+   */
+  setPlano: (cuartoId, plano, que) => {
+    const s = get()
+    const id = s.activoId
+    if (!id) return
+    const nombre = cuartoNombre(s, id, cuartoId)
+    aplicarYa(set, get, 'plano.editar', id, { cuartoId, plano })
+    agrupar(`${id}:plano:${cuartoId}`, 'plano.editar', id, {}, { cuartoId, cuartoNombre: nombre, plano, que })
+  },
 }))
 
 /* ── despacho ─────────────────────────────────────────────────── */
@@ -350,6 +369,17 @@ function aplicarYa(set, get, tipo, proyectoId, datos) {
 }
 
 /* ── selectores ───────────────────────────────────────────────── */
+
+/**
+ * Parámetros que vienen en el hash: `#/admin/levantamiento?proyecto=p1&plano=r3`.
+ *
+ * El ruteo es por hash, así que la query viaja DENTRO del hash y
+ * `location.search` está vacío — hay que partirlo a mano.
+ */
+export function paramsDelHash() {
+  const i = location.hash.indexOf('?')
+  return new URLSearchParams(i === -1 ? '' : location.hash.slice(i + 1))
+}
 
 /**
  * El proyecto abierto, o `null`.

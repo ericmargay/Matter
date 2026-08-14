@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { CATEGORIES, DEVICE_BY_ID } from '../../content/catalog'
 import {
   FORMAS_PAGO,
@@ -11,12 +11,18 @@ import {
   quote,
   unitPrice,
 } from '../../content/pricing'
-import { nuevoFolio, useProyecto, useSurvey } from '../../store/survey'
+import { nuevoFolio, paramsDelHash, useProyecto, useSurvey } from '../../store/survey'
+import { planoVacio } from '../../sync/eventos'
+import { tipoPorNombre } from './plano/catalogo'
+import { disponerCuarto, disponerPlanta } from './plano/disponer'
 import { buildQuotePayload, encodeQuote } from '../../content/quoteLink'
 import { CLAVE_PROD_SERV, CLAVE_UNIDAD } from '../../content/fiscal'
 import DevicePhoto, { PhotoFrame } from '../catalog/DevicePhoto'
 import Historial, { HistorialSeccion } from './Historial'
 import RoomPicker from './RoomPicker'
+
+const PlanoCuarto = lazy(() => import('./plano/PlanoCuarto'))
+const Conjunto = lazy(() => import('./plano/Conjunto'))
 
 /**
  * Levantamiento.
@@ -70,9 +76,9 @@ function Picker({ value, onChange, options }) {
 function Card({ title, right, children, seccion, proyectoId }) {
   return (
     <section className="rounded-xl border border-line bg-ink-2">
-      <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5">
         <h2 className="text-[11px] tracking-[0.14em] text-cream-2 uppercase">{title}</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {right}
           {seccion && <HistorialSeccion proyectoId={proyectoId} seccion={seccion} />}
         </div>
@@ -84,7 +90,7 @@ function Card({ title, right, children, seccion, proyectoId }) {
 
 /* ── un cuarto con sus piezas ─────────────────────────────────── */
 
-function Room({ room, active, onSelect, onAgregar }) {
+function Room({ room, active, onSelect, onAgregar, onPlano }) {
   const updateRoom = useSurvey((s) => s.updateRoom)
   const removeRoom = useSurvey((s) => s.removeRoom)
   const bump = useSurvey((s) => s.bump)
@@ -95,6 +101,7 @@ function Room({ room, active, onSelect, onAgregar }) {
     return a + (d ? (unitPrice(d) + LABOR_TIERS[laborTier(d)].price) * q : 0)
   }, 0)
   const piezas = items.reduce((a, [, q]) => a + q, 0)
+  const piezasPlano = room.plano?.items?.length ?? 0
 
   return (
     <div
@@ -187,6 +194,12 @@ function Room({ room, active, onSelect, onAgregar }) {
         >
           + Agregar equipo a {room.nombre}
         </button>
+        <button
+          onClick={onPlano}
+          className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-cream-2 transition-colors hover:border-thread hover:text-thread-2"
+        >
+          Plano 3D{piezasPlano > 0 ? ` · ${piezasPlano}` : ''}
+        </button>
         {piezas > 0 && <span className="text-[11px] text-cream-3">{piezas} piezas</span>}
       </div>
 
@@ -206,6 +219,8 @@ export default function Survey() {
   const proyecto = useProyecto()
   const survey = useSurvey()
   const [pickerRoomId, setPickerRoomId] = useState(null)
+  const [planoRoomId, setPlanoRoomId] = useState(null)
+  const [verConjunto, setVerConjunto] = useState(false)
 
   const { cliente, obra, rooms, extras, activeRoom } = proyecto
 
@@ -214,7 +229,33 @@ export default function Survey() {
 
   // se relee del proyecto en cada render para que el selector vea las piezas
   // que él mismo acaba de agregar
+  /* Enlace directo al plano de un cuarto o a la planta completa:
+       #/admin/levantamiento?plano=<cuartoId>
+       #/admin/levantamiento?planta=1
+     `plano=1` a secas abre el primero que ya tenga algo dibujado, que es lo
+     que necesita un script que no conoce los ids de antemano. */
+  useEffect(() => {
+    /* También al vuelo, no solo al montar: navegar de `?proyecto=x` a
+       `?proyecto=x&plano=y` cambia únicamente el hash, así que React no
+       remonta nada y sin escuchar `hashchange` el enlace no haría nada. Se
+       nota justo cuando alguien te pega un enlace y ya tienes el panel
+       abierto, que es cuando más se usa. */
+    const aplicar = () => {
+      const q = paramsDelHash()
+      if (q.get('planta')) return setVerConjunto(true)
+      const pedido = q.get('plano')
+      if (!pedido) return
+      const cuarto =
+        rooms.find((r) => r.id === pedido) ?? (pedido === '1' ? rooms.find((r) => r.plano?.items?.length) : null)
+      if (cuarto) setPlanoRoomId(cuarto.id)
+    }
+    aplicar()
+    window.addEventListener('hashchange', aplicar)
+    return () => window.removeEventListener('hashchange', aplicar)
+  }, [rooms])
+
   const pickerRoom = rooms.find((r) => r.id === pickerRoomId) ?? null
+  const planoRoom = rooms.find((r) => r.id === planoRoomId) ?? null
 
   const generar = () => {
     const folio = proyecto.folio || nuevoFolio()
@@ -240,6 +281,39 @@ export default function Survey() {
     window.open(`${location.origin}${location.pathname}#/cotizacion?d=${token}`, '_blank')
   }
 
+  /**
+   * Genera el plano de TODOS los cuartos y los acomoda en la planta.
+   *
+   * El equipo ya levantado se reparte según qué es cada cosa —las luminarias
+   * al techo en retícula, los sensores de presencia a las esquinas altas, las
+   * fugas al piso junto al mueble húmedo— y de paso queda un apagador junto a
+   * la puerta, cableado y controlando las luces del cuarto.
+   *
+   * Es un punto de partida, no el plano final: la idea es que al abrir un
+   * cuarto haya algo que corregir en vez de un lienzo en blanco.
+   */
+  const generarPlanos = () => {
+    if (rooms.some((r) => r.plano?.items?.length) && !confirm('Se reemplazan los planos que ya tengan algo dibujado. ¿Seguir?'))
+      return
+
+    const armados = rooms.map((r) => {
+      const base = { ...planoVacio(r.m2), ...(r.plano ?? {}) }
+      const tipo = base.tipoCuarto ?? tipoPorNombre(r.nombre)
+      const { items, tramos, reglas } = disponerCuarto({ plano: base, tipo, equipo: r.items })
+      return { room: r, plano: { ...base, tipoCuarto: tipo, items, tramos, reglas } }
+    })
+
+    const posiciones = disponerPlanta(armados)
+
+    for (const c of armados) {
+      survey.setPlano(
+        c.room.id,
+        { ...c.plano, pos: posiciones.get(c.room.id) ?? c.plano.pos },
+        `Generó el plano de ${c.room.nombre}`,
+      )
+    }
+  }
+
   const catCount = useMemo(() => {
     const c = {}
     for (const r of rooms)
@@ -259,12 +333,29 @@ export default function Survey() {
           proyectoId={proyecto.id}
           title={`Habitaciones · ${rooms.length}`}
           right={
-            <button
-              onClick={() => survey.addRoom()}
-              className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-cream-2 transition-colors hover:border-ember hover:text-ember"
-            >
-              + Agregar cuarto
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={generarPlanos}
+                title="Reparte el equipo levantado en cada cuarto y acomoda la planta"
+                className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-cream-2 transition-colors hover:border-ember hover:text-ember"
+              >
+                Generar planos
+              </button>
+              {rooms.some((r) => r.plano?.items?.length) && (
+                <button
+                  onClick={() => setVerConjunto(true)}
+                  className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-cream-2 transition-colors hover:border-thread hover:text-thread-2"
+                >
+                  Ver la planta
+                </button>
+              )}
+              <button
+                onClick={() => survey.addRoom()}
+                className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-cream-2 transition-colors hover:border-ember hover:text-ember"
+              >
+                + Agregar cuarto
+              </button>
+            </div>
           }
         >
           <p className="mb-3 text-[11.5px] text-cream-3">
@@ -284,6 +375,7 @@ export default function Survey() {
                   survey.setActiveRoom(r.id)
                   setPickerRoomId(r.id)
                 }}
+                onPlano={() => setPlanoRoomId(r.id)}
               />
             ))}
             {rooms.length === 0 && (
@@ -603,6 +695,25 @@ export default function Survey() {
       </aside>
 
       {pickerRoom && <RoomPicker room={pickerRoom} onCerrar={() => setPickerRoomId(null)} />}
+
+      {planoRoom && (
+        <Suspense fallback={null}>
+          <PlanoCuarto room={planoRoom} onCerrar={() => setPlanoRoomId(null)} />
+        </Suspense>
+      )}
+
+      {verConjunto && (
+        <Suspense fallback={null}>
+          <Conjunto
+            rooms={rooms}
+            onCerrar={() => setVerConjunto(false)}
+            onAbrirCuarto={(id) => {
+              setVerConjunto(false)
+              setPlanoRoomId(id)
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

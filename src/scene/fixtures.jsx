@@ -58,7 +58,11 @@ export function Mirror({ position, rotation, w = 0.9, h = 0.8, room }) {
   const halo = useMemo(() => M.strip.clone(), [])
 
   useFrame(() => {
+    // `room` puede no ser un cuarto del recorrido: el editor de planos reusa
+    // estas piezas como mobiliario inerte. Sin esta salida, el espejo del baño
+    // tiraba toda la escena.
     const d = dim[room]
+    if (!d) return
     halo.emissive.copy(d.color)
     halo.emissiveIntensity = 0.05 + d.level * 3.2
   })
@@ -98,7 +102,9 @@ export function Extractor({ position, rotation, room }) {
   const blades = useRef()
 
   useFrame((_, delta) => {
-    if (blades.current) blades.current.rotation.y += delta * dim[room].fan * 14
+    const d = dim[room]
+    if (!d || !blades.current) return
+    blades.current.rotation.y += delta * d.fan * 14
   })
 
   return (

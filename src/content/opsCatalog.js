@@ -166,6 +166,14 @@ export const OPS = {
   'nest-hub2': { canal: 'retail', note: 'Border router de Google + pantalla de buró. Sensor de sueño incluido.' },
   'hue-syncbox': { canal: 'importacion', note: 'Sincroniza luces con la imagen. Va entre las fuentes HDMI y la tele.' },
 
+  /* ── Lo propio y las pantallas ── */
+  'mx-luz-medida': { canal: 'distribuidor', prov: ['unit', 'ag', 'ml'], note: 'Lo fabricamos nosotros. El precio de lista es el punto de partida: se cierra con el cliente según metros de perfil, óptica y acabado. El material sale del Centro.' },
+  'samsung-frame-65': { canal: 'retail', note: 'El marco decorativo va aparte y el cliente casi siempre lo asume incluido: aclararlo en la cotización. El One Connect box pide su propio registro cerca de la tele.' },
+  'samsung-qn90': { canal: 'retail', note: 'La que más recomendamos para sala clara. Verificar que el modelo sea del año en curso: los de dos años atrás no traen border router Thread.' },
+  'lg-c5-oled': { canal: 'retail', note: 'No la pongas en cuarto con ventana al poniente ni de tele de fondo todo el día. Si el cliente insiste, dejarlo por escrito.' },
+  'hisense-u7': { canal: 'retail', note: 'No es hub Matter ni border router: si es la única pantalla de la casa, hay que sumar un Nest Hub o Apple TV al presupuesto.' },
+  'appletv-4k-hub': { canal: 'retail', note: 'SOLO el modelo con Ethernet trae Thread. Es el error de compra más frecuente; conviene comprarlo nosotros y no dejar que lo traiga el cliente.' },
+
   /* ── Hubs y controladores ── */
   'ha-green': { canal: 'importacion', note: 'Servidor local listo para usar. La base de cualquier instalación que deba sobrevivir a la nube.' },
   'ha-yellow': { canal: 'importacion', note: 'Versión de rack con Zigbee integrado y ranura NVMe. Para instalaciones grandes.' },

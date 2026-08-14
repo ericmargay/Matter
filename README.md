@@ -16,9 +16,54 @@ frase de verdad sobre la escena 3D.
 ```bash
 npm install
 npm run dev      # http://localhost:5173 — sitio, panel y sincronización
+./abrir.command  # abre toda la superficie en una ventana, ya con sesión
 npm run build
 npm run preview
 ```
+
+## Abrir la superficie de un golpe
+
+```bash
+./abrir.command
+```
+
+Levanta el servidor si está caído, entra con la sesión de un socio y abre una
+ventana con doce pestañas:
+
+| | |
+| --- | --- |
+| Cara al cliente | sitio público · catálogo · cotización de ejemplo |
+| Operaciones | proyectos · catálogo · proveedores · levantamiento |
+| Planos | planta completa · y el plano 3D de **tres cuartos de tipos distintos** |
+
+Los planos necesitan datos reales, así que el script se los pregunta al servidor
+(`/api/estado`, ver `scripts/superficie.mjs`) y arma los enlaces con los ids que
+existen: elige el proyecto con más cuartos dibujados y, de él, un cuarto por
+tipo — una recámara, un baño, una cocina. El acomodo automático se porta
+distinto en cada uno y revisar tres recámaras no dice nada nuevo.
+
+Si todavía no hay planos, esas pestañas se saltan y lo dice, en vez de abrir
+una pantalla vacía.
+
+```bash
+USUARIO=carpio ./abrir.command                    # entrar como el otro socio
+URL=https://www.matter.com.mx ./abrir.command     # contra Railway
+PLANOS=6 ./abrir.command                          # más planos 3D
+VENTANA=0 ./abrir.command                         # sin ventana nueva
+AUTOSTART=0 ./abrir.command                       # no levantar el servidor
+```
+
+### Enlaces directos
+
+El panel es direccionable, así que también sirve para mandarle a un socio la
+pantalla exacta de la que estás hablando:
+
+| Enlace | Abre |
+| --- | --- |
+| `#/admin/levantamiento?proyecto=<id>` | Ese proyecto |
+| `#/admin/levantamiento?proyecto=<id>&plano=<cuartoId>` | El plano 3D de ese cuarto |
+| `#/admin/levantamiento?proyecto=<id>&plano=1` | El primer cuarto que tenga plano |
+| `#/admin/levantamiento?proyecto=<id>&planta=1` | La planta completa |
 
 ## Cómo está armado
 

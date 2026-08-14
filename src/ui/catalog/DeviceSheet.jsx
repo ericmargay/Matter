@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { CATEGORIES, ECOSYSTEMS, LINK_CLIENTE, LINK_LABEL, POWER_LABEL } from '../../content/catalog'
-import { creditOf } from '../../content/photos'
+import { creditOf, usoOf } from '../../content/photos'
 import DevicePhoto, { PhotoFrame } from './DevicePhoto'
 
 /**
@@ -41,6 +41,7 @@ export default function DeviceSheet({ device, onCerrar, precio, extra, siguiente
 
   const cat = CATEGORIES.find((c) => c.id === device.cat)
   const credito = creditOf(device.id)
+  const enUso = usoOf(device.id)
 
   return (
     <>
@@ -72,6 +73,19 @@ export default function DeviceSheet({ device, onCerrar, precio, extra, siguiente
           <DevicePhoto device={device} eager sizes="26rem" />
         </PhotoFrame>
 
+        {/* El aparato instalado y encendido.
+            Va DESPUÉS del recorte sobre blanco, no en su lugar: el recorte
+            sirve para reconocer la pieza y esta para decidir. Un cliente no
+            está comprando un objeto, se está imaginando su casa. */}
+        {enUso && (
+          <figure className="border-b border-line">
+            <img src={enUso} alt="" loading="lazy" className="w-full object-cover" />
+            <figcaption className="px-4 py-1.5 text-[10.5px] text-cream-3">
+              Así se ve funcionando · foto del fabricante
+            </figcaption>
+          </figure>
+        )}
+
         <div className="px-4 pt-4 pb-6">
           <p className="text-[11px] tracking-[0.1em] text-ember uppercase">{device.brand}</p>
           <h2 className="display mt-1 text-[22px] leading-tight text-cream">{device.name}</h2>
@@ -79,6 +93,10 @@ export default function DeviceSheet({ device, onCerrar, precio, extra, siguiente
           {precio}
 
           <p className="mt-3 text-[13px] leading-relaxed text-cream-2">{device.pitch}</p>
+
+          {device.detalle && (
+            <p className="mt-2.5 text-[12.5px] leading-relaxed text-cream-3">{device.detalle}</p>
+          )}
 
           <dl className="mt-4">
             <Dato label="Cómo se conecta">

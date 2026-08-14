@@ -57,6 +57,33 @@ const LADO = 640
  *  el mismo papel claro para que la cuadrícula no se vea de retazos. */
 const PAPEL = { r: 244, g: 239, b: 231 }
 
+/* ── fotos "en uso" ────────────────────────────────────────────────
+   Lista blanca, revisada a ojo. Es a mano y no automática porque no hay
+   forma de distinguirlas por programa: se midió entropía y área plana sobre
+   una muestra y los rangos de una foto de ambiente y de una lámina de
+   marketing se solapan por completo (2.8–7.2 contra 2.3–7.2).
+
+   El fabricante mezcla, en el mismo arreglo de imágenes, la foto del aparato
+   instalado —que es la que le sirve al cliente— con láminas de "1 year
+   battery" y tablas de compatibilidad en inglés. Poner una de esas en el
+   catálogo es peor que no poner nada.
+
+   Para sumar una: corre `npm run photos -- --all`, mira
+   `public/catalogo/<id>-uso.webp` y si sirve, agrega el id aquí. */
+const CON_AMBIENTE = new Set([
+  'aqara-fan',
+  'aqara-fp2',
+  'aqara-g5pro',
+  'inovelli-blue',
+  'levoit-core',
+  'lifx-color',
+  'petkit-fountain',
+  'shelly-1mini',
+  'switchbot-hub2',
+  'thirdreality-switch',
+  'ultraloq-bolt',
+])
+
 /* ── de dónde sale la foto de cada uno ─────────────────────────────
    `q` es lo que se busca en el catálogo del fabricante; se afina a mano
    cuando el nombre comercial no coincide con el del catálogo. */
@@ -174,6 +201,14 @@ const FUENTES = {
   'petkit-fountain': { shop: 'petkit.com', q: 'Eversweet' },
   'tractive-gps': { url: 'https://assets.tractive.com/assets/image/shop-frontend/product/trdog6bk/tractive-dog-6-black.png', credito: 'Tractive' },
 
+  /* Pantallas */
+  'samsung-frame-65': { sinFoto: 'samsung.com devuelve fotos de otras líneas, no The Frame' },
+  'samsung-qn90': { commons: 'Samsung QLED television' },
+  'lg-c5-oled': { commons: 'LG OLED television' },
+  'hisense-u7': { commons: 'Hisense television' },
+  'appletv-4k-hub': { commons: 'Apple TV 4K' },
+  'mx-luz-medida': { sinFoto: 'producto propio: la foto sale cuando exista la primera pieza' },
+
   /* Electrodomésticos */
   'roborock-s8': { shop: 'us.roborock.com', q: 'S8 MaxV Ultra' },
   'lg-thinq': { commons: 'LG washing machine front load' },
@@ -265,9 +300,26 @@ async function desdeTienda({ shop, q }) {
 
   if (!mejor || mejor.s < 0.6) throw new Error(`sin coincidencia para "${q}" en ${shop}`)
 
-  const imagen = mejor.p.images?.[0]?.src
+  const fotos = mejor.p.images ?? []
+  const imagen = fotos[0]?.src
   if (!imagen) throw new Error(`"${mejor.p.title}" no trae imagen`)
-  return { url: imagen, credito: `${shop} · ${mejor.p.title}`, fuente: shop }
+
+  /* La segunda foto: el aparato instalado y funcionando.
+     El fabricante siempre pone primero el recorte sobre blanco —bueno para
+     identificar la pieza, inútil para decidir— y después las de ambiente. Esas
+     son las que le sirven al cliente, que no está comprando un objeto sino
+     imaginándose su casa.
+     Se prefiere la apaisada: un recorte de producto casi siempre es cuadrado,
+     y una foto de cuarto casi nunca. */
+  const ambiente =
+    fotos.slice(1).find((f) => f.width && f.height && f.width / f.height > 1.15) ?? fotos[1] ?? null
+
+  return {
+    url: imagen,
+    ambiente: ambiente?.src ?? null,
+    credito: `${shop} · ${mejor.p.title}`,
+    fuente: shop,
+  }
 }
 
 /* ── fuente: Wikimedia Commons ─────────────────────────────────── */
@@ -311,7 +363,7 @@ async function desdeCommons({ commons }) {
 
 /* ── descarga y normalización ──────────────────────────────────── */
 
-async function guardar(id, url) {
+async function guardar(id, url, sufijo = '') {
   // upload.wikimedia.org aplica el mismo límite que la API: se identifica igual
   const wiki = /wikimedia\.org|wikipedia\.org/.test(new URL(url).hostname)
   const r = await traer(url, wiki ? { headers: { 'user-agent': UA_WIKI } } : {})
@@ -320,10 +372,15 @@ async function guardar(id, url) {
   if (bytes.length < 1500) throw new Error('archivo demasiado chico, no es una foto')
 
   await sharp(bytes)
-    .resize(LADO, LADO, { fit: 'contain', background: PAPEL })
+    // la de ambiente se recorta apaisada y llena el cuadro: es una escena, no
+    // una pieza, y dejarla con márgenes de papel la haría ver de catálogo
+    .resize(sufijo ? 800 : LADO, sufijo ? 500 : LADO, {
+      fit: sufijo ? 'cover' : 'contain',
+      background: PAPEL,
+    })
     .flatten({ background: PAPEL })
     .webp({ quality: 82 })
-    .toFile(path.join(DESTINO, `${id}.webp`))
+    .toFile(path.join(DESTINO, `${id}${sufijo}.webp`))
 }
 
 /* ── manifiesto ────────────────────────────────────────────────── */
@@ -351,6 +408,9 @@ ${filas}
 
 /** Ruta de la foto, o \`null\` si a este producto todavía le falta. */
 export const photoOf = (id) => (PHOTOS[id] ? \`/catalogo/\${id}.webp\` : null)
+
+/** El aparato instalado y funcionando. \`null\` si el fabricante no publicó una. */
+export const usoOf = (id) => (PHOTOS[id]?.uso ? \`/catalogo/\${id}-uso.webp\` : null)
 
 /** Crédito para pintar bajo la foto. */
 export const creditOf = (id) => PHOTOS[id] ?? null
@@ -406,10 +466,25 @@ for (const d of objetivo) {
     const hallazgo = fuente.shop
       ? await desdeTienda(fuente)
       : fuente.url
-        ? { url: fuente.url, credito: fuente.credito ?? new URL(fuente.url).hostname, fuente: 'fabricante' }
+        ? {
+            url: fuente.url,
+            ambiente: fuente.ambiente ?? null,
+            credito: fuente.credito ?? new URL(fuente.url).hostname,
+            fuente: 'fabricante',
+          }
         : await desdeCommons(fuente)
+
     await guardar(d.id, hallazgo.url)
-    fotos[d.id] = { credito: hallazgo.credito, fuente: hallazgo.fuente }
+    let conAmbiente = false
+    if (hallazgo.ambiente && CON_AMBIENTE.has(d.id)) {
+      try {
+        await guardar(d.id, hallazgo.ambiente, '-uso')
+        conAmbiente = true
+      } catch {
+        // que falle la de ambiente no puede tirar la del producto
+      }
+    }
+    fotos[d.id] = { credito: hallazgo.credito, fuente: hallazgo.fuente, uso: conAmbiente }
     bajadas++
     console.log(`✓ ${d.id.padEnd(24)} ${hallazgo.credito.slice(0, 70)}`)
   } catch (e) {
@@ -422,6 +497,9 @@ for (const d of objetivo) {
 // lo que no tiene archivo no puede quedar en el manifiesto
 for (const id of Object.keys(fotos)) {
   if (!existsSync(path.join(DESTINO, `${id}.webp`))) delete fotos[id]
+  // y una foto de ambiente que se borró a mano —al curar la lista— tiene que
+  // desaparecer también de aquí, o la interfaz pediría un archivo que no está
+  else if (fotos[id].uso && !existsSync(path.join(DESTINO, `${id}-uso.webp`))) fotos[id].uso = false
 }
 
 await escribirManifiesto(fotos)

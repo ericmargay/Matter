@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { brand } from '../../content/site'
 import { USING_DEMO_RATES, quote } from '../../content/pricing'
-import { useProyecto, useSurvey } from '../../store/survey'
+import { paramsDelHash, useProyecto, useSurvey } from '../../store/survey'
 import Logo from '../Logo'
 import Catalog from './Catalog'
 import { Avatar } from './Historial'
@@ -183,6 +183,21 @@ export default function Admin({ section = 'proyectos' }) {
     arrancar()
   }, [arrancar])
 
+  /* Enlace directo a un proyecto: `#/admin/levantamiento?proyecto=<id>`.
+     Lo usa el script que abre la superficie de trabajo, y sirve igual para
+     mandarle a un socio el proyecto exacto del que estás hablando. */
+  const abrirProyecto = useSurvey((s) => s.abrirProyecto)
+  useEffect(() => {
+    if (!cargado) return
+    const aplicar = () => {
+      const pedido = paramsDelHash().get('proyecto')
+      if (pedido && pedido !== useSurvey.getState().activoId) abrirProyecto(pedido)
+    }
+    aplicar()
+    window.addEventListener('hashchange', aplicar)
+    return () => window.removeEventListener('hashchange', aplicar)
+  }, [cargado, abrirProyecto])
+
   const q = proyecto
     ? quote({ obra: proyecto.obra, rooms: proyecto.rooms, extras: proyecto.extras })
     : null
@@ -191,7 +206,7 @@ export default function Admin({ section = 'proyectos' }) {
   const bloqueada = seccion.requiereProyecto && !proyecto
 
   return (
-    <div className="min-h-screen bg-ink text-cream">
+    <div className="min-h-screen overflow-x-hidden bg-ink text-cream">
       <header className="sticky top-0 z-30 border-b border-line bg-ink/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-3 px-5 py-3">
           <a href="#/" className="flex items-center gap-2.5 text-cream">
@@ -202,7 +217,7 @@ export default function Admin({ section = 'proyectos' }) {
             Operaciones
           </span>
 
-          <nav className="ml-3 flex gap-1 text-[12px]">
+          <nav className="ml-3 flex flex-wrap gap-1 text-[12px]">
             {SECCIONES.map((s) => {
               const off = s.requiereProyecto && !proyecto
               return (

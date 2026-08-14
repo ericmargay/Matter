@@ -25,7 +25,35 @@ export const SECCIONES = {
   obra: 'Propiedad',
   cuartos: 'Habitaciones',
   equipo: 'Equipo',
+  plano: 'Plano',
   servicios: 'Servicios',
+}
+
+/**
+ * El plano de un cuarto.
+ *
+ * Vive dentro del cuarto y no aparte porque es una propiedad suya: si el
+ * cuarto se borra, su plano se va con él y no queda huérfano.
+ *
+ * Medidas en metros. El origen local es el centro del cuarto, con x a lo
+ * ancho y z a lo largo — igual que la escena del recorrido, para poder
+ * reutilizar su mobiliario sin convertir coordenadas.
+ */
+export const planoVacio = (m2 = 15) => {
+  // de los metros cuadrados se infiere un cuarto de proporción sensata; el
+  // técnico lo corrige con las medidas reales en dos campos
+  const lado = Math.sqrt(Math.max(4, m2))
+  return {
+    ancho: Number((lado * 1.15).toFixed(2)),
+    largo: Number((lado / 1.15).toFixed(2)),
+    alto: 2.6,
+    piso: 0,
+    pos: [0, 0], // dónde cae el cuarto cuando se arma el conjunto
+    giro: 0,
+    items: [],
+    tramos: [],
+    reglas: [],
+  }
 }
 
 export const ESTADOS = [
@@ -159,6 +187,25 @@ export function aplicar(estado, ev) {
     case 'equipo.vaciar':
       return toca((p) => ({ ...p, rooms: p.rooms.map((r) => ({ ...r, items: {} })) }))
 
+    /* ── plano 3D ────────────────────────────────────────────────────
+       Un solo tipo de evento para todo el plano en vez de uno por cada
+       cosa que se puede mover. Es a propósito: colocar un mueble y
+       arrastrarlo diez centímetros son el mismo gesto para quien lo hace, y
+       tener `plano.mueble.mover`, `plano.luz.mover`, `plano.punto.mover`
+       llenaría el historial de ruido sin decir nada más.
+
+       El precio es que el evento lleva el plano completo. A esta escala
+       —decenas de objetos por cuarto— eso es un objeto de unos pocos kB, y
+       vuelve la operación idempotente sin esfuerzo: reenviarla deja el mismo
+       resultado, que es lo que necesita la cola cuando se cae la red. */
+    case 'plano.editar':
+      return toca((p) => ({
+        ...p,
+        rooms: p.rooms.map((r) =>
+          r.id !== ev.datos.cuartoId ? r : { ...r, plano: { ...(r.plano ?? {}), ...ev.datos.plano } },
+        ),
+      }))
+
     default:
       return estado
   }
@@ -245,6 +292,8 @@ export function resumen(ev, nombreDe = (id) => id) {
     }
     case 'equipo.vaciar':
       return 'Vació todas las piezas del proyecto'
+    case 'plano.editar':
+      return `${d.que ?? 'Modificó el plano'} de ${d.cuartoNombre ?? 'una habitación'}`
     default:
       return ev.tipo
   }
@@ -258,6 +307,7 @@ export function seccionDe(tipo) {
   if (tipo.startsWith('obra.')) return 'obra'
   if (tipo.startsWith('cuarto.')) return 'cuartos'
   if (tipo.startsWith('equipo.')) return 'equipo'
+  if (tipo.startsWith('plano.')) return 'plano'
   if (tipo.startsWith('servicios.')) return 'servicios'
   return 'proyecto'
 }

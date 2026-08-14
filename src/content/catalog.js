@@ -20,6 +20,20 @@
  * power  — corriente | pila | poe | cableado (requiere electricista)
  * tier   — esencial | casa | medida (en qué paquete lo metemos)
  * pitch  — la frase que lee el cliente. Qué gana él, no qué protocolo habla.
+ * detalle — el párrafo de abajo: qué hace, qué necesita y qué NO hace. Lo
+ *           último importa más de lo que parece: la mitad de los disgustos
+ *           salen de esperar algo que el aparato nunca prometió.
+ * propio — lo fabricamos nosotros; el precio se cierra con el cliente
+ * luz    — fotometría, para simular la iluminación en el plano 3D:
+ *          { lm, k, haz, forma }
+ *            lm    lúmenes que entrega la pieza completa
+ *            k     temperatura de color en kelvin — [min, max] si es ajustable
+ *            haz   apertura del haz en grados (180 = reparte a todos lados)
+ *            forma punto | lineal | panel — cómo se reparte la luz
+ *
+ *          ⚠️ Son valores de ficha del fabricante, no medidos con luxómetro.
+ *          Sirven para comparar y para que el plano se parezca a la realidad,
+ *          no para un cálculo luminotécnico que se firme.
  */
 
 export const CATEGORIES = [
@@ -32,7 +46,8 @@ export const CATEGORIES = [
   { id: 'cortinas', label: 'Cortinas y persianas', hint: 'Motores y controladores' },
   { id: 'energia', label: 'Energía', hint: 'Contactos, medición, respaldo' },
   { id: 'agua', label: 'Agua y riego', hint: 'Válvulas, fugas, jardín' },
-  { id: 'av', label: 'Audio y video', hint: 'Bocinas, pantallas, cine' },
+  { id: 'pantallas', label: 'Pantallas', hint: 'Televisores que además son cerebro de la casa' },
+  { id: 'av', label: 'Audio y video', hint: 'Bocinas, barras de sonido, cine' },
   { id: 'hubs', label: 'Hubs y controladores', hint: 'El cerebro y sus puentes' },
   { id: 'red', label: 'Red', hint: 'Access points, switches, rack' },
   { id: 'mascotas', label: 'Mascotas', hint: 'Alimentadores, puertas, fuentes' },
@@ -84,19 +99,25 @@ const ALL = ['apple', 'google', 'alexa', 'ha']
 
 export const DEVICES = [
   /* ── Iluminación ─────────────────────────────────────────── */
-  { id: 'hue-a19', name: 'Hue White & Color A19', brand: 'Philips Hue', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'corriente', price: [1290, 1590], tier: 'casa', pitch: 'El foco de color que se ve bien de verdad: 16 millones de tonos y blancos que no se ven verdes ni morados. El referente contra el que se comparan todos.' },
+  { id: 'hue-a19', name: 'Hue White & Color A19', brand: 'Philips Hue', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'corriente', price: [1290, 1590], tier: 'casa', luz: { lm: 1100, k: [2000, 6500], haz: 180, forma: 'punto' }, pitch: 'El foco de color que se ve bien de verdad: 16 millones de tonos y blancos que no se ven verdes ni morados. El referente contra el que se comparan todos.' },
   { id: 'hue-bridge', name: 'Hue Bridge Pro', brand: 'Philips Hue', cat: 'hubs', link: 'cable', eco: ALL, power: 'corriente', price: [1490, 1890], tier: 'casa', pitch: 'La cajita que conecta todos tus focos Hue con Apple, Google o Alexa. Se enchufa junto al módem y se olvida.' },
-  { id: 'nanoleaf-shapes', name: 'Shapes Hexágonos (kit 9)', brand: 'Nanoleaf', cat: 'iluminacion', link: 'thread', eco: ALL, power: 'corriente', price: [4200, 5400], tier: 'casa', pitch: 'Paneles hexagonales que se arman como quieras sobre el muro. Es la pieza que todo mundo fotografía cuando entra.' },
-  { id: 'nanoleaf-lines', name: 'Lines 60° (kit 9)', brand: 'Nanoleaf', cat: 'iluminacion', link: 'thread', eco: ALL, power: 'corriente', price: [3600, 4600], tier: 'casa', pitch: 'Barras de luz que pintan el muro en vez de apuntarte a los ojos. Más sobrio que los hexágonos, para sala formal.' },
-  { id: 'nanoleaf-essentials', name: 'Essentials Matter A19', brand: 'Nanoleaf', cat: 'iluminacion', link: 'thread', eco: ALL, power: 'corriente', price: [520, 720], tier: 'esencial', pitch: 'Color y blancos ajustables sin necesitar puente. Cada uno que pones hace más fuerte la red de la casa.' },
-  { id: 'lifx-color', name: 'LIFX Color A19 Matter', brand: 'LIFX', cat: 'iluminacion', link: 'matter', eco: ALL, power: 'corriente', price: [890, 1150], tier: 'casa', pitch: 'El foco inteligente más brillante que existe: 1600 lúmenes. Para cuartos grandes donde los demás se quedan cortos.' },
-  { id: 'hue-lightstrip', name: 'Hue Lightstrip Plus 2m', brand: 'Philips Hue', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'corriente', price: [1690, 2100], tier: 'casa', pitch: 'Tira de luz para bajo gabinete de cocina o detrás de la tele. Se corta a la medida y se alarga por metro.' },
-  { id: 'govee-strip', name: 'Govee M1 Matter 5m', brand: 'Govee', cat: 'iluminacion', link: 'matter', eco: ALL, power: 'corriente', price: [900, 1300], tier: 'esencial', pitch: 'Cinco metros de tira que puede mostrar varios colores a la vez. La entrada económica a la luz de color.' },
-  { id: 'hue-downlight', name: 'Hue Downlight empotrable 6"', brand: 'Philips Hue', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'cableado', price: [1490, 1990], tier: 'medida', pitch: 'Luz empotrada en el plafón: no se ve el aparato, solo la luz. Requiere trabajo de plafón y electricista.' },
-  { id: 'hue-gradient', name: 'Hue Play Gradient para TV 65"', brand: 'Philips Hue', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'corriente', price: [4200, 5200], tier: 'medida', pitch: 'La pared detrás de la tele se pinta con los colores de lo que estás viendo, cuadro por cuadro. Cine en casa de verdad.' },
-  { id: 'wiz-a19', name: 'WiZ Color A19', brand: 'WiZ (Signify)', cat: 'iluminacion', link: 'matter', eco: ALL, power: 'corriente', price: [320, 450], tier: 'esencial', pitch: 'Color a precio de foco normal, de la misma casa que hace Hue. Ideal cuando hay que resolver muchos puntos de luz.' },
-  { id: 'aqara-t1m', name: 'Aqara Ceiling Light T1M', brand: 'Aqara', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'cableado', price: [2200, 2900], tier: 'casa', pitch: 'Plafón completo con un anillo de color alrededor. Sustituye la luminaria y queda como si viniera con la casa.' },
-  { id: 'hue-outdoor', name: 'Hue Lily spot de jardín (kit 3)', brand: 'Philips Hue', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'corriente', price: [6800, 8500], tier: 'medida', pitch: 'Spots para iluminar fachada, árboles y camino. Resisten lluvia y sol, y se encienden solos al anochecer.' },
+  { id: 'nanoleaf-shapes', name: 'Shapes Hexágonos (kit 9)', brand: 'Nanoleaf', cat: 'iluminacion', link: 'thread', eco: ALL, power: 'corriente', price: [4200, 5400], tier: 'casa', luz: { lm: 900,  k: [1200, 6500], haz: 120, forma: 'panel' }, pitch: 'Paneles hexagonales que se arman como quieras sobre el muro. Es la pieza que todo mundo fotografía cuando entra.' },
+  { id: 'nanoleaf-lines', name: 'Lines 60° (kit 9)', brand: 'Nanoleaf', cat: 'iluminacion', link: 'thread', eco: ALL, power: 'corriente', price: [3600, 4600], tier: 'casa', luz: { lm: 1200, k: [1200, 6500], haz: 120, forma: 'lineal' }, pitch: 'Barras de luz que pintan el muro en vez de apuntarte a los ojos. Más sobrio que los hexágonos, para sala formal.' },
+  { id: 'nanoleaf-essentials', name: 'Essentials Matter A19', brand: 'Nanoleaf', cat: 'iluminacion', link: 'thread', eco: ALL, power: 'corriente', price: [520, 720], tier: 'esencial', luz: { lm: 800, k: [2700, 6500], haz: 180, forma: 'punto' }, pitch: 'Color y blancos ajustables sin necesitar puente. Cada uno que pones hace más fuerte la red de la casa.' },
+  { id: 'lifx-color', name: 'LIFX Color A19 Matter', brand: 'LIFX', cat: 'iluminacion', link: 'matter', eco: ALL, power: 'corriente', price: [890, 1150], tier: 'casa', luz: { lm: 1600, k: [1500, 9000], haz: 180, forma: 'punto' }, pitch: 'El foco inteligente más brillante que existe: 1600 lúmenes. Para cuartos grandes donde los demás se quedan cortos.' },
+  { id: 'hue-lightstrip', name: 'Hue Lightstrip Plus 2m', brand: 'Philips Hue', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'corriente', price: [1690, 2100], tier: 'casa', luz: { lm: 1600, k: [2000, 6500], haz: 120, forma: 'lineal' }, pitch: 'Tira de luz para bajo gabinete de cocina o detrás de la tele. Se corta a la medida y se alarga por metro.' },
+  { id: 'govee-strip', name: 'Govee M1 Matter 5m', brand: 'Govee', cat: 'iluminacion', link: 'matter', eco: ALL, power: 'corriente', price: [900, 1300], tier: 'esencial', luz: { lm: 1500, k: [2200, 6500], haz: 120, forma: 'lineal' }, pitch: 'Cinco metros de tira que puede mostrar varios colores a la vez. La entrada económica a la luz de color.' },
+  { id: 'hue-downlight', name: 'Hue Downlight empotrable 6"', brand: 'Philips Hue', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'cableado', price: [1490, 1990], tier: 'medida', luz: { lm: 1100, k: [2200, 6500], haz: 60,  forma: 'punto' }, pitch: 'Luz empotrada en el plafón: no se ve el aparato, solo la luz. Requiere trabajo de plafón y electricista.' },
+  { id: 'hue-gradient', name: 'Hue Play Gradient para TV 65"', brand: 'Philips Hue', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'corriente', price: [4200, 5200], tier: 'medida', luz: { lm: 1100, k: [2000, 6500], haz: 140, forma: 'lineal' }, pitch: 'La pared detrás de la tele se pinta con los colores de lo que estás viendo, cuadro por cuadro. Cine en casa de verdad.' },
+  { id: 'wiz-a19', name: 'WiZ Color A19', brand: 'WiZ (Signify)', cat: 'iluminacion', link: 'matter', eco: ALL, power: 'corriente', price: [320, 450], tier: 'esencial', luz: { lm: 800,  k: [2200, 6500], haz: 180, forma: 'punto' }, pitch: 'Color a precio de foco normal, de la misma casa que hace Hue. Ideal cuando hay que resolver muchos puntos de luz.' },
+  { id: 'aqara-t1m', name: 'Aqara Ceiling Light T1M', brand: 'Aqara', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'cableado', price: [2200, 2900], tier: 'casa', luz: { lm: 2000, k: [2700, 6500], haz: 140, forma: 'panel' }, pitch: 'Plafón completo con un anillo de color alrededor. Sustituye la luminaria y queda como si viniera con la casa.' },
+  { id: 'hue-outdoor', name: 'Hue Lily spot de jardín (kit 3)', brand: 'Philips Hue', cat: 'iluminacion', link: 'zigbee', eco: ALL, power: 'corriente', price: [6800, 8500], tier: 'medida', luz: { lm: 1920, k: [2000, 6500], haz: 45,  forma: 'punto' }, pitch: 'Spots para iluminar fachada, árboles y camino. Resisten lluvia y sol, y se encienden solos al anochecer.' },
+
+  /* ── Lo que hacemos nosotros ──────────────────────────────
+     No se compra: se diseña con el cliente y se fabrica. Por eso el precio
+     es uno solo y no un rango — es el punto de partida de esa plática, no
+     una lista de la que se elige. */
+  { id: 'mx-luz-medida', name: 'Iluminación a la medida', brand: 'Matter México', cat: 'iluminacion', link: 'thread', eco: ALL, power: 'corriente', price: [15000, 15000], tier: 'medida', propio: true, luz: { lm: 2400, k: [1800, 6500], haz: 120, forma: 'lineal' }, pitch: 'Luz hecha para tu espacio, no adaptada a él: se diseña con la medida exacta del nicho, la cornisa o el mueble, y se fabrica aquí. Habla Thread, así que además refuerza la red de la casa.' },
 
   /* ── Interruptores y dimmers ─────────────────────────────── */
   { id: 'lutron-diva', name: 'Caséta Diva dimmer', brand: 'Lutron', cat: 'control', link: 'ble', eco: ALL, power: 'cableado', price: [1600, 2100], tier: 'casa', pitch: 'El atenuador que nunca zumba ni parpadea, y funciona en instalaciones viejas donde otros no pueden. El estándar de la industria.' },
@@ -174,6 +195,17 @@ export const DEVICES = [
   { id: 'echo-dot', name: 'Echo Dot (5ª gen)', brand: 'Amazon', cat: 'hubs', link: 'wifi', eco: ['alexa'], power: 'corriente', price: [999, 1499], tier: 'esencial', pitch: 'Voz en recámaras y cuartos secundarios, a precio de nada.' },
   { id: 'nest-hub2', name: 'Nest Hub (2ª gen)', brand: 'Google', cat: 'hubs', link: 'thread', eco: ['google'], power: 'corriente', price: [1999, 2699], tier: 'esencial', pitch: 'Pantalla de buró con Google que también es el cerebro de la casa. Mide cómo duermes sin traer nada puesto.' },
   { id: 'hue-syncbox', name: 'Hue Play HDMI Sync Box 8K', brand: 'Philips Hue', cat: 'av', link: 'cable', eco: ALL, power: 'corriente', price: [7500, 9500], tier: 'medida', pitch: 'Hace que todas las luces del cuarto sigan lo que pasa en la pantalla, con cualquier fuente: consola, streaming, lo que sea.' },
+
+  /* ── Pantallas ─────────────────────────────────────────────
+     Mucha gente no llega buscando "domótica": llega buscando una tele. Y
+     resulta que la tele que ya iba a comprar puede ser el cerebro de la casa
+     sin pagar un peso extra. Por eso están en el catálogo: es la conversación
+     más fácil de empezar. */
+  { id: 'samsung-frame-65', name: 'The Frame 65" (2025)', brand: 'Samsung', cat: 'pantallas', link: 'wifi', eco: ALL, power: 'corriente', price: [26000, 34000], tier: 'medida', pitch: 'Apagada parece un cuadro colgado en el muro, no una pantalla negra. Y de paso es el cerebro de la casa: trae SmartThings con Matter y Thread de fábrica.', detalle: 'El acabado mate y el marco intercambiable son lo que la hacen pasar por cuadro; el modo galería enseña arte cuando no la usas. Como hub controla dispositivos Matter aunque no seas de Samsung, y su Thread border router sirve a los sensores de pila de toda la casa. Ojo: el brillo mate se paga en las escenas oscuras — si lo tuyo es el cine a oscuras, la QN90 se ve mejor.' },
+  { id: 'samsung-qn90', name: 'Neo QLED QN90F 65"', brand: 'Samsung', cat: 'pantallas', link: 'wifi', eco: ALL, power: 'corriente', price: [24000, 32000], tier: 'medida', pitch: 'La que se ve bien en una sala con ventanas: mucho brillo y buen contraste. También hace de cerebro de la casa.', detalle: 'Mini-LED con control por zonas, que es lo que le gana al sol de la tarde en una sala clara. Trae SmartThings con Matter y border router Thread, igual que The Frame, pero con mejor imagen y sin el marco decorativo. Para la mayoría de las salas mexicanas —luz de sobra, cortina a medias— esta es la decisión correcta.' },
+  { id: 'lg-c5-oled', name: 'OLED evo C5 65"', brand: 'LG', cat: 'pantallas', link: 'wifi', eco: ALL, power: 'corriente', price: [28000, 38000], tier: 'medida', pitch: 'El negro de verdad negro: cada píxel se apaga solo. Para el cuarto donde se ve cine con la luz baja.', detalle: 'OLED con webOS, que integra Matter y funciona como hub ThinQ. Es la mejor imagen de la lista en penumbra y la peor en un cuarto con ventana al poniente — no es un defecto del panel, es cómo funciona el OLED. Si la tele va a estar prendida todo el día con noticieros, mejor la Neo QLED por el desgaste.' },
+  { id: 'hisense-u7', name: 'Hisense U7Q 65"', brand: 'Hisense', cat: 'pantallas', link: 'wifi', eco: ['google', 'alexa', 'ha'], power: 'corriente', price: [13000, 18000], tier: 'casa', pitch: 'La opción sensata cuando el presupuesto manda: buena imagen y Google TV integrado, a la mitad del precio de las de arriba.', detalle: 'Mini-LED con Google TV, así que entra a Google Home sin puente y responde a la voz del Nest. No es hub Matter ni border router Thread: para eso hace falta un Nest Hub o un Apple TV aparte. La consideramos cuando la pantalla es para una recámara o un cuarto de tele secundario.' },
+  { id: 'appletv-4k-hub', name: 'Apple TV 4K como cerebro', brand: 'Apple', cat: 'pantallas', link: 'thread', eco: ['apple'], power: 'corriente', price: [3499, 4299], tier: 'esencial', pitch: 'Convierte cualquier tele en una pantalla lista para casa inteligente, y es el cerebro de Apple Home. La forma más barata de resolver las dos cosas.', detalle: 'Si ya tienes una tele que te gusta, esto es más barato que cambiarla: le da apps decentes y, sobre todo, hace de hub de Apple Home y de border router Thread. La versión con Ethernet es la que trae Thread — la de Wi-Fi solamente NO. Es el error de compra más común de esta lista.' },
 
   /* ── Hubs y controladores ────────────────────────────────── */
   { id: 'ha-green', name: 'Home Assistant Green', brand: 'Nabu Casa', cat: 'hubs', link: 'cable', eco: ['ha'], power: 'corriente', price: [2400, 3200], tier: 'casa', pitch: 'El cerebro que corre dentro de tu casa: si se cae el internet, las automatizaciones siguen. Nada depende de la nube de un fabricante.' },
