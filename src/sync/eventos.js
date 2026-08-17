@@ -173,12 +173,13 @@ export function aplicar(estado, ev) {
     case 'perfil.editar':
       return toca((p) => ({ ...p, perfil: { ...PERFIL_VACIO, ...p.perfil, ...ev.datos.patch } }))
 
-    case 'cuarto.agregar':
-      return toca((p) =>
-        p.rooms.some((r) => r.id === ev.datos.cuarto.id)
-          ? p
-          : { ...p, rooms: [...p.rooms, ev.datos.cuarto] },
-      )
+    case 'cuarto.agregar': {
+      // un evento sin cuarto no debe reventar la reducción: ahora los eventos
+      // también entran por HTTP y basta uno mal formado para tumbar el hub
+      const nuevo = ev.datos?.cuarto
+      if (!nuevo?.id) return estado
+      return toca((p) => (p.rooms.some((r) => r.id === nuevo.id) ? p : { ...p, rooms: [...p.rooms, nuevo] }))
+    }
 
     case 'cuarto.editar':
       return toca((p) => ({

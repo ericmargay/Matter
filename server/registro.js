@@ -99,8 +99,22 @@ export function registrar(parcial, autor) {
     ts: new Date().toISOString(),
   }
 
+  /* Reducir ANTES de guardar y en caja fuerte.
+     La primera versión aplicaba a pelo, y un evento mal formado —que ahora
+     puede llegar por HTTP desde el enlace de un cliente— tiraba el proceso
+     entero. Peor: si hubiera alcanzado a escribirse, el registro quedaba
+     envenenado y el servidor volvía a morir en cada arranque al releerlo.
+     Se descarta el evento y sigue vivo todo lo demás. */
+  let siguiente
+  try {
+    siguiente = aplicar(estado, ev)
+  } catch (e) {
+    console.error('registro: evento descartado por no poder aplicarse', ev.tipo, e.message)
+    return null
+  }
+
   eventos.push(ev)
-  estado = aplicar(estado, ev)
+  estado = siguiente
 
   cola = cola
     .then(() => appendFile(ARCHIVO, `${JSON.stringify(ev)}\n`, 'utf8'))
