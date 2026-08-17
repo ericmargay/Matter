@@ -24,9 +24,13 @@ export const nav = [
 // vive en content/tour.js.
 
 export const hero = {
-  eyebrow: 'Levantamiento · Diseño · Instalación',
-  title: ['Tu casa ya es', 'inteligente.', 'Falta enseñarle.'],
-  lede: 'Vamos a tu casa, medimos la red, entendemos tu rutina y diseñamos una instalación que simplemente funciona. Sin apps que nadie abre. Sin focos que se desconectan.',
+  eyebrow: 'Interiorismo · Levantamiento · Instalación',
+  title: ['Una casa de siempre.', 'Que además', 'responde.'],
+  /* El giro del discurso: no vendemos aparatos, vendemos un interior. La
+     tecnología entra al proyecto como entra la luz o la madera —parte del
+     diseño, no encima de él—. Es también lo que nos distingue de quien llega
+     a colgar sensores en una casa que ya estaba resuelta. */
+  lede: 'Diseñamos el interior y la instalación como una sola cosa: el barro y el telar de aquí, con la luz y la automatización escondidas donde deben estar. Vamos a tu casa, medimos la red, entendemos tu rutina y entregamos un espacio terminado — no una casa con cables nuevos.',
   cta: 'Agenda tu levantamiento',
   ctaSecondary: 'Ver cómo funciona',
   scrollHint: 'Recorre la casa',
@@ -150,19 +154,19 @@ export const process = [
   {
     n: '02',
     title: 'Levantamiento en sitio',
-    body: 'Vamos con medidor de señal y multímetro. Salimos con un plano de dispositivos, mapa de cobertura y lista de lo que hay que arreglar antes de instalar.',
+    body: 'Vamos con medidor de señal, multímetro y flexómetro. Medimos la red y también los muros: qué se queda, qué pide un tapete, dónde falta luz de acento. Salimos con plano de dispositivos, mapa de cobertura y lista de lo que hay que arreglar antes de instalar.',
     time: '2–3 hrs · desde $1,500',
   },
   {
     n: '03',
     title: 'Propuesta y maqueta',
-    body: 'Te entregamos el plano en 3D con cada dispositivo ubicado, las escenas propuestas y tres niveles de presupuesto. Decides con todo a la vista.',
+    body: 'El plano en 3D con cada dispositivo ubicado, el mobiliario y las piezas de interiorismo en su lugar, las escenas propuestas y tres niveles de presupuesto. Se ve el cuarto terminado, no un diagrama de instalación.',
     time: '5 días hábiles',
   },
   {
     n: '04',
-    title: 'Instalación',
-    body: 'Red primero, dispositivos después. Dejamos etiquetado el rack, documentadas las credenciales y todo probado contigo presente.',
+    title: 'Instalación y montaje',
+    body: 'Red primero, dispositivos después, interiorismo al final: se cuelga el arte, se tienden los tapetes y se colocan las plantas el mismo día. Dejamos etiquetado el rack, documentadas las credenciales y todo probado contigo presente.',
     time: '1–4 días',
   },
   {

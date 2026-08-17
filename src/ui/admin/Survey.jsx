@@ -17,6 +17,7 @@ import { tipoPorNombre } from './plano/catalogo'
 import { disponerCuarto, disponerPlanta } from './plano/disponer'
 import { ESPACIOS, PROPIEDADES, espaciosDe } from '../../content/espacios'
 import Inventario from '../Inventario'
+import Compartir from './Compartir'
 import { buildQuotePayload, encodeQuote } from '../../content/quoteLink'
 import { CLAVE_PROD_SERV, CLAVE_UNIDAD } from '../../content/fiscal'
 import DevicePhoto, { PhotoFrame } from '../catalog/DevicePhoto'
@@ -309,6 +310,10 @@ export default function Survey() {
      las sugerencias se recalcularían siempre aunque nada haya cambiado. */
   const net = useMemo(() => networkCheck({ obra, rooms }), [obra, rooms])
 
+  /* La cotización recién generada, para poder acortarla y mandarla sin salir
+     de aquí. El token son mil y pico de caracteres. */
+  const [cotizacionUrl, setCotizacionUrl] = useState(null)
+
   const perfil = useMemo(
     () => proyecto.perfil ?? { moviles: [], cerebros: [], existente: {}, notas: '' },
     [proyecto.perfil],
@@ -368,7 +373,9 @@ export default function Survey() {
       buildQuotePayload({ ...proyecto, folio }, { ...q, equipo: equipoConCat }, net, claves),
     )
     survey.setEstado(proyecto.id, 'cotizado')
-    window.open(`${location.origin}${location.pathname}#/cotizacion?d=${token}`, '_blank')
+    const url = `${location.origin}${location.pathname}#/cotizacion?d=${token}`
+    setCotizacionUrl(url)
+    window.open(url, '_blank')
   }
 
   /**
@@ -584,7 +591,7 @@ export default function Survey() {
             Zigbee y abarata los sensores— y cambia el precio: lo que ya tienen no se cobra.
           </p>
 
-          <EnlaceCliente proyectoId={proyecto.id} />
+          <EnlaceCliente proyectoId={proyecto.id} nombre={proyecto.nombre} />
 
           <div className="mt-3">
             <Inventario
@@ -877,11 +884,31 @@ export default function Survey() {
           <p className="mt-3 text-[11px] text-cream-3">
             Folio <span className="text-cream-2">{proyecto.folio}</span>
           </p>
+
+          {cotizacionUrl && (
+            <div className="mt-3">
+              <Compartir
+                destino={cotizacionUrl}
+                etiqueta={`Cotización ${proyecto.folio} · ${proyecto.nombre}`}
+                titulo="Mandar la cotización"
+                ayuda="La cotización viaja dentro del enlace con los precios congelados. El acortador la deja en siete caracteres para que se pueda mandar por WhatsApp sin que parezca sospechosa."
+              />
+            </div>
+          )}
+
+          <div className="mt-3 space-y-2">
+            <Compartir
+              destino={`${location.origin}/#/catalogo`}
+              etiqueta="Catálogo para clientes"
+              titulo="Mandar el catálogo"
+              ayuda="Lo que se enseña cuando preguntan qué se le puede poner a la casa. Sin precios de operación."
+            />
+          </div>
         </div>
 
         <p className="mt-3 px-1 text-[11px] leading-relaxed text-cream-3">
           El enlace de la cotización lleva los datos dentro: se puede mandar por WhatsApp y abre en cualquier
-          dispositivo sin servidor. Cuando haya backend, se cambia por un folio corto.
+          dispositivo sin servidor. 
         </p>
       </aside>
 
@@ -910,51 +937,30 @@ export default function Survey() {
 }
 
 /**
- * El enlace que se le manda al cliente.
+ * El enlace que se le manda al cliente para que anexe lo suyo.
  *
  * El token lo firma el servidor con el mismo secreto de las sesiones, así que
- * no hay nada que guardar ni que caduque. Se copia y se manda por WhatsApp:
- * el cliente anexa lo suyo desde el teléfono y aparece de este lado sin que
- * nadie transcriba nada.
+ * no hay nada que guardar ni que caduque. Se acorta antes de mandarlo: el
+ * token completo son doscientos caracteres y por WhatsApp eso se ve a estafa.
  */
-function EnlaceCliente({ proyectoId }) {
-  const [url, setUrl] = useState(null)
-  const [copiado, setCopiado] = useState(false)
+function EnlaceCliente({ proyectoId, nombre }) {
+  const [largo, setLargo] = useState(null)
 
   useEffect(() => {
     fetch(`/api/enlace-inventario/${proyectoId}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setUrl(`${window.location.origin}/#/mi-equipo?t=${d.token}`))
+      .then((d) => d && setLargo(`${window.location.origin}/#/mi-equipo?t=${d.token}`))
       .catch(() => {})
   }, [proyectoId])
 
-  if (!url) return null
+  if (!largo) return null
 
   return (
-    <div className="rounded-xl border border-thread/30 bg-thread/[0.05] px-3 py-2.5">
-      <p className="text-[10px] tracking-[0.12em] text-thread uppercase">Que lo llene el cliente</p>
-      <p className="mt-1 text-[11px] leading-relaxed text-cream-2">
-        Mándale este enlace. Anexa lo suyo desde el teléfono y llega aquí solo — sin cuenta y sin que nadie
-        transcriba nada. Solo abre su inventario: ni precios ni el resto del levantamiento.
-      </p>
-      <div className="mt-2 flex gap-1.5">
-        <input
-          readOnly
-          value={url}
-          onFocus={(e) => e.target.select()}
-          className="min-w-0 flex-1 rounded border border-line bg-ink px-2 py-1 text-[10.5px] text-cream-3"
-        />
-        <button
-          onClick={() => {
-            navigator.clipboard?.writeText(url)
-            setCopiado(true)
-            setTimeout(() => setCopiado(false), 1800)
-          }}
-          className="shrink-0 rounded border border-thread px-2.5 py-1 text-[11px] text-thread-2 hover:bg-thread/15"
-        >
-          {copiado ? 'copiado' : 'copiar'}
-        </button>
-      </div>
-    </div>
+    <Compartir
+      destino={largo}
+      etiqueta={`Anexador · ${nombre}`}
+      titulo="Que lo llene el cliente"
+      ayuda="Mándale este enlace. Anexa lo suyo desde el teléfono y llega aquí solo — sin cuenta y sin que nadie transcriba nada. Solo abre su inventario: ni precios ni el resto del levantamiento."
+    />
   )
 }

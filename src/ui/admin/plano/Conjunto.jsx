@@ -4,7 +4,7 @@ import { useSurvey } from '../../../store/survey'
 import { planoVacio } from '../../../sync/eventos'
 import { diagnosticoLux, luxDelCuarto } from './luz'
 import { tipoPorNombre } from './catalogo'
-import { disponerPlanta } from './disponer'
+import { disponerPlanta, separar } from './disponer'
 
 const EscenaConjunto = lazy(() => import('./EscenaConjunto'))
 
@@ -87,6 +87,19 @@ export default function Conjunto({ rooms, onCerrar, onAbrirCuarto }) {
    * No adivina la casa —eso no se puede— pero saca de la pila inicial, donde
    * todos nacen en el origen y quedan uno encima de otro. De ahí se arrastra.
    */
+  /* Los espacios encimados, si los hay. Cambiar una medida en el editor del
+     cuarto no toca la planta, así que un espacio que creció se mete dentro del
+     vecino sin avisar. No se corrige solo —mover la planta de alguien sin que
+     lo pida es peor— pero sí se avisa y se ofrece el arreglo de un toque. */
+  const encimados = useMemo(() => separar(conPlano), [conPlano])
+
+  const separarTodo = () => {
+    for (const c of conPlano) {
+      const pos = encimados.get(c.room.id)
+      if (pos) setPlano(c.room.id, { ...c.plano, pos }, `Separó ${c.room.nombre} de sus vecinos`)
+    }
+  }
+
   const acomodar = () => {
     const posiciones = disponerPlanta(conPlano)
     for (const c of conPlano) {
@@ -147,6 +160,15 @@ export default function Conjunto({ rooms, onCerrar, onAbrirCuarto }) {
         >
           Acomodar en retícula
         </button>
+
+        {encimados.size > 0 && (
+          <button
+            onClick={separarTodo}
+            className="rounded-lg border border-rose-500/50 bg-rose-500/10 px-2.5 py-1 text-[11.5px] text-rose-300 transition-colors hover:bg-rose-500/20"
+          >
+            {encimados.size} {encimados.size === 1 ? 'espacio encimado' : 'espacios encimados'} · separar
+          </button>
+        )}
 
         <button
           onClick={onCerrar}

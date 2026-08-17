@@ -150,7 +150,6 @@ agregar "$LOGIN_TAB" "Sesión"
 #  lo de cara al cliente
 agregar "$URL/#/"                     "Sitio público"
 agregar "$URL/#/catalogo"             "Catálogo del cliente"
-agregar "$URL/#/cotizacion?d=demo"    "Cotización de ejemplo"
 
 #  operaciones
 agregar "$PANEL/#/admin/proyectos"      "Proyectos"

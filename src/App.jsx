@@ -88,7 +88,10 @@ export default function App() {
     )
   }
 
-  // #/cotizacion?d=<payload> — la cotización viaja dentro del propio enlace
+  /* #/cotizacion?d=<payload> — la cotización viaja dentro del propio enlace.
+     Ya no hay demo: la de ejemplo servía para enseñar el formato una vez y
+     quedarse ahí la volvía la cotización más vista del sitio, con precios
+     inventados. Ahora solo abre lo que se generó de un levantamiento real. */
   if (route.startsWith('#/cotizacion')) {
     const token = new URLSearchParams(route.split('?')[1] ?? '').get('d') ?? ''
     return (

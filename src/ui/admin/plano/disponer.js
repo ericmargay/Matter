@@ -385,3 +385,74 @@ export function disponerPlanta(cuartos, anchoObjetivo = 14) {
 
   return posiciones
 }
+
+/* ── que no se encimen ────────────────────────────────────────── */
+
+/**
+ * Separa los espacios que quedaron montados uno sobre otro.
+ *
+ * Hace falta porque las medidas se cambian DESPUÉS de acomodar la planta: uno
+ * entra a la sala, jala la cota de 4 a 6 metros, y ese metro y medio nuevo se
+ * mete dentro de la cocina de al lado sin avisar. En el plano general se ve
+ * como si los dos cuartos compartieran suelo, que es justo lo que un plano no
+ * debe permitirse decir.
+ *
+ * El método es el de siempre para esto: mientras haya un par encimado, se
+ * empujan por el eje donde menos hay que moverlos. Empujar por el eje de menor
+ * traslape conserva la forma que ya tenía la planta —lo acomodado a mano no se
+ * deshace— en vez de recalcularla desde cero.
+ *
+ * @param cuartos  [{ room, plano }] de un mismo piso hacia arriba
+ * @param holgura  pasillo mínimo entre espacios, en metros
+ * @returns Map roomId → [x, z] solo para los que hubo que mover
+ */
+export function separar(cuartos, holgura = 0.6) {
+  const caja = (c) => {
+    const [x, z] = c.plano.pos ?? [0, 0]
+    return { id: c.room.id, x, z, w: c.plano.ancho + holgura, h: c.plano.largo + holgura, piso: c.plano.piso ?? 0 }
+  }
+
+  const cajas = cuartos.map(caja)
+  const movido = new Set()
+
+  // 40 pasadas alcanzan de sobra para una planta de casa; el tope solo evita
+  // que un caso raro deje el ciclo corriendo
+  for (let pasada = 0; pasada < 40; pasada++) {
+    let hubo = false
+
+    for (let i = 0; i < cajas.length; i++) {
+      for (let j = i + 1; j < cajas.length; j++) {
+        const a = cajas[i]
+        const b = cajas[j]
+        if (a.piso !== b.piso) continue
+
+        const dx = (a.w + b.w) / 2 - Math.abs(a.x - b.x)
+        const dz = (a.h + b.h) / 2 - Math.abs(a.z - b.z)
+        if (dx <= 0 || dz <= 0) continue // no se tocan
+
+        hubo = true
+        // dos cuartos exactamente encimados no tienen dirección: se desempata
+        const signoX = a.x === b.x ? (i < j ? -1 : 1) : Math.sign(a.x - b.x)
+        const signoZ = a.z === b.z ? (i < j ? -1 : 1) : Math.sign(a.z - b.z)
+
+        if (dx < dz) {
+          a.x += (signoX * dx) / 2
+          b.x -= (signoX * dx) / 2
+        } else {
+          a.z += (signoZ * dz) / 2
+          b.z -= (signoZ * dz) / 2
+        }
+        movido.add(a.id)
+        movido.add(b.id)
+      }
+    }
+
+    if (!hubo) break
+  }
+
+  const out = new Map()
+  for (const c of cajas) {
+    if (movido.has(c.id)) out.set(c.id, [Number(c.x.toFixed(2)), Number(c.z.toFixed(2))])
+  }
+  return out
+}

@@ -123,3 +123,44 @@ export async function compactar() {
   await writeFile(tmp, eventos.map((e) => `${JSON.stringify(e)}\n`).join(''), 'utf8')
   await rename(tmp, ARCHIVO)
 }
+
+
+/* ── enlaces cortos ───────────────────────────────────────────────
+   Un catálogo de cliente, un plano o un anexador viajan hoy con doscientos
+   caracteres de token. Por WhatsApp eso se ve a estafa: el cliente recibe un
+   muro de letras y duda antes de tocarlo. Un enlace de siete caracteres se ve
+   a enlace.
+
+   Vive en el mismo registro que todo lo demás —una línea más del JSONL— así
+   que sobrevive el redespliegue sin base de datos aparte, y se puede leer el
+   archivo para saber qué se le mandó a quién y cuándo.  */
+
+const ALFABETO = 'abcdefghijkmnpqrstuvwxyz23456789' // sin l, o, 0, 1: se dictan por teléfono
+
+export function acortar(destino, autor, etiqueta = '') {
+  const ya = eventos.find((e) => e.tipo === 'enlace.corto' && e.datos?.destino === destino)
+  if (ya) return ya.datos.codigo
+
+  let codigo
+  do {
+    codigo = Array.from({ length: 7 }, () => ALFABETO[Math.floor(Math.random() * ALFABETO.length)]).join('')
+  } while (eventos.some((e) => e.tipo === 'enlace.corto' && e.datos?.codigo === codigo))
+
+  registrar({ tipo: 'enlace.corto', datos: { codigo, destino, etiqueta } }, autor)
+  return codigo
+}
+
+export function resolver(codigo) {
+  // el último gana: si un destino se regenera, el código sigue sirviendo
+  for (let i = eventos.length - 1; i >= 0; i--) {
+    const e = eventos[i]
+    if (e.tipo === 'enlace.corto' && e.datos?.codigo === codigo) return e.datos.destino
+  }
+  return null
+}
+
+export function enlacesCortos() {
+  const m = new Map()
+  for (const e of eventos) if (e.tipo === 'enlace.corto') m.set(e.datos.codigo, { ...e.datos, ts: e.ts, autor: e.autor })
+  return [...m.values()].reverse()
+}

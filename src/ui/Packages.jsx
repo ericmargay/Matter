@@ -73,9 +73,7 @@ export default function Packages() {
           Precios en pesos mexicanos, sin IVA, vigentes en zona metropolitana. Fuera del área se cobra viático. El
           levantamiento se descuenta del total si instalas con nosotros.
         {' '}
-          <a href="#/cotizacion?d=demo" className="text-ember underline-offset-2 hover:underline">
-            Así se ve una cotización nuestra →
-          </a></p>
+          </p>
       </Reveal>
     </Section>
   )

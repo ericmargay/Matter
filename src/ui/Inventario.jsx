@@ -59,13 +59,21 @@ const Mini = ({ activo, children, ...props }) => (
 
 /** Una unidad: este aparato en concreto, no "los Echo Dot". */
 function Unidad({ u, indice, total, espacios, nombres, onCambiar, onQuitar }) {
+  const [yendose, setYendose] = useState(false)
   const d = POR_ID[u.id]
   if (!d) return null
+
+  /* Se pinta la salida y se borra al terminar. Sin esto, la lista da un
+     brinco y uno se queda con la duda de qué renglón se fue. */
+  const irse = () => {
+    setYendose(true)
+    setTimeout(onQuitar, 240)
+  }
 
   const set = (parche) => onCambiar({ ...parche, modificado: new Date().toISOString() })
 
   return (
-    <div className="rounded-lg border border-line px-2.5 py-2">
+    <div className={`rounded-lg border border-line px-2.5 py-2 ${yendose ? 'se-va' : ''}`}>
       <div className="flex items-start gap-2">
         <span className="min-w-0 flex-1 text-[12.5px] text-cream">
           {d.label}
@@ -73,12 +81,8 @@ function Unidad({ u, indice, total, espacios, nombres, onCambiar, onQuitar }) {
               "Echo Dot 1 de 1" es ruido */}
           {total > 1 && <span className="text-cream-3"> · {indice} de {total}</span>}
         </span>
-        <button
-          onClick={onQuitar}
-          aria-label={`Quitar ${d.label}`}
-          className="shrink-0 text-[13px] text-cream-3 transition-colors hover:text-ember"
-        >
-          ×
+        <button onClick={irse} aria-label={`Quitar ${d.label}`} className="borrar shrink-0 text-[15px]">
+          <span>×</span>
         </button>
       </div>
 

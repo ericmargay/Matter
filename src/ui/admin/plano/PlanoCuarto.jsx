@@ -727,9 +727,9 @@ function Objetos({ items, seleccion, onSeleccionar, onQuitar }) {
                     <button
                       onClick={() => onQuitar(it.id)}
                       aria-label={`Quitar ${nombre(it)}`}
-                      className="shrink-0 text-[11px] text-cream-3 opacity-0 transition-opacity group-hover:opacity-100 hover:text-ember"
+                      className="borrar shrink-0 text-[13px]"
                     >
-                      ×
+                      <span>×</span>
                     </button>
                   </div>
                 ))}

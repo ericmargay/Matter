@@ -34,7 +34,7 @@ export const PROVEEDORES = [
     entrega: '1–4 días, mismo día en zona centro',
     nota: 'Donde aparece lo que Amazon México no trae, sobre todo Aqara y SwitchBot. Precios se mueven semana a semana.',
     ojo: 'Filtrar por vendedor con reputación verde y revisar que sea versión global, no la china con app aparte.',
-    buscar: (q) => `https://listado.mercadolibre.com.mx/${encodeURIComponent(q.trim().replace(/\s+/g, '-').toLowerCase())}`,
+    buscar: (q) => `https://listado.mercadolibre.com.mx/${slugML(q)}`,
     sitio: 'https://www.mercadolibre.com.mx',
   },
   {
@@ -64,7 +64,7 @@ export const PROVEEDORES = [
     entrega: '12–25 días con envío estándar · 7–10 con el rápido',
     nota: 'Donde el mismo sensor cuesta un tercio. Sirve para los primeros proyectos y para probar un modelo antes de comprometerse: se piden dos, se instalan, y si aguantan se escala.',
     ojo: 'Verificar que diga Matter en la ficha Y en la caja — hay clones con el logo en la foto y sin certificar. Sin factura no hay deducción, y la garantía es devolver a China: para lo que va empotrado en un muro, no vale la pena ahorrar.',
-    buscar: (q) => `https://es.aliexpress.com/w/wholesale-${encodeURIComponent(q.trim().replace(/\s+/g, '-'))}.html`,
+    buscar: (q) => `https://es.aliexpress.com/w/wholesale-${slugML(q)}.html`,
     sitio: 'https://es.aliexpress.com',
   },
   {
@@ -241,8 +241,55 @@ export const proveedoresDe = (device) =>
 
 /** Enlaces de búsqueda listos para abrir. Los marketplaces bloquean el
  *  scrapeo automático, pero una búsqueda en el navegador funciona igual. */
+/* ── cómo se arma la búsqueda ─────────────────────────────────────
+   La versión anterior pegaba marca y nombre tal cual y salían cosas como
+   "Philips Hue Hue White & Color A19": la marca repetida porque el nombre ya
+   la trae, y un `&` que MercadoLibre convierte en %26 dentro de la ruta y
+   rompe el listado. Buscar con eso no devuelve el producto, devuelve ruido.
+
+   Aquí se limpia antes de mandar: se quita la marca si el nombre ya la dice,
+   se tiran los símbolos que ningún buscador entiende, y se recorta lo que
+   solo tiene sentido en nuestra ficha —"(kit 9)", "2m", "4ª gen"—.  */
+
+const SIMBOLOS = /[&()[\]{}/\\+·—–"'°]/g
+
+/** Palabras que no ayudan a encontrar el producto en una tienda. */
+const RELLENO = /\b(kit|pack|paquete|gen|generación|incluye|con)\b/gi
+
+export function consultaDe(device, proveedor) {
+  // `busqueda` permite corregir a mano el caso raro donde el nombre comercial
+  // no se parece a como lo listan las tiendas
+  if (device.busqueda) return device.busqueda
+
+  const marca = (device.brand ?? '').trim()
+  let nombre = (device.name ?? '').trim()
+
+  // si el nombre ya empieza con la marca —o con su última palabra— no se repite
+  const ultima = marca.split(/\s+/).pop()?.toLowerCase() ?? ''
+  const yaLaTrae = nombre.toLowerCase().startsWith(marca.toLowerCase()) ||
+    (ultima.length >= 3 && nombre.toLowerCase().startsWith(ultima))
+
+  // en tienda de electrónica se busca la pieza, no la marca comercial
+  const conMarca = proveedor === 'unit' || proveedor === 'ag' ? false : !yaLaTrae
+
+  // el paréntesis se va entero: "(kit 9)" dejaba un "9" suelto que ensucia
+  nombre = nombre.replace(/\([^)]*\)/g, ' ').replace(SIMBOLOS, ' ').replace(RELLENO, ' ')
+  const q = `${conMarca ? marca : ''} ${nombre}`.replace(/\s+/g, ' ').trim()
+  return q
+}
+
+/** El slug de MercadoLibre: sin acentos, sin símbolos, con guiones. */
+const slugML = (q) =>
+  q
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+
 export const linksDeCompra = (device) =>
   proveedoresDe(device).map((p) => ({
     ...p,
-    url: p.buscar(p.id === 'unit' || p.id === 'ag' ? device.name : `${device.brand} ${device.name}`),
+    url: p.buscar(consultaDe(device, p.id)),
   }))

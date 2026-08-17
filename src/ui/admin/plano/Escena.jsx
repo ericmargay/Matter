@@ -613,6 +613,7 @@ function Tramo({ tramo }) {
  * centímetros.
  */
 const FLECHA = 0.2 // largo del cono de la punta
+const HUECO = 0.95 // el claro que se le deja a la cifra en medio de la línea
 
 function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar }) {
   const arrastrando = useRef(false)
@@ -649,11 +650,19 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar }) {
 
   return (
     <group position={pos} rotation={rot}>
-      {/* la línea, sin meterse dentro de los conos */}
-      <mesh renderOrder={2}>
-        <boxGeometry args={[Math.max(0.01, largoCota - FLECHA * 2), activa ? 0.035 : 0.02, 0.02]} />
-        {mat()}
-      </mesh>
+      {/* La línea se parte en dos y deja hueco en medio para el número.
+          Antes la cifra caía encima del trazo y se leía a medias — el dato
+          que más se mira del plano, tapado por su propia flecha. */}
+      {[-1, 1].map((sg) => {
+        const util = Math.max(0.01, largoCota - FLECHA * 2)
+        const tramo = Math.max(0.01, (util - HUECO) / 2)
+        return (
+          <mesh key={sg} position={[(sg * (tramo + HUECO)) / 2, 0, 0]} renderOrder={2}>
+            <boxGeometry args={[tramo, activa ? 0.035 : 0.02, 0.02]} />
+            {mat()}
+          </mesh>
+        )
+      })}
       {flecha(1)}
       {flecha(-1)}
 
@@ -677,7 +686,7 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar }) {
         ))}
 
       <Text
-        position={[0, 0.06, 0]}
+        position={[0, 0.09, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         fontSize={activa ? 0.3 : 0.26}
         color={color}

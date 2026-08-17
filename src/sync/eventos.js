@@ -165,6 +165,11 @@ export function aplicar(estado, ev) {
     case 'servicios.editar':
       return toca((p) => ({ ...p, extras: { ...p.extras, ...ev.datos.patch } }))
 
+    // los enlaces cortos viven en el registro pero no son parte del
+    // levantamiento: no tocan el estado de ningún proyecto
+    case 'enlace.corto':
+      return estado
+
     case 'perfil.editar':
       return toca((p) => ({ ...p, perfil: { ...PERFIL_VACIO, ...p.perfil, ...ev.datos.patch } }))
 

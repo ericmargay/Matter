@@ -335,3 +335,77 @@ canvas {
   .logo-halo { opacity: 0.3; }
   * { scroll-behavior: auto !important; }
 }
+
+/* ── borrar: el botón crece y se llena antes de soltar ────────────
+   Borrar es lo único que no se deshace en el levantamiento. Un tache de
+   diez píxeles al lado de cada renglón se toca sin querer, sobre todo en
+   iPad y sobre todo en obra. Este crece al acercarse, se pinta de rojo y
+   se rellena en medio segundo: hay tiempo de sobra para retirar el dedo, y
+   el que sí quiere borrar apenas lo nota. */
+.borrar {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.4rem;
+  overflow: hidden;
+  color: var(--color-cream-3);
+  transition:
+    width 0.18s var(--ease-out-expo),
+    height 0.18s var(--ease-out-expo),
+    color 0.18s ease,
+    background-color 0.18s ease;
+}
+.borrar > * {
+  position: relative;
+  z-index: 1;
+}
+.borrar:hover,
+.borrar:focus-visible {
+  width: 2rem;
+  height: 2rem;
+  color: #fff;
+  background-color: color-mix(in srgb, oklch(0.62 0.21 17) 22%, transparent);
+}
+
+/* el relleno que avanza mientras el puntero sigue encima */
+.borrar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: oklch(0.58 0.21 17);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.5s linear;
+}
+.borrar:hover::after,
+.borrar:focus-visible::after {
+  transform: scaleY(1);
+}
+
+/* al soltarlo, la pieza se va encogiendo en vez de desaparecer de golpe */
+@keyframes se-va {
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+    max-height: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+.se-va {
+  animation: se-va 0.26s var(--ease-out-expo) forwards;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .borrar,
+  .borrar::after,
+  .se-va {
+    transition: none;
+    animation: none;
+  }
+}

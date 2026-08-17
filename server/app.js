@@ -4,7 +4,7 @@ import express from 'express'
 
 import { MAX_EDAD_COOKIE, USERS, crearSesion, leerTokenCliente, tokenCliente, sesionDeCookies, verificar } from './auth.js'
 import { SOCIOS } from './socios.js'
-import { registrar, verEstado, verEventos } from './registro.js'
+import { acortar, enlacesCortos, registrar, resolver, verEstado, verEventos } from './registro.js'
 
 /**
  * La aplicación HTTP.
@@ -152,6 +152,30 @@ export function crearApp() {
   app.get('/api/estado', (req, res) => {
     if (!req.sesion) return res.status(401).json({ error: 'sin sesión' })
     res.json({ estado: verEstado(), eventos: verEventos().length })
+  })
+
+  /* ── el acortador ──
+     `/i/<codigo>` redirige. Va antes que los estáticos y usa un prefijo de
+     una letra para no chocar con ninguna ruta del sitio. */
+  app.get('/i/:codigo', (req, res) => {
+    const destino = resolver(req.params.codigo)
+    if (!destino) return res.status(404).redirect('/')
+    res.redirect(302, destino)
+  })
+
+  app.post('/api/acortar', (req, res) => {
+    if (!req.sesion) return res.status(401).json({ error: 'sin sesión' })
+    const { destino, etiqueta } = req.body ?? {}
+    if (typeof destino !== 'string' || !/^https?:\/\/|^\//.test(destino) || destino.length > 2000) {
+      return res.status(400).json({ error: 'destino inválido' })
+    }
+    const codigo = acortar(destino, req.sesion.u, String(etiqueta ?? '').slice(0, 80))
+    res.json({ codigo })
+  })
+
+  app.get('/api/enlaces', (req, res) => {
+    if (!req.sesion) return res.status(401).json({ error: 'sin sesión' })
+    res.json({ enlaces: enlacesCortos() })
   })
 
   // el enlace se arma del lado del servidor: la firma nunca sale al navegador
