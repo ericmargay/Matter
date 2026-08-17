@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, RoundedBox, Text } from '@react-three/drei'
+import { OrbitControls, RoundedBox, Text, TransformControls } from '@react-three/drei'
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
@@ -127,8 +127,9 @@ function Mueble({ item, seleccionado, onTomar, colocando }) {
   return (
     <group
       ref={g}
-      position={[item.x, 0, item.z]}
+      position={[item.x, item.y ?? 0, item.z]}
       rotation={[0, item.rot ?? 0, 0]}
+      scale={item.esc ?? 1}
       onPointerDown={(e) => {
         /* Colocando, el clic tiene que llegar al piso: si un mueble lo
            intercepta, seleccionarlo en vez de soltar la pieza se siente roto
@@ -334,6 +335,8 @@ function Equipo({ item, encendido, seleccionado, onTomar, modo, alto, conSombra,
   return (
     <group
       position={[item.x, item.y ?? 0, item.z]}
+      rotation={[0, item.rot ?? 0, 0]}
+      scale={item.esc ?? 1}
       onPointerDown={(e) => {
         /* Colocando, el clic tiene que llegar al piso: si un mueble lo
            intercepta, seleccionarlo en vez de soltar la pieza se siente roto
@@ -620,37 +623,77 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar }) {
 }
 
 /**
- * Anillo para girar la pieza seleccionada.
+ * El gizmo de la pieza seleccionada.
  *
- * Se arrastra el aro y el objeto gira siguiendo al puntero. Funciona igual con
- * el dedo, que era el punto: en un iPad, de pie en la obra, no hay tecla R.
+ * Antes había un aro para girar y el arrastre sobre el piso para mover, los
+ * dos vivos al mismo tiempo. En la práctica eso significaba que acomodar algo
+ * lo giraba de pasada y no había forma de hacer una sola cosa a la vez.
+ *
+ * Ahora hay un modo a la vez —mover, girar o escalar— como en cualquier editor
+ * 3D, con la tecla al lado (G, R, S). Cuesta un clic más y a cambio cada gesto
+ * hace exactamente lo que dice.
+ *
+ * El truco de implementación: `TransformControls` necesita un objeto de la
+ * escena, y las piezas se dibujan dentro de un `map`. En vez de sacar una ref
+ * por pieza, se pone un nodo vacío en la transformación de la seleccionada, se
+ * le cuelga el gizmo, y de ahí se copian los valores de vuelta al modelo.
  */
-function AroGiro({ item, onGirar }) {
-  const activo = useRef(false)
+const MODOS_GIZMO = { mover: 'translate', girar: 'rotate', escalar: 'scale' }
+
+function Gizmo({ item, modo, onParchar, onFin }) {
+  const proxy = useRef()
+  const [listo, setListo] = useState(false)
+
+  // el nodo tiene que existir antes de que TransformControls intente tomarlo
+  useLayoutEffect(() => {
+    if (!proxy.current) return
+    proxy.current.position.set(item.x, item.y ?? 0, item.z)
+    proxy.current.rotation.set(0, item.rot ?? 0, 0)
+    const e = item.esc ?? 1
+    proxy.current.scale.set(e, e, e)
+    setListo(true)
+  }, [item.id, item.x, item.y, item.z, item.rot, item.esc])
+
+  const aplicar = () => {
+    const o = proxy.current
+    if (!o) return
+    if (modo === 'mover') {
+      onParchar(item.id, {
+        x: Number(o.position.x.toFixed(3)),
+        y: Number(Math.max(0, o.position.y).toFixed(3)),
+        z: Number(o.position.z.toFixed(3)),
+      })
+    } else if (modo === 'girar') {
+      onParchar(item.id, { rot: Number(o.rotation.y.toFixed(4)) })
+    } else {
+      // escala uniforme: un mueble estirado en un solo eje se ve roto, y el
+      // catálogo no tiene proporciones que valga la pena deformar
+      const e = Math.max(0.2, Math.min(4, (o.scale.x + o.scale.y + o.scale.z) / 3))
+      onParchar(item.id, { esc: Number(e.toFixed(3)) })
+    }
+  }
 
   return (
-    <mesh
-      position={[item.x, 0.03, item.z]}
-      rotation={[-Math.PI / 2, 0, 0]}
-      onPointerDown={(e) => {
-        e.stopPropagation()
-        activo.current = true
-        e.target.setPointerCapture(e.pointerId)
-      }}
-      onPointerMove={(e) => {
-        if (!activo.current) return
-        e.stopPropagation()
-        // el ángulo del puntero respecto al centro de la pieza ES la rotación
-        onGirar(item.id, Math.atan2(e.point.x - item.x, e.point.z - item.z))
-      }}
-      onPointerUp={(e) => {
-        activo.current = false
-        e.target.releasePointerCapture(e.pointerId)
-      }}
-    >
-      <ringGeometry args={[0.55, 0.72, 28]} />
-      <meshBasicMaterial color="#7fa6ff" transparent opacity={0.55} side={THREE.DoubleSide} depthTest={false} />
-    </mesh>
+    <>
+      <object3D ref={proxy} />
+      {listo && proxy.current && (
+        <TransformControls
+          object={proxy.current}
+          mode={MODOS_GIZMO[modo] ?? 'translate'}
+          size={0.9}
+          space="world"
+          /* girar solo en Y: inclinar un mueble no es algo que se haga en un
+             levantamiento, y los otros dos anillos solo estorban al agarrar */
+          showX={modo !== 'girar'}
+          showY={modo !== 'mover'}
+          showZ={modo !== 'girar'}
+          translationSnap={0.05}
+          rotationSnap={Math.PI / 72}
+          onObjectChange={aplicar}
+          onMouseUp={onFin}
+        />
+      )}
+    </>
   )
 }
 
@@ -850,10 +893,12 @@ export default function Escena({
   modo = 'noche',
   onAccionar,
   onMedida,
-  onGirar,
   conRegla,
   midiendo,
   onMidiendo,
+  modoGizmo,
+  onParchar,
+  onFinGizmo,
 }) {
   const { ancho, largo, alto } = plano
   const [arrastrando, setArrastrando] = useState(null)
@@ -1000,7 +1045,9 @@ export default function Escena({
 
       {/* el aro de giro solo en lo seleccionado: cuatro aros a la vez serían
           ruido y además se pelearían con el arrastre */}
-      {onGirar && seleccionado && !midiendo && <AroGiro item={seleccionado} onGirar={onGirar} />}
+      {seleccionado && !midiendo && modoGizmo && (
+        <Gizmo item={seleccionado} modo={modoGizmo} onParchar={onParchar} onFin={onFinGizmo} />
+      )}
 
       <Postproceso modo={modo} />
 

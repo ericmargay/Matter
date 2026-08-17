@@ -85,6 +85,10 @@ export default function PlanoCuarto({ room, onCerrar }) {
      arrastra — cambiar una medida es un gesto de precisión, y compartirlo con
      el orbitado hacía imposible atinarle. */
   const [midiendo, setMidiendo] = useState(null)
+
+  /* Un modo a la vez. Es la diferencia entre acomodar y pelearse: con mover y
+     girar vivos al mismo tiempo, arrastrar una pieza la giraba de pasada. */
+  const [modoGizmo, setModoGizmo] = useState('mover')
   const [simulando, setSimulando] = useState(false)
   const [apagados, setApagados] = useState(() => new Set())
   const [uniendo, setUniendo] = useState(null)
@@ -102,7 +106,10 @@ export default function PlanoCuarto({ room, onCerrar }) {
       }
       if (midiendo) return
       if ((e.key === 'Delete' || e.key === 'Backspace') && seleccion) quitar(seleccion)
-      if (e.key === 'r' && seleccion) girar(seleccion)
+      // g/r/s como en cualquier editor 3D: la mano ya sabe dónde están
+      if (e.key === 'g') setModoGizmo('mover')
+      if (e.key === 'r') setModoGizmo('girar')
+      if (e.key === 's') setModoGizmo('escalar')
     }
     document.addEventListener('keydown', onKey)
     return () => {
@@ -212,7 +219,6 @@ export default function PlanoCuarto({ room, onCerrar }) {
   }
 
   /** Giro libre, en radianes: lo usa el aro que se arrastra en la escena. */
-  const girarA = (id, rad) => parchar(id, { rot: rad })
 
   const girar = (id) => {
     const it = plano.items.find((i) => i.id === id)
@@ -419,6 +425,13 @@ export default function PlanoCuarto({ room, onCerrar }) {
             </p>
           </Grupo>
 
+          <Objetos
+            items={plano.items}
+            seleccion={seleccion}
+            onSeleccionar={seleccionar}
+            onQuitar={quitar}
+          />
+
           <Grupo titulo={`Equipo levantado · ${porColocar.length}`}>
             {porColocar.length === 0 && (
               <p className="text-[11px] text-cream-3">
@@ -469,10 +482,32 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onAccionar={accionar}
               conRegla={conRegla}
               onMedida={medir}
-              onGirar={girarA}
               midiendo={midiendo}
               onMidiendo={setMidiendo}
+              modoGizmo={modoGizmo}
+              onParchar={parchar}
+              onFinGizmo={() => guardar({ items: plano.items }, `Acomodó una pieza en ${room.nombre}`)}
             />
+
+          {seleccion && !midiendo && (
+            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-0.5 rounded-xl border border-line bg-ink/92 p-1 backdrop-blur">
+              {[
+                ['mover', 'Mover', 'G'],
+                ['girar', 'Girar', 'R'],
+                ['escalar', 'Escalar', 'S'],
+              ].map(([id, label, tecla]) => (
+                <button
+                  key={id}
+                  onClick={() => setModoGizmo(id)}
+                  className={`rounded-lg px-2.5 py-1 text-[11.5px] transition-colors ${
+                    modoGizmo === id ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/10'
+                  }`}
+                >
+                  {label} <span className="opacity-50">{tecla}</span>
+                </button>
+              ))}
+            </div>
+          )}
           </Suspense>
 
           {uniendo && (
@@ -638,6 +673,80 @@ function Automatizaciones({ nombre }) {
   )
 }
 
+/* ── árbol de objetos ─────────────────────────────────────────── */
+
+/**
+ * Todo lo que hay en el espacio, en una lista.
+ *
+ * Faltaba lo más básico de un editor 3D: saber qué hay. Las piezas chicas
+ * —un sensor de cinco centímetros montado en un plafón, el módulo detrás de un
+ * apagador— son imposibles de tomar con el puntero en un plano isométrico, y
+ * si no se pueden tomar tampoco se pueden editar. Desde la lista sí.
+ *
+ * Va agrupado por lo que es cada cosa, no por jerarquía de escena: aquí nadie
+ * anida un sofá dentro de otro, y en cambio sí importa separar el mobiliario
+ * del equipo que se cotiza.
+ */
+const GRUPOS = [
+  ['equipo', 'Equipo'],
+  ['mueble', 'Mobiliario'],
+  ['punto', 'Instalación'],
+]
+
+function Objetos({ items, seleccion, onSeleccionar, onQuitar }) {
+  const nombre = (it) =>
+    it.clase === 'mueble'
+      ? (MUEBLES[it.tipo]?.label ?? it.tipo)
+      : it.clase === 'equipo'
+        ? (DEVICE_BY_ID[it.deviceId]?.name ?? 'Equipo')
+        : it.tipo
+
+  return (
+    <Grupo titulo={`Objetos · ${items.length}`}>
+      <div className="space-y-2">
+        {GRUPOS.map(([clase, label]) => {
+          const del = items.filter((i) => i.clase === clase)
+          if (!del.length) return null
+          return (
+            <div key={clase}>
+              <p className="mb-1 text-[10px] tracking-[0.12em] text-cream-3 uppercase">
+                {label} · {del.length}
+              </p>
+              <div className="space-y-0.5">
+                {del.map((it) => (
+                  <div
+                    key={it.id}
+                    className={`group flex items-center gap-1 rounded px-1.5 py-1 transition-colors ${
+                      seleccion === it.id ? 'bg-ember/20 text-ember' : 'text-cream-2 hover:bg-cream/8'
+                    }`}
+                  >
+                    <button
+                      onClick={() => onSeleccionar(it.id)}
+                      className="min-w-0 flex-1 truncate text-left text-[11.5px]"
+                    >
+                      {nombre(it)}
+                    </button>
+                    <span className="shrink-0 text-[9.5px] tabular-nums text-cream-3">
+                      {it.x.toFixed(1)}, {it.z.toFixed(1)}
+                    </span>
+                    <button
+                      onClick={() => onQuitar(it.id)}
+                      aria-label={`Quitar ${nombre(it)}`}
+                      className="shrink-0 text-[11px] text-cream-3 opacity-0 transition-opacity group-hover:opacity-100 hover:text-ember"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </Grupo>
+  )
+}
+
 /* ── inspector de la pieza seleccionada ───────────────────────── */
 
 function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuitarTramo, onModulo }) {
@@ -671,17 +780,28 @@ function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuita
         </button>
       </div>
 
-      {/* Todo a mano además del arrastre: cuando el cliente da una medida
+      {/* Todo a mano además del gizmo: cuando el cliente da una medida
           exacta —"el buró va a 40 cm de la pared"— hay que poder escribirla. */}
-      <div className="mt-2 grid grid-cols-3 gap-1.5">
+      <p className="mt-2 mb-1 text-[10px] tracking-[0.12em] text-cream-3 uppercase">Transformación</p>
+      <div className="grid grid-cols-3 gap-1.5">
         <Medida label="X m" value={item.x} min={-50} onChange={(v) => onParchar(item.id, { x: v })} />
+        <Medida label="Y m" value={item.y ?? 0} min={0} onChange={(v) => onParchar(item.id, { y: v })} />
         <Medida label="Z m" value={item.z} min={-50} onChange={(v) => onParchar(item.id, { z: v })} />
+      </div>
+      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
         <Medida
           label="Giro °"
           value={Math.round((((item.rot ?? 0) * 180) / Math.PI) % 360)}
           step={5}
           min={-360}
           onChange={(v) => onParchar(item.id, { rot: (v * Math.PI) / 180 })}
+        />
+        <Medida
+          label="Escala"
+          value={item.esc ?? 1}
+          step={0.05}
+          min={0.2}
+          onChange={(v) => onParchar(item.id, { esc: Math.max(0.2, Math.min(4, v)) })}
         />
       </div>
 
