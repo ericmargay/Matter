@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, Text } from '@react-three/drei'
+import { OrbitControls, RoundedBox, Text } from '@react-three/drei'
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
@@ -35,18 +35,36 @@ const matMuroDe = (color) => {
   if (!murosCache.has(color)) {
     murosCache.set(
       color,
-      new THREE.MeshStandardMaterial({ color, roughness: 0.95, side: THREE.BackSide }),
+      // roughness 1 y metalness 0: mate puro. El brillo especular es lo
+      // primero que delata el render "de programa" y lo que aleja el plano
+      // del dibujo isométrico que queremos.
+      new THREE.MeshStandardMaterial({ color, roughness: 1, metalness: 0, side: THREE.BackSide }),
     )
   }
   return murosCache.get(color)
 }
 
-const matPiso = new THREE.MeshStandardMaterial({ color: '#5a5048', roughness: 0.9 })
+const matPiso = new THREE.MeshStandardMaterial({ color: '#a86a35', roughness: 1, metalness: 0 })
 
 /* ── cascarón ─────────────────────────────────────────────────── */
 
-function Cuarto({ ancho, largo, alto, color = '#6d6259', grosor = 0.12 }) {
+/**
+ * El cuarto como caja de juguete.
+ *
+ * El canto redondeado es casi todo el cambio de estilo. Un cuarto de aristas
+ * vivas se lee como levantamiento técnico; el mismo cuarto con las esquinas
+ * suavizadas se lee como maqueta, y la maqueta es la que el cliente entiende
+ * sin que nadie se la explique.
+ *
+ * El redondeo de abajo se esconde bajo el piso —la caja arranca 20 cm más
+ * abajo y es 20 cm más alta— porque si no, la curva deja una rendija de luz
+ * justo en el zócalo.
+ */
+const HUNDIDO = 0.2
+
+function Cuarto({ ancho, largo, alto, color = '#3d3a37', grosor = 0.12 }) {
   const t = grosor
+  const radio = Math.min(0.22, alto / 6)
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow material={matPiso}>
@@ -54,24 +72,61 @@ function Cuarto({ ancho, largo, alto, color = '#6d6259', grosor = 0.12 }) {
       </mesh>
 
       {/* una sola caja abierta: más barato que cuatro muros y siempre cierra */}
-      <mesh position={[0, alto / 2, 0]} material={matMuroDe(color)} receiveShadow>
-        <boxGeometry args={[ancho + t, alto, largo + t]} />
-      </mesh>
+      <RoundedBox
+        args={[ancho + t, alto + HUNDIDO, largo + t]}
+        radius={radio}
+        smoothness={4}
+        steps={1}
+        position={[0, (alto - HUNDIDO) / 2, 0]}
+        material={matMuroDe(color)}
+        receiveShadow
+      />
 
-      <gridHelper args={[Math.max(ancho, largo), Math.round(Math.max(ancho, largo) * 2), '#3a332d', '#2a2521']} position={[0, 0.002, 0]} />
+      {/* La retícula se escala a la planta en vez de ser cuadrada: antes usaba
+          el lado mayor y se desbordaba por el lado corto, y las líneas
+          sobrantes se leían como si el piso siguiera más allá del muro. */}
+      <gridHelper
+        args={[1, Math.round(Math.max(ancho, largo) * 2), '#7a5334', '#8a5f3c']}
+        scale={[ancho, 1, largo]}
+        position={[0, 0.002, 0]}
+      />
     </group>
   )
+}
+
+/* ── sombras ──────────────────────────────────────────────────── */
+
+/**
+ * Marca todo lo que cuelga de un grupo para que proyecte sombra.
+ *
+ * Los muebles son componentes ajenos —los mismos del recorrido— y no reciben
+ * `castShadow` por prop. Recorrer el subárbol una vez al montar sale más
+ * barato que tocar cada primitiva de cada mueble, y así un mueble nuevo
+ * proyecta sombra sin que nadie se acuerde de ponérselo.
+ */
+function useSombras(ref) {
+  useLayoutEffect(() => {
+    ref.current?.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = true
+        o.receiveShadow = true
+      }
+    })
+  })
 }
 
 /* ── un mueble ────────────────────────────────────────────────── */
 
 function Mueble({ item, seleccionado, onTomar, colocando }) {
+  const g = useRef()
+  useSombras(g)
   const def = MUEBLES[item.tipo]
   if (!def) return null
   const { Comp, w, d } = def
 
   return (
     <group
+      ref={g}
       position={[item.x, 0, item.z]}
       rotation={[0, item.rot ?? 0, 0]}
       onPointerDown={(e) => {
@@ -455,43 +510,79 @@ function Tramo({ tramo }) {
  * 2— porque con el dedo en un iPad nadie le atina a una línea de dos
  * centímetros.
  */
-function Cota({ eje, ancho, largo, onMedir }) {
-  const activo = useRef(false)
-  const [tomada, setTomada] = useState(false)
+const FLECHA = 0.2 // largo del cono de la punta
+
+function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar }) {
+  const arrastrando = useRef(false)
 
   const esX = eje === 'x'
+  const activa = midiendo === eje
+  const otraActiva = midiendo && !activa
+
   const largoCota = esX ? ancho : largo
   const fuera = (esX ? largo : ancho) / 2 + 0.55
   const pos = esX ? [0, 0.02, fuera] : [-fuera, 0.02, 0]
   const rot = esX ? [0, 0, 0] : [0, Math.PI / 2, 0]
-  const color = tomada ? '#ff9a4d' : '#9c9388'
+  const color = activa ? '#ff9a4d' : '#9c9388'
+  const opacidad = otraActiva ? 0.2 : 1
 
+  const mat = (extra = {}) => (
+    <meshBasicMaterial color={color} transparent opacity={opacidad} depthTest={false} {...extra} />
+  )
+
+  /* La punta apoya EN el borde, no lo rebasa. El cono se dibuja desde su
+     centro, así que hay que recularlo medio cono: si se centra en el borde,
+     la mitad de la flecha queda fuera de la medida que dice representar —que
+     es justo lo que se veía. */
   const flecha = (signo) => (
-    <mesh position={[(signo * largoCota) / 2, 0, 0]} rotation={[0, 0, signo > 0 ? -Math.PI / 2 : Math.PI / 2]}>
-      <coneGeometry args={[0.07, 0.2, 8]} />
-      <meshBasicMaterial color={color} />
+    <mesh
+      position={[(signo * (largoCota - FLECHA)) / 2, 0, 0]}
+      rotation={[0, 0, signo > 0 ? -Math.PI / 2 : Math.PI / 2]}
+      renderOrder={2}
+    >
+      <coneGeometry args={[activa ? 0.09 : 0.07, FLECHA, 8]} />
+      {mat()}
     </mesh>
   )
 
   return (
     <group position={pos} rotation={rot}>
-      {/* la línea */}
-      <mesh>
-        <boxGeometry args={[largoCota, 0.02, 0.02]} />
-        <meshBasicMaterial color={color} />
+      {/* la línea, sin meterse dentro de los conos */}
+      <mesh renderOrder={2}>
+        <boxGeometry args={[Math.max(0.01, largoCota - FLECHA * 2), activa ? 0.035 : 0.02, 0.02]} />
+        {mat()}
       </mesh>
       {flecha(1)}
       {flecha(-1)}
 
-      {/* los topes contra el muro */}
+      {/* los topes contra el muro: marcan dónde cae de verdad la medida */}
       {[1, -1].map((sg) => (
-        <mesh key={sg} position={[(sg * largoCota) / 2, 0, -0.28]}>
+        <mesh key={sg} position={[(sg * largoCota) / 2, 0, -0.28]} renderOrder={2}>
           <boxGeometry args={[0.02, 0.02, 0.56]} />
-          <meshBasicMaterial color={color} transparent opacity={0.5} />
+          {mat({ opacity: opacidad * 0.5 })}
         </mesh>
       ))}
 
-      <Text position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.26} color={color} anchorX="center">
+      {/* el tirador solo aparece en modo medida: fuera de él la cota es una
+          anotación, y una anotación que parece botón invita a jalarla sin
+          querer mientras se acomoda un mueble */}
+      {activa &&
+        [1, -1].map((sg) => (
+          <mesh key={sg} position={[(sg * (largoCota - FLECHA)) / 2, 0, 0]} renderOrder={3}>
+            <sphereGeometry args={[0.13, 14, 10]} />
+            <meshBasicMaterial color="#ff9a4d" transparent opacity={0.55} depthTest={false} />
+          </mesh>
+        ))}
+
+      <Text
+        position={[0, 0.06, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        fontSize={activa ? 0.3 : 0.26}
+        color={color}
+        fillOpacity={opacidad}
+        anchorX="center"
+        renderOrder={3}
+      >
         {largoCota.toFixed(2)} m
       </Text>
 
@@ -499,13 +590,18 @@ function Cota({ eje, ancho, largo, onMedir }) {
       <mesh
         visible={false}
         onPointerDown={(e) => {
+          if (otraActiva) return
           e.stopPropagation()
-          activo.current = true
-          setTomada(true)
+          /* Tocarla ENTRA al modo medida y de una vez empieza a jalar, para
+             que el gesto de una sola pasada también funcione. El modo se
+             queda puesto al soltar: ajustar dos metros a ojo casi nunca sale
+             al primer tirón. */
+          if (!activa) onEntrar(eje)
+          arrastrando.current = true
           e.target.setPointerCapture(e.pointerId)
         }}
         onPointerMove={(e) => {
-          if (!activo.current) return
+          if (!arrastrando.current) return
           e.stopPropagation()
           /* Se mide desde el centro del cuarto: el muro de enfrente no se
              mueve, así que la medida es el doble de lo que se jaló. */
@@ -513,12 +609,11 @@ function Cota({ eje, ancho, largo, onMedir }) {
           onMedir(eje, Math.max(1.2, Math.abs(v) * 2))
         }}
         onPointerUp={(e) => {
-          activo.current = false
-          setTomada(false)
+          arrastrando.current = false
           e.target.releasePointerCapture(e.pointerId)
         }}
       >
-        <boxGeometry args={[largoCota + 0.4, 0.3, 0.3]} />
+        <boxGeometry args={[largoCota + 0.4, 0.4, 0.4]} />
       </mesh>
     </group>
   )
@@ -556,6 +651,109 @@ function AroGiro({ item, onGirar }) {
       <ringGeometry args={[0.55, 0.72, 28]} />
       <meshBasicMaterial color="#7fa6ff" transparent opacity={0.55} side={THREE.DoubleSide} depthTest={false} />
     </mesh>
+  )
+}
+
+/* ── el sol y el cielo ────────────────────────────────────────── */
+
+/**
+ * La luz que NO viene de las piezas.
+ *
+ * Hasta aquí el plano se iluminaba solo con los lúmenes del catálogo, y eso
+ * tenía un defecto de fondo: de día un cuarto real no se ve por sus focos, se
+ * ve por la ventana. Por eso "día" salía plano y "noche" salía a cueva.
+ *
+ * Este sol es ficticio a propósito. El número de lux del recuadro sigue
+ * saliendo del cálculo fotométrico de siempre —esa es la parte que se le
+ * cotiza al cliente— pero lo que se ve en pantalla ya es una puesta de luz
+ * dirigida: sol cálido de un lado, cielo frío de relleno. Es la diferencia
+ * entre un render correcto y un render que se entiende.
+ */
+function Rig({ modo, ancho, largo, alto }) {
+  const dia = modo === 'dia'
+  const lejos = Math.max(ancho, largo)
+
+  return (
+    <>
+      {/* El cielo tiñe de azul lo que el sol no toca. Es lo que hace que una
+          sombra se vea fría en vez de gris sucia. */}
+      <hemisphereLight
+        args={dia ? ['#cfe0f5', '#9a6b42', 1.5] : ['#2a3550', '#120f0c', 0.2]}
+        position={[0, alto, 0]}
+      />
+      {/* El relleno de noche va corto a propósito. Subirlo aplana el cuarto y
+          las lámparas dejan de mandar — y si de noche no manda la lámpara, el
+          modo noche no está respondiendo nada. */}
+      <ambientLight intensity={dia ? 0.55 : 0.12} />
+
+      {dia && (
+        /* El sol entra por la izquierda, NO por donde mira la cámara. Puesto
+           del lado del observador las sombras caen detrás de cada mueble y no
+           se ve una sola: el plano parecía no tener sombras cuando en realidad
+           las tenía todas escondidas. */
+        <directionalLight
+          position={[-lejos * 0.95, alto * 2.4, lejos * 1.05]}
+          intensity={3.1}
+          color="#ffd7a3"
+          castShadow
+          shadow-mapSize={[1024, 1024]}
+          shadow-bias={-0.0012}
+          shadow-normalBias={0.02}
+          shadow-camera-left={-lejos}
+          shadow-camera-right={lejos}
+          shadow-camera-top={lejos}
+          shadow-camera-bottom={-lejos}
+          shadow-camera-near={0.1}
+          shadow-camera-far={lejos * 6}
+        />
+      )}
+    </>
+  )
+}
+
+/**
+ * Lo que entra por una ventana.
+ *
+ * La ventana no es un hueco de verdad —el muro es una sola caja— así que la
+ * luz no se recorta con su marco. Lo que se hace es poner un foco cálido y
+ * ancho justo por fuera del vidrio, apuntando al centro del cuarto: entra el
+ * lavado de luz desde ese muro y los muebles proyectan su sombra hacia
+ * adentro, que es lo que el ojo lee como "por ahí entra el sol".
+ */
+function LuzVentana({ item, ancho, largo, alto, dia }) {
+  const luz = useRef()
+  const blanco = useRef()
+
+  useFrame(() => {
+    if (luz.current && blanco.current) luz.current.target = blanco.current
+  })
+
+  if (!dia) return null
+
+  // hacia dónde mira la ventana: su rotación dice a qué muro está pegada
+  const r = item.rot ?? 0
+  const nx = Math.sin(r)
+  const nz = Math.cos(r)
+  const fuera = Math.max(ancho, largo) * 0.55
+
+  return (
+    <group>
+      <object3D ref={blanco} position={[item.x - nx * 2, alto * 0.25, item.z - nz * 2]} />
+      <spotLight
+        ref={luz}
+        position={[item.x + nx * fuera, alto * 0.85, item.z + nz * fuera]}
+        angle={0.75}
+        penumbra={1}
+        distance={0}
+        decay={0}
+        intensity={2.4}
+        color="#ffe2b8"
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0015}
+        shadow-normalBias={0.02}
+      />
+    </group>
   )
 }
 
@@ -654,12 +852,23 @@ export default function Escena({
   onMedida,
   onGirar,
   conRegla,
+  midiendo,
+  onMidiendo,
 }) {
   const { ancho, largo, alto } = plano
   const [arrastrando, setArrastrando] = useState(null)
   const orbita = useRef()
 
+  /* En modo medida la cámara se queda quieta. Era el estorbo principal:
+     `stopPropagation` de r3f no llega hasta OrbitControls —escucha el DOM del
+     canvas, no el raycaster— así que jalar la cota giraba la escena al mismo
+     tiempo y no había forma de atinarle a la medida. */
+  useEffect(() => {
+    if (orbita.current) orbita.current.enabled = !midiendo
+  }, [midiendo])
+
   const tomar = (id) => {
+    if (midiendo) return
     onSeleccionar(id)
     setArrastrando(id)
     if (orbita.current) orbita.current.enabled = false
@@ -667,7 +876,10 @@ export default function Escena({
 
   const soltar = () => {
     setArrastrando(null)
-    if (orbita.current) orbita.current.enabled = true
+    // en modo medida la órbita sigue apagada: este pointerup es el de haber
+    // soltado la cota, y volver a encenderla aquí era lo que hacía que la
+    // cámara girara en cuanto se intentaba el segundo tirón
+    if (orbita.current) orbita.current.enabled = !midiendo
   }
 
   const mover = (x, z) => {
@@ -681,6 +893,14 @@ export default function Escena({
 
   const seleccionado = plano.items.find((i) => i.id === seleccion)
   const exposicion = useMemo(() => exposicionDe(plano, modo), [plano, modo])
+
+  /* Las ventanas colocadas son las que dejan entrar el sol. Si el cuarto no
+     tiene ninguna, de día se ilumina solo con el cielo — que es exactamente lo
+     que pasa en un cuarto interior, así que se ve como debe verse. */
+  const ventanas = useMemo(
+    () => plano.items.filter((i) => i.clase === 'mueble' && (i.tipo === 'ventana' || i.tipo === 'persiana')),
+    [plano.items],
+  )
   const encuadre = Math.hypot(ancho + 2.2, largo + 2.2)
 
   /* Cuáles proyectan sombra: las primeras MAX_SOMBRAS luminarias dirigidas.
@@ -697,7 +917,7 @@ export default function Escena({
 
   return (
     <Canvas
-      shadows={modo === 'noche' ? 'soft' : false}
+      shadows="soft"
       dpr={[1, 1.75]}
       /* Sin tone mapping aquí a propósito: el EffectComposer lo apaga en el
          renderer y lo aplica al final de la cadena, como efecto. */
@@ -706,27 +926,19 @@ export default function Escena({
          el encuadre justo al cuarto, en un espacio chico la medida quedaba
          cortada — que es justo lo que uno va a mirar. */
       camera={{ position: [encuadre * 0.8, encuadre * 0.85, encuadre * 0.8], fov: 42 }}
-      onPointerMissed={() => onSeleccionar(null)}
+      onPointerMissed={() => !midiendo && onSeleccionar(null)}
       onPointerUp={soltar}
     >
       <color attach="background" args={['#0a0908']} />
 
-      {/* de día entra luz pareja para revisar la traza; de noche manda lo
-          que de verdad iluminan las piezas, que es la pregunta del plano */}
-      {modo === 'dia' ? (
-        <>
-          <ambientLight intensity={1.3} />
-          <directionalLight position={[6, 10, 4]} intensity={1.7} />
-        </>
-      ) : (
-        <>
-          {/* relleno de noche: sube desde 0.06 porque ahora la exposición ya
-              no quema, y sin algo de relleno los rincones sin lámpara salían
-              en negro absoluto —que tampoco es lo que se ve de noche. */}
-          <ambientLight intensity={0.35} />
-          <hemisphereLight args={['#2a3550', '#120f0c', 0.45]} />
-        </>
-      )}
+      <Rig modo={modo} ancho={ancho} largo={largo} alto={alto} />
+      {/* Sombras suaves de verdad. Cuestan un poco de GPU y son de lo que más
+          aporta al look de maqueta: el canto duro de una sombra dura es lo que
+          hace que un render se vea barato. */}
+
+      {ventanas.map((v) => (
+        <LuzVentana key={v.id} item={v} ancho={ancho} largo={largo} alto={alto} dia={modo === 'dia'} />
+      ))}
 
       <Cuarto ancho={ancho} largo={largo} alto={alto} color={plano.muroColor} grosor={plano.muroGrosor} />
 
@@ -737,7 +949,7 @@ export default function Escena({
         onSoltar={soltar}
         onColocar={onColocar}
         arrastrando={arrastrando}
-        colocando={colocando}
+        colocando={colocando && !midiendo}
       />
 
       {plano.items.map((it) => {
@@ -781,14 +993,14 @@ export default function Escena({
           justo en el borde donde uno quiere soltar la pieza */}
       {onMedida && !colocando && (
         <>
-          <Cota eje="x" ancho={ancho} largo={largo} onMedir={onMedida} />
-          <Cota eje="z" ancho={ancho} largo={largo} onMedir={onMedida} />
+          <Cota eje="x" ancho={ancho} largo={largo} onMedir={onMedida} midiendo={midiendo} onEntrar={onMidiendo} />
+          <Cota eje="z" ancho={ancho} largo={largo} onMedir={onMedida} midiendo={midiendo} onEntrar={onMidiendo} />
         </>
       )}
 
       {/* el aro de giro solo en lo seleccionado: cuatro aros a la vez serían
           ruido y además se pelearían con el arrastre */}
-      {onGirar && seleccionado && <AroGiro item={seleccionado} onGirar={onGirar} />}
+      {onGirar && seleccionado && !midiendo && <AroGiro item={seleccionado} onGirar={onGirar} />}
 
       <Postproceso modo={modo} />
 

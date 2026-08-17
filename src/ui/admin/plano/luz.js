@@ -139,8 +139,10 @@ export const ALTURA_POR_FORMA = { punto: 2.4, panel: 1.6, lineal: 2.2 }
  */
 // Radiancia a la que queremos que caiga el cuarto medio. Pasa de 1 porque el
 // tone mapping es AGX, que tiene toe: sin este margen los planos salen
-// apagados aunque el número de lux diga que están bien.
-const OBJETIVO = 2.4
+// apagados aunque el número de lux diga que están bien. Pero tampoco de más:
+// si de noche el cuarto queda tan revelado como de día, el modo noche no
+// distingue nada y las lámparas dejan de leerse como la fuente.
+const OBJETIVO = 1.5
 const ALBEDO = 0.75 // muros claros, que es lo que hay en estos planos
 
 export function exposicionDe(plano = {}, modo = 'noche') {

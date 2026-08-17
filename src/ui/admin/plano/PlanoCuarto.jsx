@@ -79,6 +79,12 @@ export default function PlanoCuarto({ room, onCerrar }) {
      negra, y esa no es la primera impresión de una herramienta que funciona.
      El modo noche es para lo otro: juzgar si con estas piezas se ve. */
   const [modo, setModo] = useState('dia')
+
+  /* Qué cota se está editando: null | 'x' | 'z'. Es un modo aparte a
+     propósito. Mientras dura, la cámara no gira y nada se selecciona ni se
+     arrastra — cambiar una medida es un gesto de precisión, y compartirlo con
+     el orbitado hacía imposible atinarle. */
+  const [midiendo, setMidiendo] = useState(null)
   const [simulando, setSimulando] = useState(false)
   const [apagados, setApagados] = useState(() => new Set())
   const [uniendo, setUniendo] = useState(null)
@@ -89,10 +95,12 @@ export default function PlanoCuarto({ room, onCerrar }) {
     document.body.style.overflow = 'hidden'
     const onKey = (e) => {
       if (e.key === 'Escape') {
-        if (uniendo) setUniendo(null)
+        if (midiendo) setMidiendo(null)
+        else if (uniendo) setUniendo(null)
         else if (colocando) setColocando(null)
         else onCerrar()
       }
+      if (midiendo) return
       if ((e.key === 'Delete' || e.key === 'Backspace') && seleccion) quitar(seleccion)
       if (e.key === 'r' && seleccion) girar(seleccion)
     }
@@ -462,6 +470,8 @@ export default function PlanoCuarto({ room, onCerrar }) {
               conRegla={conRegla}
               onMedida={medir}
               onGirar={girarA}
+              midiendo={midiendo}
+              onMidiendo={setMidiendo}
             />
           </Suspense>
 
@@ -492,7 +502,31 @@ export default function PlanoCuarto({ room, onCerrar }) {
             </div>
           )}
 
-          {colocando && (
+          {midiendo && (
+            <div className="absolute inset-x-0 top-3 flex justify-center">
+              <div className="flex items-center gap-2 rounded-full border border-ember bg-ink/92 py-1.5 pr-1.5 pl-3.5 text-[12px] text-ember backdrop-blur">
+                <span>
+                  Midiendo el {midiendo === 'x' ? 'ancho' : 'largo'} · jala la flecha
+                </span>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="1.2"
+                  value={midiendo === 'x' ? plano.ancho : plano.largo}
+                  onChange={(e) => Number(e.target.value) >= 1.2 && medir(midiendo, Number(e.target.value))}
+                  className="w-20 rounded-lg border border-ember/40 bg-ink px-2 py-1 text-[12px] tabular-nums text-cream"
+                />
+                <button
+                  onClick={() => setMidiendo(null)}
+                  className="rounded-full bg-ember px-3 py-1 text-[12px] font-medium text-ink"
+                >
+                  Listo
+                </button>
+              </div>
+            </div>
+          )}
+
+          {colocando && !midiendo && (
             <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
               <span className="rounded-full border border-ember bg-ink/90 px-3 py-1.5 text-[12px] text-ember">
                 Haz clic en el piso para colocar · Esc para cancelar
