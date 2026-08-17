@@ -1,7 +1,7 @@
 import { WebSocketServer } from 'ws'
 
 import { sesionDeCookies } from './auth.js'
-import { registrar, ultimoSeq, verEstado, verEventos } from './registro.js'
+import { alRegistrar, registrar, ultimoSeq, verEstado, verEventos } from './registro.js'
 import { SOCIOS, socio } from './socios.js'
 
 /**
@@ -62,6 +62,10 @@ export function montarSync(server) {
     for (const ws of wss.clients) if (ws.readyState === ws.OPEN) ws.send(texto)
   }
 
+  /* Un solo lugar de retransmisión para todo lo que se registre, venga de
+     donde venga: del socket de un socio o del HTTP del anexador del cliente. */
+  alRegistrar((ev) => aTodos({ t: 'ev', evento: ev }))
+
   /** Va a todos, incluido quien acaba de entrar: él también quiere saber
    *  quién más está adentro. */
   const presencia = () =>
@@ -99,11 +103,11 @@ export function montarSync(server) {
 
       const { tipo, proyectoId, datos, id } = msg.evento
       // el autor sale de la sesión: lo que el cliente diga al respecto se tira
-      const ev = registrar({ id, tipo, proyectoId, datos }, sesion.u)
-
-      // se devuelve también a quien lo mandó, para que cambie su copia
-      // optimista por la sellada (con seq, autor y hora del servidor)
-      aTodos({ t: 'ev', evento: ev })
+      /* No se retransmite aquí: lo hace el oyente del registro, que ve TODOS
+         los eventos —los del socket y los que entran por HTTP—. Así el
+         anexador del cliente aparece en el panel del socio al instante, sin
+         recargar, igual que si lo hubiera capturado él. */
+      registrar({ id, tipo, proyectoId, datos }, sesion.u)
     })
 
     ws.on('close', () => {

@@ -4,6 +4,7 @@ import { USING_DEMO_RATES, quote } from '../../content/pricing'
 import { paramsDelHash, useProyecto, useSurvey } from '../../store/survey'
 import Logo from '../Logo'
 import Catalog from './Catalog'
+import Escuela from './Escuela'
 import { Avatar } from './Historial'
 import Projects from './Projects'
 import Suppliers from './Suppliers'
@@ -27,6 +28,9 @@ import Survey from './Survey'
 const SECCIONES = [
   { id: 'proyectos', label: 'Proyectos' },
   { id: 'levantamiento', label: 'Levantamiento', requiereProyecto: true },
+  /* No pide proyecto abierto: se consulta parado en la sala del cliente, con
+     el teléfono, antes de haber creado nada. */
+  { id: 'escuela', label: 'Qué saber' },
   { id: 'catalogo', label: 'Catálogo' },
   { id: 'proveedores', label: 'Proveedores' },
 ]
@@ -296,6 +300,8 @@ export default function Admin({ section = 'proyectos' }) {
           <SinProyecto />
         ) : tab === 'proyectos' ? (
           <Projects />
+        ) : tab === 'escuela' ? (
+          <Escuela />
         ) : tab === 'catalogo' ? (
           <Catalog />
         ) : tab === 'proveedores' ? (

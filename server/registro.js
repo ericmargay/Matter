@@ -72,6 +72,19 @@ export async function cargar() {
  * El autor y la hora los pone el servidor, no el cliente: es lo único que
  * hace que el historial signifique algo.
  */
+/* Quién quiere enterarse de cada evento nuevo.
+   Existe porque los eventos ya no entran solo por el socket: el anexador del
+   cliente los mete por HTTP, sin sesión y sin socket abierto. Antes eso
+   quedaba invisible hasta que alguien recargara el panel — el socio veía una
+   versión vieja del proyecto sin saberlo. Ahora el registro es el que avisa,
+   y da igual por dónde haya entrado el cambio. */
+const oyentes = new Set()
+
+export function alRegistrar(fn) {
+  oyentes.add(fn)
+  return () => oyentes.delete(fn)
+}
+
 export function registrar(parcial, autor) {
   const ev = {
     ...parcial,
@@ -92,6 +105,16 @@ export function registrar(parcial, autor) {
   cola = cola
     .then(() => appendFile(ARCHIVO, `${JSON.stringify(ev)}\n`, 'utf8'))
     .catch((e) => console.error('registro: no se pudo escribir', e))
+
+  // un oyente que truena no debe tumbar el registro: lo importante ya se
+  // escribió, avisar es lo secundario
+  for (const fn of oyentes) {
+    try {
+      fn(ev)
+    } catch (e) {
+      console.error('registro: un oyente falló', e)
+    }
+  }
 
   return ev
 }

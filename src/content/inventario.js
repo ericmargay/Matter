@@ -36,7 +36,7 @@ const D = (id, label, extra = {}) => ({ id, label, ...extra })
 export const FAMILIAS = [
   {
     id: 'moviles',
-    label: 'Teléfonos',
+    label: 'Teléfonos inteligentes',
     ayuda: 'Con cuál va a controlar la casa cada quien. Es lo que decide el ecosistema.',
     items: [
       D('iphone', 'iPhone', {
@@ -61,7 +61,7 @@ export const FAMILIAS = [
   },
   {
     id: 'tabletas',
-    label: 'Tabletas y relojes',
+    label: 'Tabletas y smart watches',
     ayuda: 'Una tableta fija en la pared es el mejor tablero de la casa. El reloj es el control más rápido.',
     items: [
       D('ipad', 'iPad', {
@@ -289,6 +289,22 @@ export function migrar(inv = []) {
 
 /** Aparatos personales: son los que tiene sentido asignarle a alguien. */
 export const esPersonal = (id) => ['moviles', 'tabletas'].includes(POR_ID[id]?.familia)
+
+/**
+ * Lo que anda en la bolsa no vive en un cuarto.
+ *
+ * El selector de espacio NO se esconde para estos: se desactiva y se dice por
+ * qué. Esconderlo deja la duda de si se olvidó preguntar; desactivarlo con su
+ * razón cierra el tema — y es un dato menos que el cliente siente que dejó a
+ * medias.
+ */
+export const sinEspacio = (id) => {
+  const d = POR_ID[id]
+  if (!d) return null
+  if (d.familia === 'moviles') return 'Un teléfono anda contigo: no se levanta por espacio.'
+  if (['appleWatch', 'galaxyWatch'].includes(id)) return 'El reloj trae puesto el control: tampoco vive en un cuarto.'
+  return null
+}
 
 /** Resumen por familia, para el encabezado de la sección. */
 export function porFamilia(inv = []) {

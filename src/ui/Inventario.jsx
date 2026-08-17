@@ -4,6 +4,7 @@ import {
   FAMILIAS,
   POR_ID,
   esPersonal,
+  sinEspacio,
   leerInventario,
   migrar,
   unidadVacia,
@@ -71,6 +72,7 @@ function Unidad({ u, indice, total, espacios, nombres, onCambiar, onQuitar }) {
   }
 
   const set = (parche) => onCambiar({ ...parche, modificado: new Date().toISOString() })
+  const noVa = sinEspacio(u.id)
 
   return (
     <div className={`rounded-lg border border-line px-2.5 py-2 ${yendose ? 'se-va' : ''}`}>
@@ -102,13 +104,26 @@ function Unidad({ u, indice, total, espacios, nombres, onCambiar, onQuitar }) {
       {espacios.length > 0 && (
         <div className="mt-1.5">
           <span className="text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">Dónde está</span>
-          <div className="mt-0.5 flex flex-wrap gap-1">
-            {espacios.map((e) => (
-              <Mini key={e} activo={u.espacio === e} onClick={() => set({ espacio: u.espacio === e ? '' : e })}>
-                {e}
-              </Mini>
-            ))}
-          </div>
+          {noVa ? (
+            <div className="mt-0.5">
+              <div className="pointer-events-none flex flex-wrap gap-1 opacity-35">
+                {espacios.slice(0, 4).map((e) => (
+                  <span key={e} className="rounded border border-line px-1.5 py-0.5 text-[10.5px] text-cream-3">
+                    {e}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-1 text-[10px] leading-snug text-cream-3">{noVa}</p>
+            </div>
+          ) : (
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {espacios.map((e) => (
+                <Mini key={e} activo={u.espacio === e} onClick={() => set({ espacio: u.espacio === e ? '' : e })}>
+                  {e}
+                </Mini>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
