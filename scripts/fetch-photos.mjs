@@ -88,6 +88,67 @@ const CON_AMBIENTE = new Set([
    `q` es lo que se busca en el catálogo del fabricante; se afina a mano
    cuando el nombre comercial no coincide con el del catálogo. */
 const FUENTES = {
+  /* ── Sonoff ──
+     sonoff.tech es Shopify y publica su catálogo entero. Los títulos de la
+     tienda ya no usan los códigos con los que se conoce el producto en
+     México —el ZBMINI L2 ahora se llama "Fusion Series Orb-ZBW1L"— así que
+     la búsqueda va por el código, que sí sobrevive en el título. */
+  'sonoff-zbmini-l2': { shop: 'sonoff.tech', q: 'ZBMINIL2' },
+  'sonoff-minir4m': { shop: 'sonoff.tech', q: 'MINIR4M' },
+  'sonoff-minirbs': { shop: 'sonoff.tech', q: 'Roller Shutter Switch' },
+  'sonoff-mini-pm': { shop: 'sonoff.tech', q: 'MINI PM' },
+  'sonoff-m5': { shop: 'sonoff.tech', q: 'SwitchMan' },
+  'sonoff-s60-matter': { shop: 'sonoff.tech', q: 'S60' },
+  'sonoff-nspanel-pro': { shop: 'sonoff.tech', q: 'NSPanel Pro' },
+  'sonoff-ihost': { shop: 'sonoff.tech', q: 'iHost' },
+  'sonoff-zbbridge-u': { shop: 'sonoff.tech', q: 'Zigbee Bridge Ultra' },
+  'sonoff-snzb-03p': { shop: 'sonoff.tech', q: 'SNZB-03P' },
+  'sonoff-snzb-04p': { shop: 'sonoff.tech', q: 'SNZB-04P' },
+  'sonoff-snzb-02p': { shop: 'sonoff.tech', q: 'AirGuard TH Lite' },
+  'sonoff-snzb-05p': { shop: 'sonoff.tech', q: 'Water Leak Sensor' },
+  'sonoff-dongle-max': { shop: 'sonoff.tech', q: 'Zigbee/Thread USB Dongle' },
+  'sonoff-mini-dim': { sinFoto: 'el atenuador no está en la tienda de Sonoff: se vende por distribuidor' },
+  'sonoff-garage': { sinFoto: 'el controlador de portón no aparece en sonoff.tech' },
+  'sonoff-b05-bl': { sinFoto: 'los focos salieron del catálogo en línea de Sonoff' },
+  'sonoff-b02-bl': { sinFoto: 'los focos salieron del catálogo en línea de Sonoff' },
+  'sonoff-l3-pro': { sinFoto: 'la tira L3 ya no está en sonoff.tech' },
+  'sonoff-cam-gk': { sinFoto: 'la tienda solo trae las cámaras nuevas; la GK-200MP2-B es la que se consigue en México y su foto sería de otro modelo' },
+
+  /* ── interiorismo ──
+     Las plantas sí tienen fuente honesta: son especies, y Commons tiene
+     material libre y bien identificado de cada una. Lo demás —arte, tapetes
+     de telar, cestos— es pieza única de taller: no hay foto que represente
+     "el" producto, y poner la de otro sería mentir sobre lo que se entrega. */
+  'int-monstera': { commons: 'Monstera deliciosa' },
+  'int-ficus': { commons: 'Ficus lyrata' },
+  'int-sansevieria': { commons: 'Sansevieria trifasciata' },
+  'int-pothos': { commons: 'Epipremnum aureum' },
+  'int-olivo': { commons: 'Olea europaea potted' },
+  'int-maceta': { sinFoto: 'pieza de taller: cada una es distinta' },
+  'int-cuadro-serie': { sinFoto: 'obra original: la foto se toma de la pieza que se escoja' },
+  'int-cuadro-marco': { sinFoto: 'servicio, no producto' },
+  'int-muro-galeria': { sinFoto: 'composición a la medida del muro' },
+  'int-tapete-lana': { sinFoto: 'telar artesanal: cada tapete es único' },
+  'int-tapete-yute': { sinFoto: 'sin fabricante único' },
+  'int-tapete-lavable': { sinFoto: 'sin fabricante único' },
+  'int-tapete-entrada': { sinFoto: 'sin fabricante único' },
+  'int-basurero-sep': { sinFoto: 'sin fabricante único' },
+  'int-basurero-sensor': { sinFoto: 'sin fabricante único' },
+  'int-basurero-bano': { sinFoto: 'sin fabricante único' },
+  'int-cesto-ropa': { sinFoto: 'pieza de taller: cada una es distinta' },
+
+  /* ── lo genérico ── */
+  'nfc-tags': { sinFoto: 'etiqueta blanca sin marca' },
+  'regleta-smart': { sinFoto: 'marca variable según lo que haya en el canal' },
+  'gas-detector-lp': { sinFoto: 'marca variable; la foto se pone cuando se cierre el modelo' },
+  'gas-detector-nat': { sinFoto: 'marca variable; la foto se pone cuando se cierre el modelo' },
+  'valvula-gas': { sinFoto: 'la instala un certificado de gas: el modelo lo define él' },
+  /* Nanoleaf vende Shapes como un solo producto con hexágonos, triángulos y
+     mini-triángulos de variante, así que la tienda no da una foto propia de
+     los triángulos. Usar la de los hexágonos sería enseñar otra forma, que es
+     justo lo que el cliente pidió distinto. */
+  'nanoleaf-triangles': { sinFoto: 'Nanoleaf publica una sola foto para toda la línea Shapes y es de hexágonos' },
+
   /* Iluminación */
   'hue-a19': { sinFoto: 'philips-hue.com devuelve su tarjeta social genérica, no el producto' },
   'hue-bridge': { commons: 'Philips Hue Bridge' },
