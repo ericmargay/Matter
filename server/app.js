@@ -170,7 +170,13 @@ export function crearApp() {
     if (!id) return res.status(404).json({ error: 'enlace inválido' })
     const pr = verEstado().proyectos.find((p) => p.id === id)
     if (!pr) return res.status(404).json({ error: 'no existe' })
-    res.json({ proyecto: pr.nombre, cliente: pr.cliente?.nombre ?? '', inv: pr.perfil?.inv ?? [] })
+    res.json({
+      proyecto: pr.nombre,
+      cliente: pr.cliente?.nombre ?? '',
+      inv: pr.perfil?.inv ?? [],
+      // los espacios del proyecto, para que el cliente ubique cada aparato
+      espacios: (pr.rooms ?? []).map((r) => r.nombre),
+    })
   })
 
   app.post('/api/inventario/:token', (req, res) => {
@@ -181,12 +187,18 @@ export function crearApp() {
     const limpio = inv
       .filter((l) => l && typeof l.id === 'string' && l.id.length < 40)
       .map((l) => ({
+        uid: String(l.uid ?? '').slice(0, 40),
         id: l.id,
-        cant: Math.max(0, Math.min(99, Number(l.cant) || 0)),
         modelo: String(l.modelo ?? '').slice(0, 60),
+        // de quién es y en qué espacio está: el cliente los contesta mejor
+        // que nosotros, porque es su casa
+        quien: String(l.quien ?? '').slice(0, 40),
+        espacio: String(l.espacio ?? '').slice(0, 60),
         // la nota la escribimos nosotros ("el suyo y el de Gaby"); si el
         // cliente toca su lista no tiene por qué perderse
         nota: String(l.nota ?? '').slice(0, 200),
+        creado: String(l.creado ?? '').slice(0, 40) || new Date().toISOString(),
+        modificado: l.modificado ? String(l.modificado).slice(0, 40) : null,
       }))
     registrar({ tipo: 'perfil.editar', proyectoId: id, datos: { patch: { inv: limpio } } }, 'cliente')
     res.json({ ok: true, inv: limpio })

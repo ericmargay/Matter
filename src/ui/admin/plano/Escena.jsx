@@ -92,7 +92,7 @@ function Muro({ ancho, alto, grosor, color, pos, rot, normal }) {
   )
 }
 
-function Cuarto({ ancho, largo, alto, color = '#6d6259', grosor = 0.12 }) {
+function Cuarto({ ancho, largo, alto, color = '#3f4a63', grosor = 0.12 }) {
   const t = Math.max(0.04, grosor)
   const muros = [
     { ancho: ancho + t * 2, pos: [0, -(largo + t) / 2], rot: 0, normal: [0, -1] },
@@ -162,7 +162,7 @@ function Contorno({ item, seleccionado }) {
       renderOrder={4}
     >
       <lineBasicMaterial
-        color={seleccionado ? '#ff9a4d' : '#7fa6ff'}
+        color={seleccionado ? '#4d9fff' : '#5eead4'}
         transparent
         opacity={seleccionado ? 0.95 : 0.6}
         depthTest={false}
@@ -252,7 +252,7 @@ function Cuerpo({ device, params, encendido, color, apertura }) {
 
   const mat = (
     <meshStandardMaterial
-      color={params ? '#f2ece3' : '#2a2521'}
+      color={params ? '#f2ece3' : '#25304a'}
       emissive={prendido ? color : '#000000'}
       emissiveIntensity={prendido ? 2.2 : 0}
       roughness={0.5}
@@ -496,7 +496,7 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
 
 /* ── enchufes y apagadores ────────────────────────────────────── */
 
-const COLOR_PUNTO = { enchufe: '#7fa6ff', apagador: '#ffc48a', salida: '#8fd694' }
+const COLOR_PUNTO = { enchufe: '#5eead4', apagador: '#a3c9ff', salida: '#8fd694' }
 
 /**
  * Un punto eléctrico. El apagador, además, se puede tocar.
@@ -538,7 +538,7 @@ function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colo
       <mesh>
         <boxGeometry args={[0.09, 0.13, 0.03]} />
         <meshStandardMaterial
-          color={COLOR_PUNTO[item.tipo] ?? '#9c9388'}
+          color={COLOR_PUNTO[item.tipo] ?? '#8896ac'}
           emissive={activo ? COLOR_PUNTO[item.tipo] : '#000'}
           emissiveIntensity={activo ? 1.4 : 0}
         />
@@ -557,7 +557,7 @@ function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colo
       {esApagador && controla && (
         <mesh position={[0, 0.1, 0.02]}>
           <ringGeometry args={[0.035, 0.05, 16]} />
-          <meshBasicMaterial color={activo ? '#8fd694' : '#5a5048'} transparent opacity={0.9} />
+          <meshBasicMaterial color={activo ? '#8fd694' : '#2b3448'} transparent opacity={0.9} />
         </mesh>
       )}
       {seleccionado && (
@@ -625,7 +625,7 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar }) {
   const fuera = (esX ? largo : ancho) / 2 + 0.55
   const pos = esX ? [0, 0.02, fuera] : [-fuera, 0.02, 0]
   const rot = esX ? [0, 0, 0] : [0, Math.PI / 2, 0]
-  const color = activa ? '#ff9a4d' : '#9c9388'
+  const color = activa ? '#4d9fff' : '#8896ac'
   const opacidad = otraActiva ? 0.2 : 1
 
   const mat = (extra = {}) => (
@@ -955,7 +955,7 @@ function Postproceso({ modo }) {
         distanceFalloff={1}
         quality="medium"
         halfRes
-        color="#0a0908"
+        color="#070a10"
       />
       {/* El umbral se calibró contra la exposición: con 0.35 florecía todo lo
           que pasara de medio tono —o sea, los muros iluminados— y el cuarto
@@ -1081,7 +1081,7 @@ export default function Escena({
       onPointerMissed={() => !midiendo && onSeleccionar(null)}
       onPointerUp={soltar}
     >
-      <color attach="background" args={['#0a0908']} />
+      <color attach="background" args={['#080b12']} />
 
       <Rig modo={modo} ancho={ancho} largo={largo} alto={alto} />
       {/* Sombras suaves de verdad. Cuestan un poco de GPU y son de lo que más

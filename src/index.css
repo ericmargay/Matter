@@ -2,26 +2,40 @@
 
 /* ─────────────────────────────────────────────────────────────
    Matter — sistema de diseño
-   La tesis visual: la casa es cálida (ámbar, madera, crema),
-   la red es fría (azul thread). Todo el sitio vive en esa tensión.
+
+   La tesis visual es la noche, no la madera. El fondo café leía a viejo —a
+   catálogo impreso— y la casa inteligente no es eso: es una casa de noche,
+   con luz artificial. De ahí el azul profundo del fondo y el azul eléctrico
+   de lo que responde al tacto.
+
+   Los NOMBRES de los tokens no cambiaron a propósito, solo sus valores. Así
+   el cambio es de verdad estructural: se toca un archivo y se mueve el sitio
+   entero, el panel y los planos, sin ir a corregir clases una por una.
+   `ember` ya no es ámbar y `cream` ya no es crema — pero renombrar trescientos
+   usos para ganar exactitud en la etiqueta no vale el riesgo de romper algo.
    ───────────────────────────────────────────────────────────── */
 @theme {
-  --color-ink: #0a0908;
-  --color-ink-2: #131110;
-  --color-ink-3: #1d1a17;
-  --color-line: #2a2521;
+  /* el fondo: azul de medianoche, no negro. El negro puro aplana las sombras */
+  --color-ink: #080b12;
+  --color-ink-2: #0f1420;
+  --color-ink-3: #18202f;
+  --color-line: #25304a;
 
-  --color-cream: #f7f2ea;
-  /* cream-2 y cream-3 quedan sobre #131110: 8.9:1 y 5.4:1 de contraste */
-  --color-cream-2: #d6cdc0;
-  --color-cream-3: #9c9388;
+  /* el texto es frío: un blanco cálido sobre azul se ve sucio */
+  --color-cream: #eef3fb;
+  /* cream-2 y cream-3 quedan sobre #0f1420: 11.4:1 y 5.6:1 de contraste */
+  --color-cream-2: #c2ccdd;
+  --color-cream-3: #8896ac;
 
-  --color-ember: #ff9a4d;
-  --color-ember-2: #ffc48a;
-  --color-ember-3: #7a3f14;
+  /* el acento primario: azul eléctrico. Es lo que responde al tacto */
+  --color-ember: #4d9fff;
+  --color-ember-2: #a3c9ff;
+  --color-ember-3: #14396e;
 
-  --color-thread: #7fa6ff;
-  --color-thread-2: #b9cdff;
+  /* el secundario se va al verde azulado para que se distinga del primario
+     sin salirse de la familia fría */
+  --color-thread: #5eead4;
+  --color-thread-2: #a7f3e4;
 
   --font-display: 'Fraunces', ui-serif, Georgia, serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;

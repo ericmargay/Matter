@@ -75,6 +75,12 @@ export async function cargar() {
 export function registrar(parcial, autor) {
   const ev = {
     ...parcial,
+    /* El id lo pone el cliente cuando el evento viene del navegador, para
+       poder reconciliar lo que mandó con lo que le regresa el hub. Pero el
+       inventario del cliente entra por HTTP y no trae ninguno, y sin id dos
+       eventos se ven iguales: el historial los pintaba con la misma llave de
+       React y se quejaba. Lo generamos aquí, que es donde siempre hay uno. */
+    id: parcial.id ?? `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
     seq: ++seq,
     autor,
     ts: new Date().toISOString(),

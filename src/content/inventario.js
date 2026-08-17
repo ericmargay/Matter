@@ -100,7 +100,19 @@ export const FAMILIAS = [
     ayuda: 'Varias teles y aparatos de streaming ya hacen de hub sin costo extra.',
     items: [
       D('appleTv', 'Apple TV 4K', { eco: 'apple', border: true, matter: true, modelos: ['Con Ethernet', 'Solo WiFi', 'No sé cuál'] }),
-      D('fireTv', 'Amazon Fire TV Stick', { eco: 'alexa', modelos: ['4K Max', '4K', 'Lite', 'No sé cuál'] }),
+      D('fireTv', 'Amazon Fire TV Stick', {
+        eco: 'alexa',
+        modelos: ['4K Max', '4K', 'Lite', 'No sé cuál'],
+        /* Sí controla la tele, y vale precisar cómo porque la diferencia
+           importa a la hora de prometer. El Stick manda por HDMI-CEC: prende
+           y apaga la tele y le sube el volumen, y con un Echo cerca eso se
+           pide por voz —"Alexa, prende la tele"—. Lo que NO hace es de hub:
+           no trae Thread, ni Zigbee, ni emisor infrarrojo, así que no puede
+           con el minisplit, la barra vieja ni el decodificador de cable. Para
+           eso hace falta un Fire TV Cube. */
+        puede: 'Prende, apaga y sube volumen de la tele por HDMI-CEC. Con un Echo cerca, por voz.',
+        noPuede: 'No hace de hub: sin Thread, sin Zigbee y sin infrarrojo. Para el minisplit o el cable hace falta un Fire TV Cube.',
+      }),
       D('chromecast', 'Chromecast / Google TV', { eco: 'google', matter: true }),
       D('rokuTv', 'Roku', { eco: 'otro' }),
       D('teleSamsung', 'Tele Samsung', { eco: 'google', border: true, matter: true, modelos: ['2024 o más nueva', '2022–2023', 'Más vieja', 'No sé cuál'] }),
@@ -156,23 +168,64 @@ export const POR_ID = Object.fromEntries(FAMILIAS.flatMap((f) => f.items.map((i)
 /* ── el inventario de un proyecto ─────────────────────────────── */
 
 /**
- * Una línea es `{ id, cant, modelo, nota }`. Se guarda como lista y no como
- * mapa para que dos iPhone de modelos distintos puedan convivir — que es el
- * caso normal: el de él y el de ella casi nunca son iguales.
+ * Una unidad por aparato, no una línea con cantidad.
+ *
+ * Empezó siendo `{ id, cant }` y estaba mal: dos Echo Dot en la misma casa
+ * casi nunca son de la misma generación, y la generación es justo lo que
+ * decide si ese aparato trae Zigbee o no. Con una cuenta agrupada esa
+ * diferencia no cabe. Con una unidad por aparato, cada uno lleva su modelo,
+ * su dueño y el espacio donde está.
+ *
+ * `creado` y `modificado` van en la unidad porque este inventario lo llenan
+ * dos manos —nosotros en el levantamiento, el cliente desde su enlace— y
+ * saber cuándo cambió qué es la mitad de la conversación.
  */
-export const lineaVacia = (id) => ({ id, cant: 1, modelo: '', nota: '' })
+let n = 0
+export const unidadVacia = (id) => ({
+  uid: `u${Date.now().toString(36)}${(n++).toString(36)}`,
+  id,
+  modelo: '',
+  quien: '',
+  espacio: '',
+  nota: '',
+  creado: new Date().toISOString(),
+  modificado: null,
+})
 
 export function totalPiezas(inv = []) {
-  return inv.reduce((a, l) => a + (l.cant ?? 0), 0)
+  return inv.length
 }
+
+/**
+ * Las listas viejas traían `cant`. Se abren en una unidad por aparato para no
+ * perder lo ya capturado ni pedirle a nadie que lo vuelva a anexar.
+ */
+export function migrar(inv = []) {
+  if (!inv.some((l) => l.cant != null)) return inv
+  const out = []
+  for (const l of inv) {
+    const cuantos = Math.max(1, l.cant ?? 1)
+    for (let i = 0; i < cuantos; i++) {
+      out.push({
+        ...unidadVacia(l.id),
+        modelo: l.modelo ?? '',
+        nota: l.nota ?? '',
+        creado: l.creado ?? new Date().toISOString(),
+      })
+    }
+  }
+  return out
+}
+
+/** Aparatos personales: son los que tiene sentido asignarle a alguien. */
+export const esPersonal = (id) => ['moviles', 'tabletas'].includes(POR_ID[id]?.familia)
 
 /** Resumen por familia, para el encabezado de la sección. */
 export function porFamilia(inv = []) {
   const m = {}
   for (const l of inv) {
     const d = POR_ID[l.id]
-    if (!d) continue
-    m[d.familia] = (m[d.familia] ?? 0) + (l.cant ?? 0)
+    if (d) m[d.familia] = (m[d.familia] ?? 0) + 1
   }
   return m
 }
@@ -191,9 +244,9 @@ const S = (nivel, titulo, porque, accion) => ({ nivel, titulo, porque, accion })
  */
 export function leerInventario(inv = []) {
   const s = []
-  const hay = (id) => inv.some((l) => l.id === id && (l.cant ?? 0) > 0)
-  const cuantos = (id) => inv.filter((l) => l.id === id).reduce((a, l) => a + (l.cant ?? 0), 0)
-  const conProp = (prop) => inv.filter((l) => POR_ID[l.id]?.[prop] && (l.cant ?? 0) > 0)
+  const hay = (id) => inv.some((l) => l.id === id)
+  const cuantos = (id) => inv.filter((l) => l.id === id).length
+  const conProp = (prop) => inv.filter((l) => POR_ID[l.id]?.[prop])
 
   const ecos = new Set(inv.map((l) => POR_ID[l.id]?.eco).filter((e) => e && e !== 'todos' && e !== 'otro'))
   const ecosControl = new Set(
@@ -201,7 +254,7 @@ export function leerInventario(inv = []) {
   )
   const hayBorder = conProp('border').length > 0
   const hayZigbee = conProp('zigbee').length > 0
-  const marcaBlanca = inv.filter((l) => POR_ID[l.id]?.ojo === 'marca-blanca' && (l.cant ?? 0) > 0)
+  const marcaBlanca = inv.filter((l) => POR_ID[l.id]?.ojo === 'marca-blanca')
 
   /* ── lo que falta ── */
   if (!hayBorder) {
@@ -275,7 +328,7 @@ export function leerInventario(inv = []) {
 
   /* ── lo que va a decepcionar ── */
   if (marcaBlanca.length > 0) {
-    const nombres = marcaBlanca.map((l) => POR_ID[l.id].label).join(' y ')
+    const nombres = [...new Set(marcaBlanca.map((l) => POR_ID[l.id].label))].join(' y ')
     s.push(
       S(
         'ojo',

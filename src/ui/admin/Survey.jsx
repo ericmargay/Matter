@@ -590,6 +590,7 @@ export default function Survey() {
             <Inventario
               inv={perfil.inv ?? []}
               onCambiar={(inv) => survey.setPerfil({ inv })}
+              espacios={rooms.map((r) => r.nombre)}
             />
           </div>
 

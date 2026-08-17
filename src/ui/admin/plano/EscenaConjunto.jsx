@@ -41,14 +41,14 @@ function CuartoPlano({ room, plano, seleccionado, onTomar }) {
           la planta desde arriba */}
       <lineSegments position={[0, plano.alto / 2, 0]}>
         <edgesGeometry args={[new THREE.BoxGeometry(plano.ancho, plano.alto, plano.largo)]} />
-        <lineBasicMaterial color={seleccionado ? '#ff9a4d' : '#5a5048'} />
+        <lineBasicMaterial color={seleccionado ? '#4d9fff' : '#2b3448'} />
       </lineSegments>
 
       <Text
         position={[0, 0.05, -plano.largo / 2 + 0.35]}
         rotation={[-Math.PI / 2, 0, 0]}
         fontSize={0.32}
-        color={seleccionado ? '#ff9a4d' : '#9c9388'}
+        color={seleccionado ? '#4d9fff' : '#8896ac'}
         anchorX="center"
       >
         {room.nombre}
@@ -84,7 +84,7 @@ function CuartoPlano({ room, plano, seleccionado, onTomar }) {
         return (
           <mesh key={it.id} position={[it.x, it.y ?? 0.4, it.z]}>
             <boxGeometry args={[0.1, 0.14, 0.05]} />
-            <meshBasicMaterial color={it.tipo === 'apagador' ? '#ffc48a' : '#7fa6ff'} />
+            <meshBasicMaterial color={it.tipo === 'apagador' ? '#a3c9ff' : '#5eead4'} />
           </mesh>
         )
       })}
@@ -152,7 +152,7 @@ export default function EscenaConjunto({ cuartos, seleccion, onSeleccionar, onMo
       onPointerMissed={() => onSeleccionar(null)}
       onPointerUp={soltar}
     >
-      <color attach="background" args={['#0a0908']} />
+      <color attach="background" args={['#080b12']} />
       <ambientLight intensity={1.4} />
       <directionalLight position={[10, 18, 8]} intensity={1.6} />
 
@@ -171,7 +171,7 @@ export default function EscenaConjunto({ cuartos, seleccion, onSeleccionar, onMo
         <planeGeometry args={[extension * 8, extension * 8]} />
       </mesh>
 
-      <gridHelper args={[extension * 4, Math.round(extension * 2), '#2a2521', '#1d1a17']} position={[centro[0], -0.03, centro[2]]} />
+      <gridHelper args={[extension * 4, Math.round(extension * 2), '#25304a', '#1d1a17']} position={[centro[0], -0.03, centro[2]]} />
 
       {cuartos.map(({ room, plano }) => (
         <CuartoPlano

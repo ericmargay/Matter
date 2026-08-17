@@ -319,7 +319,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
           <span className="text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">Muro</span>
           <input
             type="color"
-            value={plano.muroColor ?? '#6d6259'}
+            value={plano.muroColor ?? '#3f4a63'}
             onChange={(e) => guardar({ muroColor: e.target.value }, 'Cambió el color de los muros')}
             className="h-7 w-9 cursor-pointer rounded border border-line bg-ink"
           />
@@ -792,7 +792,7 @@ function InspectorMuros({ plano, onGuardar }) {
           <span className="block text-[10px] text-cream-3">Color</span>
           <input
             type="color"
-            value={plano.muroColor ?? '#6d6259'}
+            value={plano.muroColor ?? '#3f4a63'}
             onChange={(e) => onGuardar({ muroColor: e.target.value }, 'Cambió el color de los muros')}
             className="mt-0.5 h-7 w-full rounded border border-line bg-ink"
           />

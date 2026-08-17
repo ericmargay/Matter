@@ -82,7 +82,7 @@ export default function MiEquipo({ token }) {
         </header>
 
         <div className="py-6">
-          <Inventario inv={datos.inv ?? []} onCambiar={guardar} modo="cliente" />
+          <Inventario inv={datos.inv ?? []} onCambiar={guardar} espacios={datos.espacios ?? []} modo="cliente" />
         </div>
       </div>
 

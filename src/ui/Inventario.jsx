@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react'
 
-import { FAMILIAS, POR_ID, leerInventario, lineaVacia, totalPiezas } from '../content/inventario'
+import {
+  FAMILIAS,
+  POR_ID,
+  esPersonal,
+  leerInventario,
+  migrar,
+  unidadVacia,
+} from '../content/inventario'
 
 /**
  * El anexador de dispositivos.
@@ -11,11 +18,22 @@ import { FAMILIAS, POR_ID, leerInventario, lineaVacia, totalPiezas } from '../co
  *
  * La regla de diseño es una sola: **no escribir**. Alguien contestando esto
  * desde el teléfono, parado en su sala, no va a teclear "Echo Dot 5ª
- * generación". Va a tocar "Amazon Echo Dot", tocar "+" dos veces y seguir.
- * El modelo se escoge de una lista y siempre incluye "No sé cuál", porque la
- * mitad de la gente no sabe y obligar a inventar es peor que no preguntar: un
- * dato inventado se levanta como cierto y después se compra sobre él.
+ * generación". Toca el aparato, toca el chip de la generación y sigue. El
+ * único campo libre es de quién es el teléfono, porque los nombres no se
+ * pueden listar — y aun ahí, el segundo teléfono ya sugiere los nombres que
+ * se escribieron antes.
+ *
+ * Cada aparato es una unidad, no una cuenta. Dos Echo Dot en la misma casa
+ * casi nunca son de la misma generación, y la generación es justo lo que
+ * decide si ese aparato trae Zigbee.
  */
+
+const fecha = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) +
+    ', ' + d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+}
 
 const Chip = ({ activo, children, ...props }) => (
   <button
@@ -28,111 +46,179 @@ const Chip = ({ activo, children, ...props }) => (
   </button>
 )
 
-/** Una línea anexada: cuánto hay y de qué modelo. */
-function Linea({ linea, onCambiar, onQuitar }) {
-  const d = POR_ID[linea.id]
+const Mini = ({ activo, children, ...props }) => (
+  <button
+    {...props}
+    className={`rounded border px-1.5 py-0.5 text-[10.5px] transition-colors ${
+      activo ? 'border-ember bg-ember/15 text-ember' : 'border-line text-cream-3 hover:border-cream/35'
+    }`}
+  >
+    {children}
+  </button>
+)
+
+/** Una unidad: este aparato en concreto, no "los Echo Dot". */
+function Unidad({ u, indice, total, espacios, nombres, onCambiar, onQuitar }) {
+  const d = POR_ID[u.id]
   if (!d) return null
+
+  const set = (parche) => onCambiar({ ...parche, modificado: new Date().toISOString() })
 
   return (
     <div className="rounded-lg border border-line px-2.5 py-2">
-      <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-[12.5px] text-cream">{d.label}</span>
-
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            onClick={() => (linea.cant <= 1 ? onQuitar() : onCambiar({ cant: linea.cant - 1 }))}
-            aria-label={`Menos ${d.label}`}
-            className="h-7 w-7 rounded border border-line text-cream-2 transition-colors hover:border-cream/40"
-          >
-            −
-          </button>
-          <span className="w-6 text-center text-[13px] tabular-nums text-ember">{linea.cant}</span>
-          <button
-            onClick={() => onCambiar({ cant: linea.cant + 1 })}
-            aria-label={`Más ${d.label}`}
-            className="h-7 w-7 rounded border border-line text-cream-2 transition-colors hover:border-ember hover:bg-ember hover:text-ink"
-          >
-            +
-          </button>
-        </div>
+      <div className="flex items-start gap-2">
+        <span className="min-w-0 flex-1 text-[12.5px] text-cream">
+          {d.label}
+          {/* el número solo aparece cuando hay más de uno: con uno solo,
+              "Echo Dot 1 de 1" es ruido */}
+          {total > 1 && <span className="text-cream-3"> · {indice} de {total}</span>}
+        </span>
+        <button
+          onClick={onQuitar}
+          aria-label={`Quitar ${d.label}`}
+          className="shrink-0 text-[13px] text-cream-3 transition-colors hover:text-ember"
+        >
+          ×
+        </button>
       </div>
 
-      {/* El modelo se escoge, no se escribe. "No sé cuál" es una respuesta
-          válida y va incluida en todas las listas. */}
       {d.modelos && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {d.modelos.map((m) => (
-            <button
-              key={m}
-              onClick={() => onCambiar({ modelo: linea.modelo === m ? '' : m })}
-              className={`rounded border px-1.5 py-0.5 text-[10.5px] transition-colors ${
-                linea.modelo === m
-                  ? 'border-ember bg-ember/15 text-ember'
-                  : 'border-line text-cream-3 hover:border-cream/35'
-              }`}
-            >
-              {m}
-            </button>
-          ))}
+        <div className="mt-1.5">
+          <span className="text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">Cuál es</span>
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            {d.modelos.map((m) => (
+              <Mini key={m} activo={u.modelo === m} onClick={() => set({ modelo: u.modelo === m ? '' : m })}>
+                {m}
+              </Mini>
+            ))}
+          </div>
         </div>
       )}
 
-      {(d.border || d.zigbee || d.matter || d.ojo) && (
-        <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px]">
-          {d.border && <span className="text-thread">Router de borde Thread</span>}
-          {d.zigbee && <span className="text-ember-2">Puente Zigbee</span>}
-          {d.matter && <span className="text-cream-3">Habla Matter</span>}
-          {d.ojo === 'marca-blanca' && <span className="text-red-400">No habla Matter</span>}
-          {d.ojo === 'repetidor' && <span className="text-red-400">Parte la red en dos</span>}
+      {espacios.length > 0 && (
+        <div className="mt-1.5">
+          <span className="text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">Dónde está</span>
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            {espacios.map((e) => (
+              <Mini key={e} activo={u.espacio === e} onClick={() => set({ espacio: u.espacio === e ? '' : e })}>
+                {e}
+              </Mini>
+            ))}
+          </div>
         </div>
       )}
+
+      {/* De quién es, solo en lo personal: preguntar de quién es el módem no
+          tiene sentido, preguntar de quién es el iPhone es la mitad del dato */}
+      {esPersonal(u.id) && (
+        <div className="mt-1.5">
+          <span className="text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">De quién es</span>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+            {nombres.map((n) => (
+              <Mini key={n} activo={u.quien === n} onClick={() => set({ quien: u.quien === n ? '' : n })}>
+                {n}
+              </Mini>
+            ))}
+            <input
+              value={u.quien ?? ''}
+              onChange={(e) => set({ quien: e.target.value })}
+              placeholder="nombre"
+              className="w-24 rounded border border-line bg-ink px-1.5 py-0.5 text-[10.5px] text-cream placeholder:text-cream-3"
+            />
+          </div>
+        </div>
+      )}
+
+      {(d.puede || d.noPuede) && (
+        <div className="mt-1.5 space-y-0.5 text-[10px] leading-snug">
+          {d.puede && <p className="text-thread-2">Sí puede · {d.puede}</p>}
+          {d.noPuede && <p className="text-cream-3">No puede · {d.noPuede}</p>}
+        </div>
+      )}
+
+      <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
+        {d.border && <span className="text-thread">Router de borde Thread</span>}
+        {d.zigbee && <span className="text-thread">Puente Zigbee</span>}
+        {d.matter && <span className="text-cream-3">Habla Matter</span>}
+        {d.ojo === 'marca-blanca' && <span className="text-rose-400">No habla Matter</span>}
+        {d.ojo === 'repetidor' && <span className="text-rose-400">Parte la red en dos</span>}
+      </div>
+
+      {u.nota && <p className="mt-1 text-[10.5px] text-cream-3">{u.nota}</p>}
+
+      {/* Anexado y modificado. El verde es lo último que se supo; el rosa es
+          lo que decía antes. Este inventario lo llenan dos manos —nosotros en
+          el levantamiento y el cliente desde su enlace— y sin las dos fechas
+          no se sabe cuál de las dos versiones estás leyendo. */}
+      <p className="mt-1 flex flex-wrap gap-x-2 text-[9.5px]">
+        {u.modificado ? (
+          <>
+            <span className="text-emerald-400">modificado {fecha(u.modificado)}</span>
+            <span className="text-rose-400/80 line-through">antes {fecha(u.creado)}</span>
+          </>
+        ) : (
+          <span className="text-cream-3">anexado {fecha(u.creado)}</span>
+        )}
+      </p>
     </div>
   )
 }
 
 /**
- * @param inv        lista de líneas
+ * @param inv        lista de unidades
  * @param onCambiar  recibe la lista nueva completa
+ * @param espacios   nombres de los espacios del proyecto, para ubicar cada cosa
  * @param modo       'ops' muestra el análisis; 'cliente' lo oculta —al cliente
- *                   no se le enseña el diagnóstico, se le enseña en la junta
+ *                   no se le enseña el diagnóstico, se platica en la junta
  */
-export default function Inventario({ inv = [], onCambiar, modo = 'ops' }) {
-  const [abierta, setAbierta] = useState(FAMILIAS[0].id)
+export default function Inventario({ inv = [], onCambiar, espacios = [], modo = 'ops' }) {
+  const unidades = useMemo(() => migrar(inv), [inv])
+  const [filtro, setFiltro] = useState('todos')
 
-  const analisis = useMemo(() => (modo === 'ops' ? leerInventario(inv) : []), [inv, modo])
-  const total = totalPiezas(inv)
+  const analisis = useMemo(() => (modo === 'ops' ? leerInventario(unidades) : []), [unidades, modo])
 
-  const agregar = (id) => {
-    const ya = inv.findIndex((l) => l.id === id)
-    // segundo toque sobre lo mismo: sube la cuenta en vez de duplicar la línea
-    if (ya >= 0) return onCambiar(inv.map((l, i) => (i === ya ? { ...l, cant: l.cant + 1 } : l)))
-    onCambiar([...inv, lineaVacia(id)])
-  }
+  /* Los nombres que ya se escribieron se ofrecen como chip: el primer teléfono
+     se teclea, del segundo en adelante se toca. */
+  const nombres = useMemo(
+    () => [...new Set(unidades.map((u) => u.quien).filter(Boolean))].slice(0, 6),
+    [unidades],
+  )
 
-  const cambiar = (i, parche) => onCambiar(inv.map((l, n) => (n === i ? { ...l, ...parche } : l)))
-  const quitar = (i) => onCambiar(inv.filter((_, n) => n !== i))
+  const visibles = filtro === 'todos' ? unidades : unidades.filter((u) => POR_ID[u.id]?.familia === filtro)
 
-  const familia = FAMILIAS.find((f) => f.id === abierta)
+  const agregar = (id) => onCambiar([...unidades, unidadVacia(id)])
+  const cambiar = (uid, parche) => onCambiar(unidades.map((u) => (u.uid === uid ? { ...u, ...parche } : u)))
+  const quitar = (uid) => onCambiar(unidades.filter((u) => u.uid !== uid))
+
+  const familiaAbierta = FAMILIAS.find((f) => f.id === filtro)
 
   return (
     <div>
+      {/* "Todos" primero: es el estado por defecto y el que se usa para revisar
+          lo capturado. Las familias filtran Y abren su paletero. */}
       <div className="flex flex-wrap gap-1.5">
+        <Chip activo={filtro === 'todos'} onClick={() => setFiltro('todos')}>
+          Todos
+          {unidades.length > 0 && (
+            <span className={filtro === 'todos' ? 'text-ink/60' : 'text-ember'}> · {unidades.length}</span>
+          )}
+        </Chip>
         {FAMILIAS.map((f) => {
-          const n = inv.filter((l) => POR_ID[l.id]?.familia === f.id).reduce((a, l) => a + l.cant, 0)
+          const n = unidades.filter((u) => POR_ID[u.id]?.familia === f.id).length
           return (
-            <Chip key={f.id} activo={abierta === f.id} onClick={() => setAbierta(f.id)}>
+            <Chip key={f.id} activo={filtro === f.id} onClick={() => setFiltro(f.id)}>
               {f.label}
-              {n > 0 && <span className={abierta === f.id ? 'text-ink/60' : 'text-ember'}> · {n}</span>}
+              {n > 0 && <span className={filtro === f.id ? 'text-ink/60' : 'text-ember'}> · {n}</span>}
             </Chip>
           )
         })}
       </div>
 
-      {familia && (
+      {familiaAbierta ? (
         <>
-          <p className="mt-2.5 text-[11px] leading-relaxed text-cream-3">{familia.ayuda}</p>
+          <p className="mt-2.5 text-[11px] leading-relaxed text-cream-3">{familiaAbierta.ayuda}</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {familia.items.map((d) => (
+            {familiaAbierta.items.map((d) => (
               <button
                 key={d.id}
                 onClick={() => agregar(d.id)}
@@ -143,27 +229,40 @@ export default function Inventario({ inv = [], onCambiar, modo = 'ops' }) {
             ))}
           </div>
         </>
+      ) : (
+        <p className="mt-2.5 text-[11px] leading-relaxed text-cream-3">
+          Toca una categoría para anexar. Aquí abajo está todo lo que ya lleva la casa.
+        </p>
       )}
 
       <div className="mt-4">
         <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">
-          Anexado · {total} {total === 1 ? 'aparato' : 'aparatos'}
+          {filtro === 'todos' ? 'Todo lo anexado' : familiaAbierta?.label} · {visibles.length}
         </p>
 
-        {inv.length === 0 ? (
+        {visibles.length === 0 ? (
           <p className="mt-1.5 text-[11.5px] leading-relaxed text-cream-3">
-            Todavía nada. Toca arriba lo que ya haya en la casa — no importa si no sabes el modelo.
+            {unidades.length === 0
+              ? 'Todavía nada. Toca arriba lo que ya haya en la casa — no importa si no sabes el modelo.'
+              : 'Nada de esta categoría todavía.'}
           </p>
         ) : (
           <div className="mt-1.5 space-y-1.5">
-            {inv.map((l, i) => (
-              <Linea
-                key={`${l.id}-${i}`}
-                linea={l}
-                onCambiar={(parche) => cambiar(i, parche)}
-                onQuitar={() => quitar(i)}
-              />
-            ))}
+            {visibles.map((u) => {
+              const delTipo = unidades.filter((x) => x.id === u.id)
+              return (
+                <Unidad
+                  key={u.uid}
+                  u={u}
+                  indice={delTipo.indexOf(u) + 1}
+                  total={delTipo.length}
+                  espacios={espacios}
+                  nombres={nombres}
+                  onCambiar={(parche) => cambiar(u.uid, parche)}
+                  onQuitar={() => quitar(u.uid)}
+                />
+              )
+            })}
           </div>
         )}
       </div>
@@ -176,7 +275,7 @@ export default function Inventario({ inv = [], onCambiar, modo = 'ops' }) {
               key={x.titulo}
               className={`rounded-lg border px-2.5 py-2 ${
                 x.nivel === 'falta'
-                  ? 'border-red-500/35 bg-red-500/[0.06]'
+                  ? 'border-rose-500/35 bg-rose-500/[0.06]'
                   : x.nivel === 'aprovecha'
                     ? 'border-emerald-500/30 bg-emerald-500/[0.05]'
                     : 'border-ember/30 bg-ember/[0.05]'
