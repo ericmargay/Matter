@@ -25,6 +25,8 @@
 #   CLAVE       contraseña, solo para servidor remoto. Sin ella se abre el
 #               login y se saltan las pestañas que necesitan datos.
 #   AUTOSTART   1 = levanta el servidor si está caído (default); 0 = no.
+#   PROYECTO    cuál abrir, por un trozo del nombre: PROYECTO=carpio.
+#               Sin ella, el que más cuartos dibujados tenga.
 #   PLANOS      cuántos planos 3D abrir, uno por tipo de cuarto. Default 3.
 #   VENTANA     1 = ventana nueva (default); 0 = pestañas donde caigan.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -119,7 +121,7 @@ fi
 # comporta distinto en cada uno y revisar tres recámaras no dice nada nuevo.
 PLANOS="${PLANOS:-3}"
 
-DATOS=$(curl -s -b "$COOKIES" "$URL/api/estado" 2>/dev/null | PLANOS="$PLANOS" node "$REPO/scripts/superficie.mjs" 2>/dev/null || true)
+DATOS=$(curl -s -b "$COOKIES" "$URL/api/estado" 2>/dev/null | PLANOS="$PLANOS" PROYECTO="${PROYECTO:-}" node "$REPO/scripts/superficie.mjs" 2>/dev/null || true)
 
 PROYECTO=""; NOMBRE=""
 CUARTOS=""
@@ -133,6 +135,13 @@ done <<< "$DATOS"
 [ -n "$NOMBRE" ] && echo "▸ Proyecto: $NOMBRE"
 
 # ── las pestañas ─────────────────────────────────────────────────────────────
+#
+# En LOCAL todo sale de una sola compilación, así que el panel vive en la misma
+# raíz que el sitio. En Railway son DOS compilaciones y el panel cuelga de
+# /panel/ — apuntarle a la raíz abre el sitio público y el panel "no existe".
+# Es el mismo motivo por el que el login tiene que ser del lado del servidor.
+if [ "$ES_LOCAL" = "1" ]; then PANEL="$URL"; else PANEL="$URL/panel"; fi
+
 PESTANAS=""
 agregar() { PESTANAS="${PESTANAS}${1}\t${2}\n"; }
 
@@ -144,20 +153,20 @@ agregar "$URL/#/catalogo"             "Catálogo del cliente"
 agregar "$URL/#/cotizacion?d=demo"    "Cotización de ejemplo"
 
 #  operaciones
-agregar "$URL/#/admin/proyectos"      "Proyectos"
-agregar "$URL/#/admin/catalogo"       "Catálogo de operaciones"
-agregar "$URL/#/admin/proveedores"    "Proveedores"
+agregar "$PANEL/#/admin/proyectos"      "Proyectos"
+agregar "$PANEL/#/admin/catalogo"       "Catálogo de operaciones"
+agregar "$PANEL/#/admin/proveedores"    "Proveedores"
 
 #  el proyecto y sus planos
 if [ -n "$PROYECTO" ]; then
-  agregar "$URL/#/admin/levantamiento?proyecto=$PROYECTO"          "Levantamiento"
-  agregar "$URL/#/admin/levantamiento?proyecto=$PROYECTO&planta=1" "Planta completa"
+  agregar "$PANEL/#/admin/levantamiento?proyecto=$PROYECTO"          "Levantamiento"
+  agregar "$PANEL/#/admin/levantamiento?proyecto=$PROYECTO&planta=1" "Planta completa"
   while IFS=$'\t' read -r cid etiqueta; do
     [ -z "$cid" ] && continue
-    agregar "$URL/#/admin/levantamiento?proyecto=$PROYECTO&plano=$cid" "Plano 3D · $etiqueta"
+    agregar "$PANEL/#/admin/levantamiento?proyecto=$PROYECTO&plano=$cid" "Plano 3D · $etiqueta"
   done <<< "$(printf '%b' "$CUARTOS")"
 else
-  agregar "$URL/#/admin/levantamiento" "Levantamiento"
+  agregar "$PANEL/#/admin/levantamiento" "Levantamiento"
 fi
 
 # ── abrir ────────────────────────────────────────────────────────────────────

@@ -63,7 +63,7 @@ export default function RoomPicker({ room, onCerrar }) {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-ink">
-      <header className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3">
+      <header className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2.5 sm:gap-3 sm:px-5">
         <div>
           <p className="text-[10px] tracking-[0.14em] text-cream-3 uppercase">Agregando equipo a</p>
           <h2 className="display text-[20px] text-cream">{room.nombre}</h2>
@@ -82,7 +82,7 @@ export default function RoomPicker({ room, onCerrar }) {
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-16">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-16 sm:px-5">
         <CatalogBrowser
           modo="ops"
           accion={(d) => <Stepper device={d} room={room} />}

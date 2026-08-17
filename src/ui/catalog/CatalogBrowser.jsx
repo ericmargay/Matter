@@ -206,7 +206,7 @@ export default function CatalogBrowser({
   return (
     <>
       {/* ── buscador + riel de categorías ── */}
-      <div className="sticky top-0 z-20 -mx-5 bg-ink/92 px-5 pt-3 pb-2 backdrop-blur-xl">
+      <div className="sticky top-0 z-20 -mx-3 bg-ink/92 px-3 pt-3 pb-2 backdrop-blur-xl sm:-mx-5 sm:px-5">
         <div className="flex items-center gap-2">
           <input
             value={q}
@@ -251,7 +251,7 @@ export default function CatalogBrowser({
 
       {/* ── filtros finos: solo operaciones ── */}
       {modo === 'ops' && (
-        <div className="mt-3 rounded-xl border border-line bg-ink-2/50 px-3 py-1.5">
+        <div className="mt-3 hidden rounded-xl border border-line bg-ink-2/50 px-3 py-1.5 sm:block">
           <TagRow label="Enlace">
             {LINKS.map((l) => (
               <Tag
@@ -344,7 +344,7 @@ export default function CatalogBrowser({
 
 function Grid({ items, onAbrir, accion, precio }) {
   return (
-    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    <div className="mt-3 grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {items.map((d) => (
         <Card
           key={d.id}

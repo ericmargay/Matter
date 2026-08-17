@@ -43,8 +43,21 @@ process.stdin.on('end', () => {
 
   const dibujados = (p) => p.rooms.filter((r) => r.plano?.items?.length)
 
-  // el proyecto con más cuartos dibujados es el que mejor se revisa
-  const elegido = proyectos.slice().sort((a, b) => dibujados(b).length - dibujados(a).length)[0]
+  /* PROYECTO=carpio fija cuál abrir. Se busca por trozo de nombre y no por id
+     porque el id no se lo sabe nadie: uno quiere escribir "carpio" y que
+     entienda. Sin la variable, gana el que más cuartos dibujados tenga, que
+     es el que mejor se revisa. */
+  const pedido = (process.env.PROYECTO ?? '').trim().toLowerCase()
+  const candidatos = pedido
+    ? proyectos.filter((p) => p.nombre.toLowerCase().includes(pedido) || p.id === pedido)
+    : proyectos
+
+  if (pedido && candidatos.length === 0) {
+    process.stderr.write(`sin proyecto que contenga "${pedido}"\n`)
+    return
+  }
+
+  const elegido = candidatos.slice().sort((a, b) => dibujados(b).length - dibujados(a).length)[0]
   if (!elegido) return
 
   const lineas = [['PROYECTO', elegido.id, elegido.nombre].join('\t')]

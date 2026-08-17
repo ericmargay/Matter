@@ -15,6 +15,8 @@ import { nuevoFolio, paramsDelHash, useProyecto, useSurvey } from '../../store/s
 import { planoVacio } from '../../sync/eventos'
 import { tipoPorNombre } from './plano/catalogo'
 import { disponerCuarto, disponerPlanta } from './plano/disponer'
+import { ESPACIOS, PROPIEDADES, espaciosDe } from '../../content/espacios'
+import { CEREBROS, MOVILES, sugerencias } from '../../content/loQueTiene'
 import { buildQuotePayload, encodeQuote } from '../../content/quoteLink'
 import { CLAVE_PROD_SERV, CLAVE_UNIDAD } from '../../content/fiscal'
 import DevicePhoto, { PhotoFrame } from '../catalog/DevicePhoto'
@@ -88,9 +90,66 @@ function Card({ title, right, children, seccion, proyectoId }) {
   )
 }
 
+/* ── menú de espacios ─────────────────────────────────────────────
+   La lista sale del tipo de propiedad: en una oficina nadie levanta una
+   recámara, y ofrecérsela es ruido en la pantalla justo cuando se está de
+   pie en casa del cliente. */
+
+function MenuEspacios({ propiedad, onElegir, onCerrar }) {
+  const [q, setQ] = useState('')
+  const sugeridos = espaciosDe(propiedad)
+
+  const lista = useMemo(() => {
+    const n = q.trim().toLowerCase()
+    // con búsqueda se abre a TODO el catálogo: si alguien levanta una azotea
+    // en un despacho, es su casa y su levantamiento
+    const base = n ? ESPACIOS : sugeridos
+    return base.filter((e) => !n || e.nombre.toLowerCase().includes(n))
+  }, [q, sugeridos])
+
+  return (
+    <>
+      <div className="fixed inset-0 z-30" onClick={onCerrar} aria-hidden="true" />
+      <div className="absolute top-full right-0 z-40 mt-1 max-h-[26rem] w-[21rem] overflow-y-auto rounded-xl border border-line bg-ink-2 p-2 shadow-2xl shadow-ink">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar espacio…"
+          autoFocus
+          className="mb-1.5 w-full rounded-lg border border-line bg-ink px-2.5 py-1.5 text-[12.5px] text-cream outline-none placeholder:text-cream-3 focus:border-ember/60"
+        />
+        {!q && (
+          <p className="px-1 pb-1 text-[10px] tracking-[0.1em] text-cream-3 uppercase">
+            Sugeridos para {PROPIEDADES.find((x) => x.id === propiedad)?.label ?? 'esta propiedad'}
+          </p>
+        )}
+        {lista.map((e) => {
+          const piezas = Object.values(e.equipo).reduce((a2, b2) => a2 + b2, 0)
+          return (
+            <button
+              key={e.id}
+              onClick={() => onElegir(e)}
+              className="block w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-ember/10"
+            >
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="text-[12.5px] text-cream">{e.nombre}</span>
+                <span className="text-[10px] whitespace-nowrap text-cream-3">
+                  {e.m2} m² · {piezas} pzs
+                </span>
+              </span>
+              {e.nota && <span className="mt-0.5 block text-[10.5px] leading-snug text-cream-3">{e.nota}</span>}
+            </button>
+          )
+        })}
+        {lista.length === 0 && <p className="px-2 py-3 text-[11.5px] text-cream-3">Nada con ese nombre.</p>}
+      </div>
+    </>
+  )
+}
+
 /* ── un cuarto con sus piezas ─────────────────────────────────── */
 
-function Room({ room, active, onSelect, onAgregar, onPlano }) {
+function Room({ room, active, onSelect, onAgregar, onPlano, onSubir, onBajar }) {
   const updateRoom = useSurvey((s) => s.updateRoom)
   const removeRoom = useSurvey((s) => s.removeRoom)
   const bump = useSurvey((s) => s.bump)
@@ -145,6 +204,27 @@ function Room({ room, active, onSelect, onAgregar, onPlano }) {
           ))}
         </select>
         <span className="text-[12px] tabular-nums text-cream-2">{money(subtotal)}</span>
+        {/* El orden es el del recorrido de la casa, y se corrige aquí mismo.
+            Flechas y no arrastre: en el celular, de pie en una obra, arrastrar
+            una fila dentro de una lista que ya se desplaza es una pelea. */}
+        <span className="flex flex-none flex-col leading-none">
+          <button
+            onClick={onSubir}
+            disabled={!onSubir}
+            aria-label={`Subir ${room.nombre}`}
+            className="px-1 text-[10px] text-cream-3 transition-colors hover:text-ember disabled:opacity-20"
+          >
+            ▲
+          </button>
+          <button
+            onClick={onBajar}
+            disabled={!onBajar}
+            aria-label={`Bajar ${room.nombre}`}
+            className="px-1 text-[10px] text-cream-3 transition-colors hover:text-ember disabled:opacity-20"
+          >
+            ▼
+          </button>
+        </span>
         <button
           onClick={() => removeRoom(room.id)}
           aria-label={`Eliminar ${room.nombre}`}
@@ -221,10 +301,26 @@ export default function Survey() {
   const [pickerRoomId, setPickerRoomId] = useState(null)
   const [planoRoomId, setPlanoRoomId] = useState(null)
   const [verConjunto, setVerConjunto] = useState(false)
+  const [menuEspacios, setMenuEspacios] = useState(false)
 
   const { cliente, obra, rooms, extras, activeRoom } = proyecto
 
+  /* useMemo con el objeto por defecto adentro: si se creara en cada render,
+     las sugerencias se recalcularían siempre aunque nada haya cambiado. */
+  const perfil = useMemo(
+    () => proyecto.perfil ?? { moviles: [], cerebros: [], existente: {}, notas: '' },
+    [proyecto.perfil],
+  )
+
   const q = useMemo(() => quote({ obra, rooms, extras }), [obra, rooms, extras])
+
+  /* Las sugerencias miran TODO lo cotizado del proyecto, no un cuarto: la
+     pregunta "¿alcanza el border router?" es de la casa entera. */
+  const sugeridas = useMemo(() => {
+    const todo = {}
+    for (const r of rooms) for (const [id, n] of Object.entries(r.items ?? {})) todo[id] = (todo[id] ?? 0) + n
+    return sugerencias(perfil, todo)
+  }, [perfil, rooms])
   const net = useMemo(() => networkCheck({ obra, rooms }), [obra, rooms])
 
   // se relee del proyecto en cada render para que el selector vea las piezas
@@ -314,6 +410,48 @@ export default function Survey() {
     }
   }
 
+  /**
+   * Crea un espacio del catálogo y le deja el plano 3D ya dispuesto.
+   *
+   * Todo de un golpe: nombre, metros, el equipo que ese espacio suele llevar,
+   * el mobiliario acomodado, las luminarias repartidas en el techo, el
+   * apagador junto a la puerta cableado a ellas y la regla que lo enciende.
+   * Lo que queda para la persona es lo único que una computadora no puede
+   * saber: si en ESTA casa la cocina de verdad lleva dos tiras o una.
+   */
+  const agregarEspacio = (esp) => {
+    setMenuEspacios(false)
+    const cuartoId = survey.agregarEspacio(esp)
+    if (!cuartoId) return
+
+    const base = { ...planoVacio(esp.m2), tipoCuarto: esp.tipo }
+    const { items, tramos, reglas } = disponerCuarto({ plano: base, tipo: esp.tipo, equipo: esp.equipo })
+    const nuevo = { ...base, items, tramos, reglas }
+    survey.setPlano(cuartoId, nuevo, `Creó el espacio ${esp.nombre}`)
+
+    /* Y se recoloca la planta completa.
+       Sin esto cada espacio nuevo nacía en el origen y quedaban todos
+       encimados —así estaba el departamento de Carpio—: el plano general se
+       veía roto justo cuando se le enseña al cliente. */
+    const armados = [
+      ...rooms.map((r) => ({ room: r, plano: { ...planoVacio(r.m2), ...(r.plano ?? {}) } })),
+      { room: { id: cuartoId, nombre: esp.nombre }, plano: nuevo },
+    ]
+    const pos = disponerPlanta(armados)
+    for (const c of armados) {
+      const p2 = pos.get(c.room.id)
+      if (p2) survey.setPlano(c.room.id, { ...c.plano, pos: p2 }, 'Acomodó la planta')
+    }
+  }
+
+  const mover = (i, delta) => {
+    const orden = rooms.map((r) => r.id)
+    const j = i + delta
+    if (j < 0 || j >= orden.length) return
+    ;[orden[i], orden[j]] = [orden[j], orden[i]]
+    survey.reordenarCuartos(orden)
+  }
+
   const catCount = useMemo(() => {
     const c = {}
     for (const r of rooms)
@@ -331,7 +469,7 @@ export default function Survey() {
         <Card
           seccion="cuartos"
           proyectoId={proyecto.id}
-          title={`Habitaciones · ${rooms.length}`}
+          title={`Espacios · ${rooms.length}`}
           right={
             <div className="flex gap-2">
               <button
@@ -349,26 +487,38 @@ export default function Survey() {
                   Ver la planta
                 </button>
               )}
-              <button
-                onClick={() => survey.addRoom()}
-                className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-cream-2 transition-colors hover:border-ember hover:text-ember"
-              >
-                + Agregar cuarto
-              </button>
+              <span className="relative">
+                <button
+                  onClick={() => setMenuEspacios((v) => !v)}
+                  aria-expanded={menuEspacios}
+                  className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-cream-2 transition-colors hover:border-ember hover:text-ember"
+                >
+                  + Agregar espacio
+                </button>
+                {menuEspacios && (
+                  <MenuEspacios
+                    propiedad={obra.propiedad ?? 'casa'}
+                    onElegir={agregarEspacio}
+                    onCerrar={() => setMenuEspacios(false)}
+                  />
+                )}
+              </span>
             </div>
           }
         >
           <p className="mb-3 text-[11.5px] text-cream-3">
-            El equipo se captura por habitación: entra al cuarto, mira qué hace falta y agrégalo ahí mismo.
+            El equipo se captura por espacio: entra, mira qué hace falta y agrégalo ahí mismo. Las flechas cambian el orden del recorrido.
             Suma de metros capturados:{' '}
             <strong className="text-cream-2">{rooms.reduce((a, r) => a + (Number(r.m2) || 0), 0)} m²</strong>{' '}
             de {obra.m2} declarados.
           </p>
           <div className="space-y-2">
-            {rooms.map((r) => (
+            {rooms.map((r, i) => (
               <Room
                 key={r.id}
                 room={r}
+                onSubir={i > 0 ? () => mover(i, -1) : null}
+                onBajar={i < rooms.length - 1 ? () => mover(i, 1) : null}
                 active={r.id === (activeRoom ?? rooms[0]?.id)}
                 onSelect={() => survey.setActiveRoom(r.id)}
                 onAgregar={() => {
@@ -380,7 +530,7 @@ export default function Survey() {
             ))}
             {rooms.length === 0 && (
               <p className="py-6 text-center text-[12.5px] text-cream-3">
-                Todavía no hay cuartos. Agrega el primero para empezar a capturar.
+                Todavía no hay espacios. Agrega el primero para empezar a capturar.
               </p>
             )}
           </div>
@@ -388,8 +538,27 @@ export default function Survey() {
 
         {/* ── obra ── */}
         <Card title="La propiedad" seccion="obra" proyectoId={proyecto.id}>
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Field label="Tipo">
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {/* El id manda sobre qué espacios se sugieren; la etiqueta es la que
+                sale impresa. Se puede corregir después de crear el proyecto:
+                los que existían antes de esto no traen ninguno. */}
+            <Field label="Qué es" hint="Decide los espacios que se sugieren">
+              <select
+                value={obra.propiedad ?? 'casa'}
+                onChange={(e) => {
+                  const prop = PROPIEDADES.find((x) => x.id === e.target.value)
+                  survey.setObra({ propiedad: e.target.value, tipo: prop?.label ?? obra.tipo })
+                }}
+                className={inputCls}
+              >
+                {PROPIEDADES.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Cómo se llama" hint="Lo que dice la cotización">
               <Input value={obra.tipo} onChange={(e) => survey.setObra({ tipo: e.target.value })} />
             </Field>
             <Field label="Superficie m²" hint="Define el levantamiento y los APs">
@@ -412,6 +581,99 @@ export default function Survey() {
               <Input value={obra.zona} onChange={(e) => survey.setObra({ zona: e.target.value })} />
             </Field>
           </div>
+        </Card>
+
+        {/* ── lo que ya tiene ── */}
+        <Card title="Lo que ya tiene" seccion="perfil" proyectoId={proyecto.id}>
+          <p className="mb-3 text-[11.5px] leading-relaxed text-cream-3">
+            Casi nadie parte de cero. Lo que ya está en la casa cambia qué se propone —un Echo de 4ª gen ya
+            trae Zigbee y abarata los sensores— y cambia el precio: lo que ya tienen no se cobra.
+          </p>
+
+          <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Con qué teléfonos</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {MOVILES.map((m) => {
+              const on = (perfil.moviles ?? []).includes(m.id)
+              return (
+                <button
+                  key={m.id}
+                  onClick={() =>
+                    survey.setPerfil({
+                      moviles: on
+                        ? perfil.moviles.filter((x) => x !== m.id)
+                        : [...(perfil.moviles ?? []), m.id],
+                    })
+                  }
+                  className={`rounded-full border px-2.5 py-1 text-[11.5px] transition-colors ${
+                    on ? 'border-ember bg-ember text-ink' : 'border-line text-cream-3 hover:border-cream/35'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              )
+            })}
+          </div>
+
+          <p className="mt-3 text-[10px] tracking-[0.12em] text-cream-3 uppercase">Qué cerebros ya hay</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {CEREBROS.map((c) => {
+              const on = (perfil.cerebros ?? []).includes(c.id)
+              return (
+                <button
+                  key={c.id}
+                  onClick={() =>
+                    survey.setPerfil({
+                      cerebros: on
+                        ? perfil.cerebros.filter((x) => x !== c.id)
+                        : [...(perfil.cerebros ?? []), c.id],
+                    })
+                  }
+                  className={`rounded-full border px-2.5 py-1 text-[11.5px] transition-colors ${
+                    on ? 'border-ember bg-ember text-ink' : 'border-line text-cream-3 hover:border-cream/35'
+                  }`}
+                >
+                  {c.label}
+                  {c.border && <span className={on ? 'text-ink/60' : 'text-thread'}> · Thread</span>}
+                  {c.zigbee && <span className={on ? 'text-ink/60' : 'text-ember-2'}> · Zigbee</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          <label className="mt-3 block">
+            <span className="mb-1 block text-[10px] tracking-[0.12em] text-cream-3 uppercase">
+              Otras cosas que ya tiene
+            </span>
+            <Input
+              value={perfil.notas ?? ''}
+              onChange={(e) => survey.setPerfil({ notas: e.target.value })}
+              placeholder="Focos Hue en la sala, minisplit Mirage 2021, cámara vieja en la cochera…"
+            />
+          </label>
+
+          {sugeridas.length > 0 && (
+            <div className="mt-4 space-y-1.5 border-t border-line pt-3">
+              <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">
+                Qué significa · {sugeridas.length}
+              </p>
+              {sugeridas.map((x) => (
+                <div
+                  key={x.titulo}
+                  className={`rounded-lg border px-2.5 py-2 ${
+                    x.nivel === 'falta'
+                      ? 'border-red-500/35 bg-red-500/[0.06]'
+                      : x.nivel === 'aprovecha'
+                        ? 'border-emerald-500/30 bg-emerald-500/[0.06]'
+                        : 'border-ember/30 bg-ember/[0.06]'
+                  }`}
+                >
+                  <p className="text-[12px] text-cream">{x.titulo}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-cream-3">{x.porque}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-cream-2">{x.accion}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* ── red ── */}

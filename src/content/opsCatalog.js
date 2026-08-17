@@ -57,6 +57,26 @@ export const PROVEEDORES = [
     buscar: (q) => `https://www.agelectronica.com/resultados?busca=${encodeURIComponent(q)}`,
     sitio: 'https://www.agelectronica.com',
   },
+  {
+    id: 'aliexpress',
+    nombre: 'AliExpress',
+    tipo: 'Importación directa · pieza',
+    entrega: '12–25 días con envío estándar · 7–10 con el rápido',
+    nota: 'Donde el mismo sensor cuesta un tercio. Sirve para los primeros proyectos y para probar un modelo antes de comprometerse: se piden dos, se instalan, y si aguantan se escala.',
+    ojo: 'Verificar que diga Matter en la ficha Y en la caja — hay clones con el logo en la foto y sin certificar. Sin factura no hay deducción, y la garantía es devolver a China: para lo que va empotrado en un muro, no vale la pena ahorrar.',
+    buscar: (q) => `https://es.aliexpress.com/w/wholesale-${encodeURIComponent(q.trim().replace(/\s+/g, '-'))}.html`,
+    sitio: 'https://es.aliexpress.com',
+  },
+  {
+    id: 'alibaba',
+    nombre: 'Alibaba',
+    tipo: 'Importación por volumen · serie',
+    entrega: '30–60 días marítimo · 10–15 aéreo',
+    nota: 'Para cuando ya haya pedido en serie. Precio de fábrica, marca propia posible y el fabricante te hace el firmware con tu VID cuando tengas la certificación.',
+    ojo: 'Pide muestra ANTES del pedido grande, siempre. Cotiza DDP para que el precio incluya aduana e IVA: en FOB el 16 % más el pedimento aparecen después y se come el margen. Pedido mínimo típico de 100 a 500 piezas.',
+    buscar: (q) => `https://www.alibaba.com/trade/search?SearchText=${encodeURIComponent(q)}`,
+    sitio: 'https://www.alibaba.com',
+  },
 ]
 
 export const PROVEEDOR_BY_ID = Object.fromEntries(PROVEEDORES.map((p) => [p.id, p]))
@@ -64,7 +84,7 @@ export const PROVEEDOR_BY_ID = Object.fromEntries(PROVEEDORES.map((p) => [p.id, 
 export const CANALES = {
   retail: { label: 'Retail', hint: 'Se compra ya, sin cuenta ni trámite' },
   distribuidor: { label: 'Distribuidor', hint: 'Requiere cuenta mayorista' },
-  importacion: { label: 'Importación', hint: 'Sin canal formal en México todavía' },
+  importacion: { label: 'Importación', hint: 'Sin canal formal en México; se trae directo' },
 }
 
 /**
@@ -212,7 +232,7 @@ export const notaDe = (device) => OPS[device.id]?.note ?? ''
 const POR_CANAL = {
   retail: ['amazon', 'ml'],
   distribuidor: ['ml', 'amazon'],
-  importacion: ['amazon', 'ml'],
+  importacion: ['aliexpress', 'ml', 'amazon'],
 }
 
 /** Proveedores sugeridos para un dispositivo, en orden de a quién llamar primero. */

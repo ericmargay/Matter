@@ -1,5 +1,6 @@
 import * as P from '../../../scene/props'
 import * as F from '../../../scene/fixtures'
+import * as X from './props'
 
 /**
  * Qué se puede poner en un cuarto, según qué cuarto sea.
@@ -56,6 +57,22 @@ export const MUEBLES = {
   silla: A('Silla', P.OfficeChair, 0.6, 0.6, 1.0),
   rack: A('Rack', P.Rack, 0.6, 0.6, 1.2),
 
+  /* ── lo que hace que se vea habitado ──
+     Sin esto un plano se ve a maqueta de inmobiliaria. Los libros de canto, la
+     maceta del rincón y el gato dormido son lo que lo vuelven la casa de
+     alguien — y es lo que hace que el cliente sonría cuando lo ve. */
+  mesaRedonda: A('Mesa redonda', X.MesaRedonda, 1.1, 1.1, 0.75),
+  mesaLateral: A('Mesa lateral', X.MesaLateral, 0.5, 0.5, 0.55),
+  mesaTrabajo: A('Mesa de trabajo', X.MesaTrabajo, 1.4, 0.6, 0.74),
+  libreroLleno: A('Librero con libros', X.LibreroLleno, 1.1, 0.3, 1.7),
+  cuadroSolo: A('Cuadro', X.Cuadro, 0.55, 0.05, 0.75),
+  muroCuadros: A('Muro de cuadros', X.MuroCuadros, 1.2, 0.05, 1.1),
+  plantaAlta: A('Planta alta', X.PlantaAlta, 0.4, 0.4, 1.35),
+  macetaChica: A('Maceta', X.MacetaChica, 0.2, 0.2, 0.35),
+  gato: A('Gato dormido', X.GatoDormido, 0.4, 0.5, 0.25),
+  perro: A('Perro dormido', X.PerroDormido, 0.5, 0.7, 0.35),
+  camaMascota: A('Cama de mascota', X.CamaMascota, 0.65, 0.65, 0.15),
+
   /* ── envolvente ── */
   ventana: A('Ventana', P.WindowUnit, 1.4, 0.1, 1.5),
   persiana: A('Persiana', P.Blinds, 1.4, 0.1, 1.5),
@@ -70,12 +87,12 @@ export const MUEBLES = {
  * no quiere ir descartando WCs. Siempre se puede abrir el catálogo completo.
  */
 export const POR_TIPO = {
-  sala: ['sofa', 'mesaCentro', 'mueble_tv', 'tv', 'tapete', 'librero', 'planta', 'bocina', 'mesaComedor', 'ventana', 'persiana', 'cuadro'],
-  recamara: ['cama', 'buro', 'closet', 'tapete', 'tv', 'planta', 'ventana', 'persiana', 'cuadro'],
+  sala: ['sofa', 'mesaCentro', 'mueble_tv', 'tv', 'tapete', 'libreroLleno', 'plantaAlta', 'macetaChica', 'bocina', 'mesaLateral', 'mesaRedonda', 'muroCuadros', 'cuadroSolo', 'gato', 'perro', 'camaMascota', 'ventana', 'persiana'],
+  recamara: ['cama', 'buro', 'closet', 'tapete', 'tv', 'plantaAlta', 'macetaChica', 'libreroLleno', 'muroCuadros', 'cuadroSolo', 'gato', 'camaMascota', 'ventana', 'persiana'],
   cocina: ['barra', 'isla', 'refri', 'ventana', 'planta'],
   bano: ['wc', 'lavabo', 'regadera', 'espejo', 'toallero', 'ventana'],
-  estudio: ['escritorio', 'monitor', 'silla', 'librero', 'rack', 'planta', 'ventana', 'persiana', 'cuadro'],
-  comedor: ['mesaComedor', 'tapete', 'librero', 'planta', 'ventana', 'cuadro', 'bocina'],
+  estudio: ['escritorio', 'mesaTrabajo', 'monitor', 'silla', 'libreroLleno', 'rack', 'plantaAlta', 'macetaChica', 'muroCuadros', 'gato', 'ventana', 'persiana'],
+  comedor: ['mesaComedor', 'mesaRedonda', 'tapete', 'libreroLleno', 'plantaAlta', 'macetaChica', 'muroCuadros', 'ventana', 'bocina'],
   servicio: ['rack', 'librero', 'ventana'],
   exterior: ['planta', 'tapete', 'bocina'],
   generico: Object.keys(MUEBLES),

@@ -23,6 +23,7 @@ export const SECCIONES = {
   proyecto: 'Proyecto',
   cliente: 'Cliente',
   obra: 'Propiedad',
+  perfil: 'Lo que ya tiene',
   cuartos: 'Habitaciones',
   equipo: 'Equipo',
   plano: 'Plano',
@@ -77,7 +78,15 @@ const CLIENTE_VACIO = {
   direccion: '',
 }
 
-const OBRA_VACIA = { tipo: 'Casa', m2: 180, niveles: 2, zona: 'Zona metropolitana' }
+/* `propiedad` es el id que manda —decide qué espacios se ofrecen— y `tipo` es
+   la etiqueta que se imprime en la cotización. Separados a propósito: el
+   cliente puede querer que diga "Residencia" sin que eso cambie el catálogo
+   de espacios que ve el técnico. */
+const OBRA_VACIA = { propiedad: 'casa', tipo: 'Casa', m2: 180, niveles: 2, zona: 'Zona metropolitana' }
+
+/* Con qué llega el cliente: teléfonos, cerebros que ya tiene y equipo suyo.
+   Cambia la propuesta entera, así que se levanta igual que los metros. */
+const PERFIL_VACIO = { moviles: [], cerebros: [], existente: {}, notas: '' }
 
 const EXTRAS_VACIOS = {
   puntosRed: 4,
@@ -115,6 +124,7 @@ export function nuevoProyecto({ nombre = '', cliente = {}, obra = {}, extras = {
     cliente: { ...CLIENTE_VACIO, ...cliente },
     obra: { ...OBRA_VACIA, ...obra },
     extras: { ...EXTRAS_VACIOS, ...extras },
+    perfil: { ...PERFIL_VACIO },
     rooms: rooms ?? [
       nuevoCuarto('Sala', 28),
       nuevoCuarto('Cocina', 22),
@@ -155,6 +165,9 @@ export function aplicar(estado, ev) {
     case 'servicios.editar':
       return toca((p) => ({ ...p, extras: { ...p.extras, ...ev.datos.patch } }))
 
+    case 'perfil.editar':
+      return toca((p) => ({ ...p, perfil: { ...PERFIL_VACIO, ...p.perfil, ...ev.datos.patch } }))
+
     case 'cuarto.agregar':
       return toca((p) =>
         p.rooms.some((r) => r.id === ev.datos.cuarto.id)
@@ -167,6 +180,20 @@ export function aplicar(estado, ev) {
         ...p,
         rooms: p.rooms.map((r) => (r.id === ev.datos.cuartoId ? { ...r, ...ev.datos.patch } : r)),
       }))
+
+    /* El orden de los espacios es del levantamiento, no del azar: se recorre
+       la casa en un orden y la lista tiene que poder reflejarlo. Viaja la
+       lista completa de ids y no "subir uno", que aplicado dos veces daría
+       resultados distintos. */
+    case 'cuartos.reordenar':
+      return toca((p) => {
+        const porId = Object.fromEntries(p.rooms.map((r) => [r.id, r]))
+        const ordenados = ev.datos.orden.map((id) => porId[id]).filter(Boolean)
+        // lo que no venga en la lista se conserva al final: si dos socios
+        // reordenan a la vez, nadie pierde un espacio
+        const resto = p.rooms.filter((r) => !ev.datos.orden.includes(r.id))
+        return { ...p, rooms: [...ordenados, ...resto] }
+      })
 
     case 'cuarto.eliminar':
       return toca((p) => ({ ...p, rooms: p.rooms.filter((r) => r.id !== ev.datos.cuartoId) }))
@@ -275,6 +302,8 @@ export function resumen(ev, nombreDe = (id) => id) {
       return `Cambió ${lista(d.patch)} del cliente`
     case 'obra.editar':
       return `Cambió ${lista(d.patch)} de la propiedad`
+    case 'perfil.editar':
+      return 'Actualizó lo que el cliente ya tiene'
     case 'servicios.editar':
       return `Cambió ${lista(d.patch)}`
     case 'cuarto.agregar':
@@ -290,6 +319,8 @@ export function resumen(ev, nombreDe = (id) => id) {
       if (d.anterior === 0 || d.anterior == null) return `Agregó ${pluralPiezas(d.qty)} de ${nombre}${donde}`
       return `Dejó ${nombre} en ${pluralPiezas(d.qty)}${donde}`
     }
+    case 'cuartos.reordenar':
+      return 'Reordenó los espacios'
     case 'equipo.vaciar':
       return 'Vació todas las piezas del proyecto'
     case 'plano.editar':
@@ -305,6 +336,7 @@ export const estadoLabel = (id) => ESTADOS.find((e) => e.id === id)?.label ?? id
 export function seccionDe(tipo) {
   if (tipo.startsWith('cliente.')) return 'cliente'
   if (tipo.startsWith('obra.')) return 'obra'
+  if (tipo.startsWith('perfil.')) return 'perfil'
   if (tipo.startsWith('cuarto.')) return 'cuartos'
   if (tipo.startsWith('equipo.')) return 'equipo'
   if (tipo.startsWith('plano.')) return 'plano'

@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
 import { quote } from '../../content/pricing'
 import { ESTADOS, fechasPorProyecto, useSurvey } from '../../store/survey'
+import { ARRANQUE_PROPIEDAD, ESPACIO_BY_ID, PROPIEDADES } from '../../content/espacios'
+import { nuevoCuarto, planoVacio } from '../../sync/eventos'
+import { disponerCuarto } from './plano/disponer'
 import { Avatar } from './Historial'
 
 /**
@@ -35,17 +38,52 @@ const inputCls =
 
 function Alta({ onListo }) {
   const crear = useSurvey((s) => s.crearProyecto)
+  const setPlano = useSurvey((s) => s.setPlano)
   const [nombre, setNombre] = useState('')
   const [cliente, setCliente] = useState('')
   const [direccion, setDireccion] = useState('')
   const [tel, setTel] = useState('')
+  const [propiedad, setPropiedad] = useState('casa')
 
   const puede = nombre.trim() && direccion.trim()
 
+  /**
+   * El proyecto nace con los espacios que esa propiedad casi siempre tiene, y
+   * cada uno ya trae su equipo típico.
+   *
+   * Empezar en blanco obliga a teclear lo obvio —toda casa tiene cocina— y a
+   * buscar en el catálogo seis productos que siempre son los mismos. Se quita
+   * lo que no aplica, que es mucho más rápido que agregar lo que sí.
+   */
   const guardar = (e) => {
     e.preventDefault()
     if (!puede) return
-    crear({ nombre, cliente: { nombre: cliente, direccion, tel }, obra: {} })
+
+    const tipoProp = PROPIEDADES.find((x) => x.id === propiedad)
+    const rooms = (ARRANQUE_PROPIEDAD[propiedad] ?? []).map((id) => {
+      const esp = ESPACIO_BY_ID[id]
+      return { ...nuevoCuarto(esp.nombre, esp.m2), items: { ...esp.equipo } }
+    })
+
+    crear({
+      nombre,
+      cliente: { nombre: cliente, direccion, tel },
+      obra: { propiedad, tipo: tipoProp?.label ?? 'Casa' },
+      rooms,
+    })
+
+    /* Y su plano 3D, también de arranque.
+       Va después de crear el proyecto porque `setPlano` escribe sobre el que
+       está abierto, y `crear` es quien lo abre. Sin esto los espacios nacían
+       con equipo pero con el plano en blanco, que es justo la mitad del
+       trabajo que veníamos a quitar. */
+    for (const [i, id] of (ARRANQUE_PROPIEDAD[propiedad] ?? []).entries()) {
+      const esp = ESPACIO_BY_ID[id]
+      const base = { ...planoVacio(esp.m2), tipoCuarto: esp.tipo }
+      const { items, tramos, reglas } = disponerCuarto({ plano: base, tipo: esp.tipo, equipo: esp.equipo })
+      setPlano(rooms[i].id, { ...base, items, tramos, reglas }, `Creó el espacio ${esp.nombre}`)
+    }
+
     onListo()
   }
 
@@ -89,6 +127,23 @@ function Alta({ onListo }) {
             className={inputCls}
           />
         </label>
+        <label className="block">
+          <span className="mb-1 block text-[10px] tracking-[0.12em] text-cream-3 uppercase">
+            Tipo de propiedad
+          </span>
+          <select value={propiedad} onChange={(e) => setPropiedad(e.target.value)} className={inputCls}>
+            {PROPIEDADES.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.label}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-[10.5px] text-cream-3">
+            Decide qué espacios se te van a sugerir. Arranca con{' '}
+            {(ARRANQUE_PROPIEDAD[propiedad] ?? []).length} espacios ya puestos.
+          </span>
+        </label>
+
         <label className="block">
           <span className="mb-1 block text-[10px] tracking-[0.12em] text-cream-3 uppercase">WhatsApp</span>
           <input

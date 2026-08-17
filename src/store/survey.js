@@ -231,6 +231,13 @@ export const useSurvey = create((set, get) => ({
     agrupar(`${id}:servicios`, 'servicios.editar', id, patch)
   },
 
+  setPerfil: (patch) => {
+    const id = get().activoId
+    if (!id) return
+    aplicarYa(set, get, 'perfil.editar', id, { patch })
+    agrupar(`${id}:perfil`, 'perfil.editar', id, patch)
+  },
+
   setFolio: (folio) => {
     const id = get().activoId
     if (id) despachar('proyecto.editar', id, { patch: { folio } })
@@ -252,6 +259,28 @@ export const useSurvey = create((set, get) => ({
     const nombre = cuartoNombre(get(), id, cuartoId)
     aplicarYa(set, get, 'cuarto.editar', id, { cuartoId, cuartoNombre: nombre, patch })
     agrupar(`${id}:${cuartoId}`, 'cuarto.editar', id, patch, { cuartoId, cuartoNombre: nombre })
+  },
+
+  /**
+   * Crea un espacio del catálogo, ya con su equipo típico puesto.
+   *
+   * Es la diferencia entre capturar y confirmar: el técnico entra a la cocina
+   * y en vez de teclear "Cocina" y luego buscar seis productos, ve la lista
+   * propuesta y quita lo que no aplica. Se levanta más rápido y se olvidan
+   * menos cosas — el sensor de fuga es el que siempre se olvida.
+   */
+  agregarEspacio: (espacio) => {
+    const id = get().activoId
+    if (!id) return null
+    const cuarto = { ...nuevoCuarto(espacio.nombre, espacio.m2), items: { ...espacio.equipo } }
+    despachar('cuarto.agregar', id, { cuarto })
+    set({ activeRoom: cuarto.id })
+    return cuarto.id
+  },
+
+  reordenarCuartos: (orden) => {
+    const id = get().activoId
+    if (id) despachar('cuartos.reordenar', id, { orden })
   },
 
   removeRoom: (cuartoId) => {

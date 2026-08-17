@@ -119,3 +119,45 @@ export const ALTURA_PISO = 3.1
 
 /** Altura a la que se monta cada forma de luminaria, si no se dice otra cosa. */
 export const ALTURA_POR_FORMA = { punto: 2.4, panel: 1.6, lineal: 2.2 }
+
+/**
+ * Exposición de cámara del plano.
+ *
+ * Esto es lo que faltaba para que el bloom sirviera de algo. Las luces están en
+ * lúmenes de verdad, así que un foco de 1100 lm a medio metro de un muro entrega
+ * cientos de lux: en unidades del render eso es un valor de 20 o 30, y el blanco
+ * de la pantalla está en 1. Con exposición fija el cuarto salía quemado —muros
+ * blancos planos, sin degradado— y entonces el bloom desbordaba la imagen
+ * entera en vez de solo la lámpara.
+ *
+ * Una cámara real no se usa así: se cierra el diafragma según la luz que hay.
+ * Aquí se hace igual — se estima la radiancia media del cuarto a partir de los
+ * lúmenes instalados y la altura de montaje, y se ajusta la exposición para que
+ * caiga en tono medio. El resultado es que un cuarto de 6,700 lm y uno de 900
+ * se ven ambos legibles, pero **apagar una luz sí oscurece la imagen**, porque
+ * la exposición se fija por lo instalado, no por lo encendido.
+ */
+// Radiancia a la que queremos que caiga el cuarto medio. Pasa de 1 porque el
+// tone mapping es AGX, que tiene toe: sin este margen los planos salen
+// apagados aunque el número de lux diga que están bien.
+const OBJETIVO = 2.4
+const ALBEDO = 0.75 // muros claros, que es lo que hay en estos planos
+
+export function exposicionDe(plano = {}, modo = 'noche') {
+  const lm = (plano.items ?? []).reduce(
+    (a, it) => a + (it.params?.lm ?? 0) * ((it.params?.brillo ?? 100) / 100),
+    0,
+  )
+  if (lm < 1) return 1
+
+  // cada luminaria reparte P/(4π) candelas; el punto medio del cuarto queda
+  // más o menos a la altura de montaje, de ahí la caída cuadrática
+  const d2 = Math.max(1, (plano.alto ?? 2.6) ** 2)
+  const radiancia = ((lm / (4 * Math.PI * d2)) * ALBEDO) / Math.PI
+  const esc = Math.max(0.004, Math.min(1, OBJETIVO / radiancia))
+
+  // De día las lámparas siguen prendidas pero ya no son las que mandan: se ven
+  // como se ven de día —una mancha tenue en el techo— y quien manda es la luz
+  // de ventana. Bajarlas es lo que evita que el muro salga en blanco plano.
+  return modo === 'dia' ? esc * 0.3 : esc
+}

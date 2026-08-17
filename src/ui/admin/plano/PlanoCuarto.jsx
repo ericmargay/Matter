@@ -4,6 +4,7 @@ import { CATEGORIES, DEVICE_BY_ID } from '../../../content/catalog'
 import { uid, planoVacio } from '../../../sync/eventos'
 import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
+import { ESPACIOS } from '../../../content/espacios'
 import { ALTURA_POR_FORMA, diagnosticoLux, luxDelCuarto, parametrosIniciales } from './luz'
 
 /* three pesa; el plano se carga solo cuando alguien lo abre */
@@ -133,6 +134,15 @@ export default function PlanoCuarto({ room, onCerrar }) {
   }
   const setItems = (items, que) => guardar({ items }, que)
 
+  /* Arrastrar un muro dispara decenas de medidas por segundo. `setPlano` ya
+     agrupa el envío, así que la pantalla responde a cada cuadro y al registro
+     llega un solo cambio cuando se suelta. */
+  const medir = (eje, valor) =>
+    guardar(
+      { [eje === 'x' ? 'ancho' : 'largo']: Number(valor.toFixed(2)) },
+      `Ajustó las medidas de ${room.nombre}`,
+    )
+
   /* ── acciones sobre los objetos ── */
 
   const colocar = (x, z) => {
@@ -173,6 +183,29 @@ export default function PlanoCuarto({ room, onCerrar }) {
   const parchar = (id, patch, que) =>
     setItems(plano.items.map((i) => (i.id === id ? { ...i, ...patch } : i)), que)
 
+  /**
+   * Dónde va el módulo que vuelve inteligente ese apagador.
+   *
+   * Marca también las luminarias que controla, porque el módulo tiene que
+   * caber en algún lado: si va en la luminaria, hay que ver que el registro
+   * tenga espacio, y eso se decide mirando el plano, no en la obra.
+   */
+  const ponerModulo = (puntoId, modulo) => {
+    const regla = (plano.reglas ?? []).find((r) => r.disparo === puntoId)
+    const destinos = new Set(regla?.destinos ?? [])
+    setItems(
+      plano.items.map((i) => {
+        if (i.id === puntoId) return { ...i, modulo }
+        if (destinos.has(i.id)) return { ...i, conModulo: modulo === 'luminaria' }
+        return i
+      }),
+      modulo === 'luminaria' ? 'Puso el módulo en la luminaria' : modulo === 'atras' ? 'Puso el módulo detrás del apagador' : 'Cambió a apagador inteligente',
+    )
+  }
+
+  /** Giro libre, en radianes: lo usa el aro que se arrastra en la escena. */
+  const girarA = (id, rad) => parchar(id, { rot: rad })
+
   const girar = (id) => {
     const it = plano.items.find((i) => i.id === id)
     if (it) parchar(id, { rot: ((it.rot ?? 0) + Math.PI / 8) % (Math.PI * 2) }, 'Giró una pieza')
@@ -206,6 +239,9 @@ export default function PlanoCuarto({ room, onCerrar }) {
 
   /* ── luz ── */
 
+  /** Qué apagadores tienen una regla: son los únicos que hacen algo al tocarlos. */
+  const conRegla = useMemo(() => new Set((plano.reglas ?? []).map((r) => r.disparo)), [plano.reglas])
+
   const encendidos = useMemo(() => {
     const s = new Set()
     for (const i of plano.items) if (!apagados.has(i.id)) s.add(i.id)
@@ -229,6 +265,14 @@ export default function PlanoCuarto({ room, onCerrar }) {
   const apagadores = plano.items.filter((i) => i.clase === 'punto' && i.tipo === 'apagador')
   const equipos = plano.items.filter((i) => i.clase === 'equipo')
 
+  /**
+   * Tocar un apagador.
+   *
+   * Vale igual para luces y para cortinas: en el modelo son lo mismo —algo que
+   * el apagador prende o apaga— y en la escena una cortina "encendida" se
+   * dibuja recogida. Así el mismo gesto sirve para las dos cosas y no hay que
+   * explicar dos controles distintos.
+   */
   const accionar = (puntoId) => {
     const regla = (plano.reglas ?? []).find((r) => r.disparo === puntoId)
     if (!regla) return
@@ -274,6 +318,26 @@ export default function PlanoCuarto({ room, onCerrar }) {
           <Medida label="Alto m" value={plano.alto} onChange={(v) => guardar({ alto: v }, 'Cambió la altura del cuarto')} />
           <Medida label="Piso" value={plano.piso} step={1} min={-1} onChange={(v) => guardar({ piso: v }, 'Cambió el cuarto de piso')} />
         </div>
+
+        <label className="flex items-center gap-1.5">
+          <span className="text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">Muro</span>
+          <input
+            type="color"
+            value={plano.muroColor ?? '#6d6259'}
+            onChange={(e) => guardar({ muroColor: e.target.value }, 'Cambió el color de los muros')}
+            className="h-7 w-9 cursor-pointer rounded border border-line bg-ink"
+          />
+          <input
+            type="number"
+            step="0.02"
+            min="0.05"
+            max="0.4"
+            value={plano.muroGrosor ?? 0.12}
+            onChange={(e) => guardar({ muroGrosor: num(e.target.value, 0.12) }, 'Cambió el grosor de los muros')}
+            title="Grosor del muro en metros"
+            className="w-16 rounded border border-line bg-ink px-1.5 py-1 text-[12px] text-cream outline-none"
+          />
+        </label>
 
         <span className="text-[11px] text-cream-3">
           {area.toFixed(1)} m² · {room.m2} m² declarados
@@ -394,6 +458,10 @@ export default function PlanoCuarto({ room, onCerrar }) {
               colocando={!!colocando}
               encendidos={encendidos}
               modo={modo}
+              onAccionar={accionar}
+              conRegla={conRegla}
+              onMedida={medir}
+              onGirar={girarA}
             />
           </Suspense>
 
@@ -458,6 +526,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onQuitar={quitar}
               onUnir={() => setUniendo(seleccionado.id)}
               tramos={plano.tramos ?? []}
+              onModulo={ponerModulo}
               onQuitarTramo={(tid) => guardar({ tramos: plano.tramos.filter((t) => t.id !== tid) }, 'Quitó una línea eléctrica')}
             />
           ) : (
@@ -468,11 +537,12 @@ export default function PlanoCuarto({ room, onCerrar }) {
             </Grupo>
           )}
 
+          <Automatizaciones nombre={room.nombre} />
+
           <Reglas
             reglas={plano.reglas ?? []}
             apagadores={apagadores}
             equipos={equipos}
-            simulando={simulando}
             apagados={apagados}
             onAccionar={accionar}
             onGuardar={(reglas, que) => guardar({ reglas }, que)}
@@ -483,9 +553,60 @@ export default function PlanoCuarto({ room, onCerrar }) {
   )
 }
 
+/* ── automatizaciones sugeridas ───────────────────────────────────
+   Se buscan por el nombre del espacio, no por un id guardado: los espacios se
+   renombran ("Recámara de Ana") y perder las sugerencias por eso sería tonto.
+
+   Van aquí y no en una pantalla de escenas aparte porque es donde se decide:
+   viendo el cuarto con sus dispositivos puestos es cuando uno se pregunta qué
+   debería hacer solo. Y los comandos de voz son lo único que el cliente le
+   enseña a sus visitas — si la frase suena rara, no la usa nadie. */
+
+function Automatizaciones({ nombre }) {
+  const esp = useMemo(() => {
+    const n = nombre.toLowerCase()
+    return (
+      ESPACIOS.find((e) => e.autos?.length && n.includes(e.nombre.toLowerCase())) ??
+      ESPACIOS.find((e) => e.autos?.length && e.nombre.toLowerCase().split(' ')[0] && n.includes(e.nombre.toLowerCase().split(' ')[0]))
+    )
+  }, [nombre])
+
+  if (!esp?.autos?.length) return null
+
+  return (
+    <Grupo titulo={`Automatizaciones sugeridas · ${esp.autos.length}`}>
+      <div className="space-y-2">
+        {esp.autos.map((a) => (
+          <div key={a.nombre} className="rounded-lg border border-line px-2 py-1.5">
+            <p className="text-[11.5px] text-cream">{a.nombre}</p>
+            <p className="mt-0.5 text-[10.5px] leading-snug text-cream-3">
+              <span className="text-cream-2">Cuando</span> {a.cuando}
+            </p>
+            <p className="text-[10.5px] leading-snug text-cream-3">
+              <span className="text-cream-2">Entonces</span> {a.entonces}
+            </p>
+            {a.voz?.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {a.voz.map((v) => (
+                  <span key={v} className="rounded border border-thread/35 px-1.5 py-0.5 text-[10px] text-thread-2">
+                    “{v}”
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[10px] leading-relaxed text-cream-3">
+        Se programan en la puesta en marcha. Los comandos funcionan en HomePod mini y en Echo Dot.
+      </p>
+    </Grupo>
+  )
+}
+
 /* ── inspector de la pieza seleccionada ───────────────────────── */
 
-function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuitarTramo }) {
+function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuitarTramo, onModulo }) {
   const dev = item.clase === 'equipo' ? DEVICE_BY_ID[item.deviceId] : null
   const p = item.params
 
@@ -515,6 +636,44 @@ function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuita
           Girar 22°
         </button>
       </div>
+
+      {/* Todo a mano además del arrastre: cuando el cliente da una medida
+          exacta —"el buró va a 40 cm de la pared"— hay que poder escribirla. */}
+      <div className="mt-2 grid grid-cols-3 gap-1.5">
+        <Medida label="X m" value={item.x} min={-50} onChange={(v) => onParchar(item.id, { x: v })} />
+        <Medida label="Z m" value={item.z} min={-50} onChange={(v) => onParchar(item.id, { z: v })} />
+        <Medida
+          label="Giro °"
+          value={Math.round((((item.rot ?? 0) * 180) / Math.PI) % 360)}
+          step={5}
+          min={-360}
+          onChange={(v) => onParchar(item.id, { rot: (v * Math.PI) / 180 })}
+        />
+      </div>
+
+      {item.clase === 'punto' && item.tipo === 'apagador' && (
+        <div className="mt-2 space-y-1.5 rounded-lg border border-line px-2 py-2">
+          <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Cómo lo hacemos inteligente</p>
+          {[
+            ['atras', 'Módulo detrás del apagador', 'Se conserva el apagador que ya está. Necesita fondo en la caja.'],
+            ['luminaria', 'Módulo en la luminaria', 'Cuando la caja no da o no hay neutro ahí.'],
+            [null, 'Se cambia el apagador', 'Apagador inteligente completo, se ve distinto.'],
+          ].map(([v, label, ayuda]) => (
+            <button
+              key={label}
+              onClick={() => onModulo(item.id, v)}
+              className={`block w-full rounded px-1.5 py-1 text-left transition-colors ${
+                (item.modulo ?? null) === v ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+              }`}
+            >
+              <span className="block text-[11px]">{label}</span>
+              <span className={`block text-[10px] ${(item.modulo ?? null) === v ? 'text-ink/70' : 'text-cream-3'}`}>
+                {ayuda}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {item.clase === 'punto' && (
         <div className="mt-2 space-y-1">
@@ -612,7 +771,7 @@ function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuita
 
 /* ── reglas de comportamiento ─────────────────────────────────── */
 
-function Reglas({ reglas, apagadores, equipos, simulando, apagados, onAccionar, onGuardar }) {
+function Reglas({ reglas, apagadores, equipos, apagados, onAccionar, onGuardar }) {
   const [nueva, setNueva] = useState(null)
 
   const nombreDe = (id) => {
@@ -646,24 +805,30 @@ function Reglas({ reglas, apagadores, equipos, simulando, apagados, onAccionar, 
               <div key={ap.id} className="rounded-lg border border-line px-2 py-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11.5px] text-cream-2">Apagador {i + 1}</span>
-                  {simulando && regla ? (
-                    <button
-                      onClick={() => onAccionar(ap.id)}
-                      className="rounded border border-ember px-2 py-0.5 text-[10.5px] text-ember hover:bg-ember hover:text-ink"
-                    >
-                      accionar
-                    </button>
-                  ) : (
-                    <button onClick={() => crear(ap.id)} className="text-[10.5px] text-ember hover:underline">
+                  {/* Siempre accionable, sin modo aparte: el interruptor
+                      también se toca directo en la escena, y tener que
+                      acordarse de prender "Simular" antes era un paso que solo
+                      servía para que la demostración fallara enfrente del
+                      cliente. */}
+                  <span className="flex items-center gap-2">
+                    {regla && (
+                      <button
+                        onClick={() => onAccionar(ap.id)}
+                        className="rounded border border-ember px-2 py-0.5 text-[10.5px] text-ember hover:bg-ember hover:text-ink"
+                      >
+                        accionar
+                      </button>
+                    )}
+                    <button onClick={() => crear(ap.id)} className="text-[10.5px] text-cream-3 hover:text-ember">
                       {regla ? 'cambiar' : 'definir'}
                     </button>
-                  )}
+                  </span>
                 </div>
 
                 {regla && !editando && (
                   <p className="mt-0.5 text-[10.5px] leading-snug text-cream-3">
                     Controla {regla.destinos.map(nombreDe).join(', ')}
-                    {simulando && (
+                    {(
                       <span className="ml-1 text-cream-2">
                         · {regla.destinos.every((d) => apagados.has(d)) ? 'apagado' : 'encendido'}
                       </span>

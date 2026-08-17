@@ -52,7 +52,33 @@ export default function Conjunto({ rooms, onCerrar, onAbrirCuarto }) {
     const c = conPlano.find((x2) => x2.room.id === roomId)
     if (!c) return
     const rejilla = (v) => Number((Math.round(v * 10) / 10).toFixed(2))
-    setPlano(roomId, { ...c.plano, pos: [rejilla(x), rejilla(z)] }, `Acomodó ${c.room.nombre} en la planta`)
+    let px = rejilla(x)
+    let pz = rejilla(z)
+
+    /* Dos cuartos no pueden ocupar el mismo lugar: una planta con espacios
+       encimados no es un plano, es un error que además se ve pésimo enfrente
+       del cliente. Si el destino choca, se empuja por el eje donde menos hay
+       que moverlo — que es lo que uno haría con la mano. */
+    const solapa = (ax, az, o) =>
+      Math.abs(ax - (o.plano.pos?.[0] ?? 0)) < (c.plano.ancho + o.plano.ancho) / 2 - 0.05 &&
+      Math.abs(az - (o.plano.pos?.[1] ?? 0)) < (c.plano.largo + o.plano.largo) / 2 - 0.05
+
+    const vecinos = conPlano.filter(
+      (o) => o.room.id !== roomId && (o.plano.piso ?? 0) === (c.plano.piso ?? 0),
+    )
+
+    for (let i = 0; i < 8; i++) {
+      const choque = vecinos.find((o) => solapa(px, pz, o))
+      if (!choque) break
+      const ox = choque.plano.pos?.[0] ?? 0
+      const oz = choque.plano.pos?.[1] ?? 0
+      const dx = (c.plano.ancho + choque.plano.ancho) / 2 + 0.4 - Math.abs(px - ox)
+      const dz = (c.plano.largo + choque.plano.largo) / 2 + 0.4 - Math.abs(pz - oz)
+      if (dx < dz) px = rejilla(px + Math.sign(px - ox || 1) * dx)
+      else pz = rejilla(pz + Math.sign(pz - oz || 1) * dz)
+    }
+
+    setPlano(roomId, { ...c.plano, pos: [px, pz] }, `Acomodó ${c.room.nombre} en la planta`)
   }
 
   /**

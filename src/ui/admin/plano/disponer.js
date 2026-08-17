@@ -255,6 +255,14 @@ export function disponerCuarto({ plano, tipo, equipo }) {
     id: uid('i'),
     clase: 'punto',
     tipo: 'apagador',
+    /* Se asume que YA hay un apagador mecánico —en una casa que existe
+       siempre lo hay— y que el módulo inteligente va detrás de él. Es la
+       instalación que no cambia nada visible: el cliente conserva el apagador
+       que combina con su casa y por dentro ya es inteligente.
+       La alternativa (módulo en la luminaria) se elige en el inspector cuando
+       la caja del apagador no tiene fondo o no hay neutro ahí. */
+    mecanico: true,
+    modulo: 'atras',
     x: Number((a / 2 - 0.45).toFixed(2)),
     y: 1.2,
     z: Number((l / 2 - MURO).toFixed(2)),
@@ -280,7 +288,10 @@ export function disponerCuarto({ plano, tipo, equipo }) {
      El apagador controla las luminarias de techo del cuarto. Es lo que se
      espera de un apagador, y tenerlo puesto convierte la simulación en algo
      que se puede enseñar en la primera visita. */
+  // el apagador manda sobre las luminarias de techo Y sobre las cortinas: en
+  // la casa real ese apagador de la sala baja la persiana también
   const luces = items.filter((i) => i.clase === 'equipo' && i.params && (i.y ?? 0) > 1.8)
+  const cortinas = items.filter((i) => i.clase === 'equipo' && DEVICE_BY_ID[i.deviceId]?.cat === 'cortinas')
   const tramos = []
   const reglas = []
 
@@ -314,7 +325,7 @@ export function disponerCuarto({ plano, tipo, equipo }) {
       previo = luz.id
     }
 
-    reglas.push({ id: uid('g'), disparo: apagador.id, destinos: luces.map((x) => x.id) })
+    reglas.push({ id: uid('g'), disparo: apagador.id, destinos: [...luces, ...cortinas].map((x) => x.id) })
   }
 
   return { items, tramos, reglas }
