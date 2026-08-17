@@ -151,9 +151,79 @@ export const FAMILIAS = [
   {
     id: 'red',
     label: 'Internet y red',
-    ayuda: 'La red es donde se cae todo lo demás. El módem del proveedor casi nunca alcanza.',
+    ayuda: 'La red es donde se cae todo lo demás. El módem que te dio la compañía casi nunca alcanza.',
     items: [
-      D('modemIsp', 'Módem del proveedor (Telmex, Totalplay…)', {}),
+      /* ── el módem del proveedor ────────────────────────────────
+         Se lista por COMPAÑÍA y no como "módem genérico" porque la compañía
+         el cliente siempre la sabe y el modelo casi nunca. Y saber cuál es
+         cambia la instalación de verdad:
+
+         — Casi todos estos equipos anuncian 2.4 y 5 GHz con un solo nombre de
+           red. La mayoría de los focos, enchufes y sensores baratos solo
+           hablan 2.4 GHz, y al emparejar se enganchan a la de 5 y fallan. Es
+           la causa número uno de "no me conecta" en una instalación nueva.
+         — Ninguno deja abrir puertos ni segmentar con comodidad, así que
+           cuando hay cámaras o NVR el módem se pasa a puente y la red la
+           lleva un equipo nuestro.
+         — El de fibra trae la ONT integrada: no se puede quitar, solo poner
+           en puente. Eso hay que verificarlo ANTES de prometer VLAN.
+
+         La lista de modelos es de agosto de 2026 y es un primer tiro: la
+         iremos corrigiendo con lo que veamos en obra. Por eso "No sé cuál" va
+         de primero en todas — es la respuesta honesta más frecuente. */
+      D('modemTelmex', 'Módem de Telmex / Infinitum', {
+        modelos: [
+          'No sé cuál',
+          'Huawei HG8245H',
+          'Huawei EG8145V5',
+          'ZTE ZXHN F670L',
+          'ZTE ZXHN F660',
+          'Arcadyan (WiFi 6, el nuevo)',
+          'Fiberhome AN5506',
+          'Askey RTF3505VW',
+          'Es de cobre, no fibra',
+        ],
+        ojo: 'modem-isp',
+      }),
+      D('modemTotalplay', 'Módem de Totalplay', {
+        modelos: [
+          'No sé cuál',
+          'Huawei HG8145V5',
+          'Huawei HG8145X6 (WiFi 6)',
+          'Huawei HG8245H',
+          'Askey RTF8115VW (la torre blanca)',
+          'Nokia',
+          'Arcadyan',
+        ],
+        ojo: 'modem-isp',
+      }),
+      D('modemIzzi', 'Módem de izzi', {
+        modelos: [
+          'No sé cuál',
+          'ARRIS TG3442',
+          'ARRIS TG2482',
+          'ARRIS TG1652',
+          'ARRIS TG862',
+          'Technicolor CGA4233',
+          'Technicolor TC8305C',
+          'Hitron CHITA 3.1',
+          'Hitron CGNV5',
+          'Sagemcom Fast3890',
+          'Kaón CG3000',
+          'ZTE F689 (fibra)',
+        ],
+        ojo: 'modem-isp',
+      }),
+      D('modemMegacable', 'Módem de Megacable', {
+        modelos: ['No sé cuál', 'Hitron', 'Technicolor', 'ZTE', 'Es fibra', 'Es cable coaxial'],
+        ojo: 'modem-isp',
+      }),
+      D('modemAxtel', 'Módem de Axtel', { modelos: ['No sé cuál', 'Huawei', 'ZTE', 'Otro'], ojo: 'modem-isp' }),
+      D('modemOtro', 'Módem de otra compañía', {
+        modelos: ['No sé cuál', 'Starlink', 'Internet por antena', 'Otro'],
+        ojo: 'modem-isp',
+      }),
+
       D('meshWifi', 'WiFi en malla (Deco, Eero, Orbi…)', {}),
       D('repetidor', 'Repetidor de WiFi', { ojo: 'repetidor' }),
       D('switchRed', 'Switch de red / cableado', {}),
@@ -358,6 +428,22 @@ export function leerInventario(inv = []) {
         'Los teléfonos son de Apple y los aparatos son de Alexa',
         'Es el caso más común y el que más fricción da: se controla desde el iPhone, pero las automatizaciones viven en la app de Alexa.',
         'Se puede dejar así, o meter un HomePod mini y pasar todo a Apple Home. La segunda cuesta más al inicio y se usa mucho más.',
+      ),
+    )
+  }
+
+  const modemIsp = inv.filter((l) => POR_ID[l.id]?.ojo === 'modem-isp')
+  if (modemIsp.length > 0) {
+    const cual = modemIsp[0]
+    const d = POR_ID[cual.id]
+    s.push(
+      S(
+        'ojo',
+        `La red la lleva ${d.label.replace('Módem de ', 'el módem de ')}`,
+        cual.modelo && cual.modelo !== 'No sé cuál'
+          ? `Es un ${cual.modelo}. Como casi todos, anuncia 2.4 y 5 GHz con un solo nombre de red.`
+          : 'Falta saber el modelo. Casi todos anuncian 2.4 y 5 GHz con un solo nombre de red.',
+        'La mayoría de focos y sensores solo hablan 2.4 GHz y al emparejar se enganchan a la de 5. Se separan las bandas en la puesta en marcha, o se pasa el módem a puente y la red la lleva equipo nuestro. Es la causa número uno de “no me conecta”.',
       ),
     )
   }
