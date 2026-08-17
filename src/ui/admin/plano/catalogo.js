@@ -18,6 +18,16 @@ import * as X from './props'
 
 const A = (label, Comp, w, d, alto = 0.8, props = {}) => ({ label, Comp, w, d, alto, props })
 
+/**
+ * Portafoco: el mueble no da luz, sostiene un foco.
+ *
+ * Marcarlo importa porque es la venta más fácil del catálogo. Al cliente no
+ * hay que cambiarle el mueble ni picarle pared: se le cambia el foco por uno
+ * inteligente y esa lámpara queda automatizada. Con la marca puesta, el plano
+ * puede señalar cada una y ofrecer el foco ahí mismo.
+ */
+const L = (label, Comp, w, d, alto, props = {}) => ({ label, Comp, w, d, alto, props, portafoco: true })
+
 export const MUEBLES = {
   /* ── sala y estar ── */
   sofa: A('Sofá', P.Sofa, 2.6, 0.95, 0.8),
@@ -81,7 +91,7 @@ export const MUEBLES = {
      que decide si hay gas, la lámpara de pie que va a llevar el foco. */
   sillon: A('Sillón', X.Sillon, 0.95, 0.9, 0.8),
   puf: A('Puf', X.Puf, 0.62, 0.62, 0.4),
-  lamparaPie: A('Lámpara de pie', X.LamparaPie, 0.35, 0.35, 1.75),
+  lamparaPie: L('Lámpara de pie', X.LamparaPie, 0.35, 0.35, 1.75),
   chimenea: A('Chimenea', X.Chimenea, 1.7, 0.45, 1.2),
   relojPared: A('Reloj de pared', X.RelojPared, 0.34, 0.05, 0.34),
   revistero: A('Revistero', X.Revistero, 0.42, 0.3, 0.45),
@@ -112,6 +122,20 @@ export const MUEBLES = {
   sillaVisita: A('Silla de visita', X.SillaVisita, 0.46, 0.46, 0.9),
   macetaGrande: A('Maceta grande', X.MacetaGrande, 0.55, 0.55, 1.3),
 
+  /* ── arte ── */
+  cuadroArte: A('Cuadro de arte', X.CuadroArte, 0.66, 0.05, 0.86),
+  cuadroGrande: A('Cuadro grande', X.CuadroGrande, 1.36, 0.05, 0.96),
+  triptico: A('Tríptico', X.TripticoArte, 1.5, 0.05, 0.68),
+  cuadroPiso: A('Cuadro recargado', X.CuadroPiso, 0.86, 0.3, 1.1),
+
+  /* ── lámparas: todas llevan foco inteligente ── */
+  lamparaArco: L('Lámpara de arco', X.LamparaArco, 1.3, 0.4, 1.85),
+  lamparaColgante: L('Colgante', X.LamparaColgante, 0.24, 0.24, 1.5),
+  lamparaEsfera: L('Colgante esfera', X.LamparaEsfera, 0.32, 0.32, 1.2),
+  lamparaTripode: L('Lámpara trípode', X.LamparaTripode, 0.5, 0.5, 1.5),
+  lamparaEscritorio: L('Lámpara de escritorio', X.LamparaEscritorio, 0.45, 0.2, 0.62),
+  lamparaBuro: L('Lámpara de buró', X.LamparaBuro, 0.3, 0.3, 0.43),
+
   /* ── envolvente ── */
   ventana: A('Ventana', P.WindowUnit, 1.4, 0.1, 1.5),
   persiana: A('Persiana', P.Blinds, 1.4, 0.1, 1.5),
@@ -126,12 +150,12 @@ export const MUEBLES = {
  * no quiere ir descartando WCs. Siempre se puede abrir el catálogo completo.
  */
 export const POR_TIPO = {
-  sala: ['sofa', 'sillon', 'puf', 'mesaCentro', 'mueble_tv', 'tv', 'tapete', 'libreroLleno', 'lamparaPie', 'chimenea', 'plantaAlta', 'macetaChica', 'macetaGrande', 'bocina', 'mesaLateral', 'mesaRedonda', 'muroCuadros', 'cuadroSolo', 'relojPared', 'revistero', 'gato', 'perro', 'camaMascota', 'ventana', 'persiana'],
-  recamara: ['cama', 'buro', 'closet', 'comoda', 'bancaPie', 'espejoPie', 'cuna', 'tapete', 'tv', 'lamparaPie', 'plantaAlta', 'macetaChica', 'libreroLleno', 'muroCuadros', 'cuadroSolo', 'relojPared', 'gato', 'camaMascota', 'ventana', 'persiana'],
-  cocina: ['barra', 'isla', 'refri', 'estufa', 'campana', 'alacena', 'microondas', 'lavavajillas', 'bancoBarra', 'sillaComedor', 'ventana', 'planta', 'macetaChica', 'relojPared'],
-  bano: ['wc', 'lavabo', 'tina', 'regadera', 'espejo', 'toallero', 'boiler', 'ventana', 'macetaChica'],
-  estudio: ['escritorio', 'mesaTrabajo', 'monitor', 'silla', 'sillaVisita', 'archivero', 'pizarron', 'libreroLleno', 'rack', 'lamparaPie', 'plantaAlta', 'macetaChica', 'muroCuadros', 'gato', 'ventana', 'persiana'],
-  comedor: ['mesaComedor', 'mesaRedonda', 'sillaComedor', 'tapete', 'libreroLleno', 'lamparaPie', 'plantaAlta', 'macetaChica', 'macetaGrande', 'muroCuadros', 'relojPared', 'ventana', 'bocina'],
+  sala: ['sofa', 'sillon', 'puf', 'mesaCentro', 'mueble_tv', 'tv', 'tapete', 'libreroLleno', 'lamparaPie', 'chimenea', 'plantaAlta', 'macetaChica', 'macetaGrande', 'bocina', 'mesaLateral', 'mesaRedonda', 'muroCuadros', 'cuadroSolo', 'relojPared', 'revistero', 'gato', 'perro', 'camaMascota', 'ventana', 'persiana', 'lamparaArco', 'lamparaTripode', 'lamparaColgante', 'cuadroArte', 'cuadroGrande', 'triptico', 'cuadroPiso'],
+  recamara: ['cama', 'buro', 'closet', 'comoda', 'bancaPie', 'espejoPie', 'cuna', 'tapete', 'tv', 'lamparaPie', 'plantaAlta', 'macetaChica', 'libreroLleno', 'muroCuadros', 'cuadroSolo', 'relojPared', 'gato', 'camaMascota', 'ventana', 'persiana', 'lamparaBuro', 'lamparaTripode', 'cuadroArte', 'triptico'],
+  cocina: ['barra', 'isla', 'refri', 'estufa', 'campana', 'alacena', 'microondas', 'lavavajillas', 'bancoBarra', 'sillaComedor', 'ventana', 'planta', 'macetaChica', 'relojPared', 'lamparaEsfera', 'lamparaColgante', 'cuadroArte'],
+  bano: ['wc', 'lavabo', 'tina', 'regadera', 'espejo', 'toallero', 'boiler', 'ventana', 'macetaChica', 'cuadroArte'],
+  estudio: ['escritorio', 'mesaTrabajo', 'monitor', 'silla', 'sillaVisita', 'archivero', 'pizarron', 'libreroLleno', 'rack', 'lamparaPie', 'plantaAlta', 'macetaChica', 'muroCuadros', 'gato', 'ventana', 'persiana', 'lamparaEscritorio', 'lamparaArco', 'cuadroArte', 'cuadroPiso', 'triptico'],
+  comedor: ['mesaComedor', 'mesaRedonda', 'sillaComedor', 'tapete', 'libreroLleno', 'lamparaPie', 'plantaAlta', 'macetaChica', 'macetaGrande', 'muroCuadros', 'relojPared', 'ventana', 'bocina', 'lamparaColgante', 'lamparaEsfera', 'cuadroGrande', 'cuadroArte'],
   servicio: ['lavadora', 'secadora', 'lavadero', 'boiler', 'tendedero', 'tinaco', 'rack', 'librero', 'archivero', 'ventana'],
   exterior: ['planta', 'tapete', 'bocina'],
   generico: Object.keys(MUEBLES),

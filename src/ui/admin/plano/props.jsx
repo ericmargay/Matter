@@ -569,3 +569,176 @@ export function MacetaGrande({ position, rotation }) {
     </group>
   )
 }
+
+/* ── arte ──────────────────────────────────────────────────────────
+   Un muro sin nada encima se lee como obra negra. Cinco piezas con formatos
+   distintos alcanzan para que ningún cuarto se vea igual al de junto. */
+
+const ARTE = {
+  abstracto: ['#c4623f', '#2f4a6b', '#d9b25c'],
+  paisaje: ['#5b7f6b', '#a8c0cc', '#d4b483'],
+  retrato: ['#7a4a3f', '#2d2a33', '#c9a78a'],
+  grafico: ['#1f1d24', '#e6e0d4', '#c4623f'],
+}
+
+/** Cuadro con composición: bandas de color, no un rectángulo liso. */
+export function CuadroArte({ position, rotation, w = 0.6, h = 0.8, estilo = 'abstracto' }) {
+  const c = ARTE[estilo] ?? ARTE.abstracto
+  return (
+    <group position={position} rotation={rotation}>
+      <B p={[0, 0, 0]} s={[w + 0.06, h + 0.06, 0.04]} m={M.woodDark} />
+      <mesh position={[0, 0, 0.025]}>
+        <planeGeometry args={[w, h]} />
+        <meshStandardMaterial color={c[1]} roughness={0.92} />
+      </mesh>
+      <mesh position={[0, -h * 0.22, 0.03]}>
+        <planeGeometry args={[w * 0.9, h * 0.34]} />
+        <meshStandardMaterial color={c[0]} roughness={0.92} />
+      </mesh>
+      <mesh position={[w * 0.22, h * 0.24, 0.03]}>
+        <planeGeometry args={[w * 0.34, h * 0.26]} />
+        <meshStandardMaterial color={c[2]} roughness={0.92} />
+      </mesh>
+    </group>
+  )
+}
+
+export function CuadroGrande({ position, rotation }) {
+  return <CuadroArte position={position} rotation={rotation} w={1.3} h={0.9} estilo="paisaje" />
+}
+
+/** Tres piezas del mismo alto, que es como se cuelga un tríptico. */
+export function TripticoArte({ position, rotation }) {
+  return (
+    <group position={position} rotation={rotation}>
+      {[-1, 0, 1].map((i) => (
+        <CuadroArte
+          key={i}
+          position={[i * 0.5, 0, 0]}
+          w={0.4}
+          h={0.62}
+          estilo={['retrato', 'abstracto', 'grafico'][i + 1]}
+        />
+      ))}
+    </group>
+  )
+}
+
+/** Recargado en el piso contra el muro, como en los estudios. */
+export function CuadroPiso({ position, rotation }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <group position={[0, 0.55, 0]} rotation={[-0.14, 0, 0]}>
+        <CuadroArte position={[0, 0, 0]} w={0.8} h={1.05} estilo="grafico" />
+      </group>
+    </group>
+  )
+}
+
+/* ── lámparas ──────────────────────────────────────────────────────
+   Todas son PORTAFOCOS: no traen luz propia, traen un casquillo E26 donde
+   entra un foco inteligente. Es la venta más fácil de todo el catálogo —el
+   cliente no cambia el mueble ni pica pared, cambia el foco— y por eso vale
+   la pena que estén modeladas: para poder señalarlas en el plano y decir
+   "aquí van tres focos y ya tienes la sala automatizada". */
+
+export function LamparaArco({ position, rotation }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <C p={[0, 0.03, 0]} s={[0.4, 0.06, 0.4]} m={M.metal} />
+      {Array.from({ length: 8 }, (_, i) => {
+        const t = i / 7
+        return (
+          <C
+            key={i}
+            p={[t * 1.1, 0.4 + Math.sin(t * 1.5) * 1.35, 0]}
+            s={[0.035, 0.3, 0.035]}
+            r={[0, 0, -t * 0.9]}
+            m={M.metal}
+            shadow={false}
+          />
+        )
+      })}
+      <mesh position={[1.15, 1.72, 0]} castShadow>
+        <cylinderGeometry args={[0.19, 0.19, 0.22, 18, 1, true]} />
+        <meshStandardMaterial color="#d8c49a" roughness={0.9} side={2} />
+      </mesh>
+    </group>
+  )
+}
+
+export function LamparaColgante({ position, rotation }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <C p={[0, 0.62, 0]} s={[0.012, 1.24, 0.012]} m={M.metal} shadow={false} />
+      <mesh castShadow>
+        <cylinderGeometry args={[0.06, 0.24, 0.26, 20, 1, true]} />
+        <meshStandardMaterial color="#2f2b28" roughness={0.5} metalness={0.4} side={2} />
+      </mesh>
+    </group>
+  )
+}
+
+export function LamparaEsfera({ position, rotation }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <C p={[0, 0.5, 0]} s={[0.012, 1.0, 0.012]} m={M.metal} shadow={false} />
+      <mesh castShadow>
+        <sphereGeometry args={[0.16, 20, 14]} />
+        <meshStandardMaterial color="#e6ddcb" roughness={0.85} />
+      </mesh>
+    </group>
+  )
+}
+
+export function LamparaTripode({ position, rotation }) {
+  return (
+    <group position={position} rotation={rotation}>
+      {[0, 1, 2].map((i) => {
+        const a = (i / 3) * Math.PI * 2
+        return (
+          <C
+            key={i}
+            p={[Math.sin(a) * 0.22, 0.6, Math.cos(a) * 0.22]}
+            s={[0.035, 1.25, 0.035]}
+            r={[Math.cos(a) * 0.3, 0, -Math.sin(a) * 0.3]}
+            m={M.wood}
+          />
+        )
+      })}
+      <mesh position={[0, 1.36, 0]} castShadow>
+        <cylinderGeometry args={[0.16, 0.24, 0.28, 18, 1, true]} />
+        <meshStandardMaterial color="#cfc4b1" roughness={0.9} side={2} />
+      </mesh>
+    </group>
+  )
+}
+
+/** De escritorio, articulada. La que casi siempre acaba con el foco de color. */
+export function LamparaEscritorio({ position, rotation }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <C p={[0, 0.015, 0]} s={[0.2, 0.03, 0.2]} m={M.metal} />
+      <C p={[0, 0.2, 0]} s={[0.025, 0.4, 0.025]} r={[0, 0, 0.18]} m={M.metal} />
+      <C p={[0.16, 0.46, 0]} s={[0.025, 0.36, 0.025]} r={[0, 0, -0.9]} m={M.metal} />
+      <mesh position={[0.31, 0.55, 0]} rotation={[0, 0, -0.7]} castShadow>
+        <cylinderGeometry args={[0.05, 0.11, 0.13, 16, 1, true]} />
+        <meshStandardMaterial color="#c4623f" roughness={0.6} side={2} />
+      </mesh>
+    </group>
+  )
+}
+
+/** De buró: la del comando "buenas noches". */
+export function LamparaBuro({ position, rotation }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <C p={[0, 0.02, 0]} s={[0.16, 0.04, 0.16]} m={M.metalWarm} />
+      <C p={[0, 0.14, 0]} s={[0.05, 0.24, 0.05]} m={M.metalWarm} />
+      <mesh position={[0, 0.34, 0]} castShadow>
+        <cylinderGeometry args={[0.11, 0.15, 0.18, 16, 1, true]} />
+        <meshStandardMaterial color="#e0d3b8" roughness={0.9} side={2} />
+      </mesh>
+    </group>
+  )
+}

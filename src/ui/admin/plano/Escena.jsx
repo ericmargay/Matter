@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, RoundedBox, Text, TransformControls } from '@react-three/drei'
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -49,38 +49,68 @@ const matPiso = new THREE.MeshStandardMaterial({ color: '#a86a35', roughness: 1,
 /* ── cascarón ─────────────────────────────────────────────────── */
 
 /**
- * El cuarto como caja de juguete.
+ * El cuarto como caja de juguete, con muros de grosor de verdad.
  *
- * El canto redondeado es casi todo el cambio de estilo. Un cuarto de aristas
- * vivas se lee como levantamiento técnico; el mismo cuarto con las esquinas
- * suavizadas se lee como maqueta, y la maqueta es la que el cliente entiende
- * sin que nadie se la explique.
+ * Antes era una sola caja dibujada por dentro (`BackSide`). Barato y cerraba
+ * siempre, pero tenía un defecto que se notaba justo donde importa: el muro no
+ * tenía canto. El campo "grosor" existía y no cambiaba nada visible, porque lo
+ * único que hacía era agrandar la caja. En un levantamiento el grosor del muro
+ * es un dato —decide si la caja del apagador da para el módulo detrás— así que
+ * tiene que verse.
  *
- * El redondeo de abajo se esconde bajo el piso —la caja arranca 20 cm más
- * abajo y es 20 cm más alta— porque si no, la curva deja una rendija de luz
- * justo en el zócalo.
+ * Ahora son cuatro losas de verdad, cada una de `grosor` metros. Y para que se
+ * siga viendo el interior, se esconden las dos que quedan entre la cámara y el
+ * cuarto, recalculado en cada cuadro: así se puede girar libremente sin que
+ * ninguna tape, y donde el muro se corta se ve su espesor.
  */
 const HUNDIDO = 0.2
 
-function Cuarto({ ancho, largo, alto, color = '#3d3a37', grosor = 0.12 }) {
-  const t = grosor
-  const radio = Math.min(0.22, alto / 6)
+function Muro({ ancho, alto, grosor, color, pos, rot, normal }) {
+  const ref = useRef()
+  const { camera } = useThree()
+
+  useFrame(() => {
+    if (!ref.current) return
+    // se esconde el muro que quedaría entre la cámara y el cuarto
+    ref.current.visible = normal[0] * camera.position.x + normal[1] * camera.position.z <= 0
+  })
+
+  const radio = Math.min(grosor * 0.45, 0.06)
+  return (
+    <RoundedBox
+      ref={ref}
+      args={[ancho, alto + HUNDIDO, grosor]}
+      radius={radio}
+      smoothness={3}
+      steps={1}
+      position={[pos[0], (alto - HUNDIDO) / 2, pos[1]]}
+      rotation={[0, rot, 0]}
+      material={matMuroDe(color)}
+      castShadow
+      receiveShadow
+    />
+  )
+}
+
+function Cuarto({ ancho, largo, alto, color = '#6d6259', grosor = 0.12 }) {
+  const t = Math.max(0.04, grosor)
+  const muros = [
+    { ancho: ancho + t * 2, pos: [0, -(largo + t) / 2], rot: 0, normal: [0, -1] },
+    { ancho: ancho + t * 2, pos: [0, (largo + t) / 2], rot: 0, normal: [0, 1] },
+    { ancho: largo + t * 2, pos: [-(ancho + t) / 2, 0], rot: Math.PI / 2, normal: [-1, 0] },
+    { ancho: largo + t * 2, pos: [(ancho + t) / 2, 0], rot: Math.PI / 2, normal: [1, 0] },
+  ]
+
   return (
     <group>
+      {/* el piso llega hasta el centro del muro para que no se vea junta */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow material={matPiso}>
-        <planeGeometry args={[ancho, largo]} />
+        <planeGeometry args={[ancho + t, largo + t]} />
       </mesh>
 
-      {/* una sola caja abierta: más barato que cuatro muros y siempre cierra */}
-      <RoundedBox
-        args={[ancho + t, alto + HUNDIDO, largo + t]}
-        radius={radio}
-        smoothness={4}
-        steps={1}
-        position={[0, (alto - HUNDIDO) / 2, 0]}
-        material={matMuroDe(color)}
-        receiveShadow
-      />
+      {muros.map((m, i) => (
+        <Muro key={i} {...m} alto={alto} grosor={t} color={color} />
+      ))}
 
       {/* La retícula se escala a la planta en vez de ser cuadrada: antes usaba
           el lado mayor y se desbordaba por el lado corto, y las líneas
@@ -91,6 +121,53 @@ function Cuarto({ ancho, largo, alto, color = '#3d3a37', grosor = 0.12 }) {
         position={[0, 0.002, 0]}
       />
     </group>
+  )
+}
+
+/* ── contorno ─────────────────────────────────────────────────── */
+
+/**
+ * La caja que dice qué pieza tienes debajo del puntero.
+ *
+ * Primero lo intenté con el efecto `Outline` del postproceso —el glow de
+ * contorno— y no dibuja nada: se pelea con el paso de normales que necesita la
+ * oclusión ambiental. Da igual, porque mirando otra vez la referencia, lo que
+ * marca la pieza ahí tampoco es un glow: es una caja de aristas. Y para un
+ * plano es mejor, porque además de decir *cuál* es, dice *cuánto ocupa* — que
+ * en un levantamiento es la mitad de la pregunta.
+ *
+ * `depthTest` apagado a propósito: la caja de un sensor metido tras un mueble
+ * tiene que verse igual, si no lo que está tapado nunca se puede tomar.
+ */
+const cajaCache = new Map()
+const aristasDe = (w, h, d) => {
+  const k = `${w}|${h}|${d}`
+  if (!cajaCache.has(k)) cajaCache.set(k, new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d)))
+  return cajaCache.get(k)
+}
+
+function Contorno({ item, seleccionado }) {
+  const def = item.clase === 'mueble' ? MUEBLES[item.tipo] : null
+  const w = def?.w ?? (item.clase === 'punto' ? 0.16 : 0.34)
+  const d = def?.d ?? (item.clase === 'punto' ? 0.1 : 0.34)
+  const h = def?.alto ?? (item.clase === 'punto' ? 0.2 : 0.3)
+  const e = item.esc ?? 1
+
+  return (
+    <lineSegments
+      geometry={aristasDe(w, h, d)}
+      position={[item.x, (item.y ?? (item.clase === 'punto' ? 0.4 : 0)) + (h / 2) * e, item.z]}
+      rotation={[0, item.rot ?? 0, 0]}
+      scale={e}
+      renderOrder={4}
+    >
+      <lineBasicMaterial
+        color={seleccionado ? '#ff9a4d' : '#7fa6ff'}
+        transparent
+        opacity={seleccionado ? 0.95 : 0.6}
+        depthTest={false}
+      />
+    </lineSegments>
   )
 }
 
@@ -117,7 +194,7 @@ function useSombras(ref) {
 
 /* ── un mueble ────────────────────────────────────────────────── */
 
-function Mueble({ item, seleccionado, onTomar, colocando }) {
+function Mueble({ item, seleccionado, onTomar, colocando, onEncima }) {
   const g = useRef()
   useSombras(g)
   const def = MUEBLES[item.tipo]
@@ -130,6 +207,11 @@ function Mueble({ item, seleccionado, onTomar, colocando }) {
       position={[item.x, item.y ?? 0, item.z]}
       rotation={[0, item.rot ?? 0, 0]}
       scale={item.esc ?? 1}
+      onPointerOver={(e) => {
+        e.stopPropagation()
+        onEncima(item.id)
+      }}
+      onPointerOut={() => onEncima(null)}
       onPointerDown={(e) => {
         /* Colocando, el clic tiene que llegar al piso: si un mueble lo
            intercepta, seleccionarlo en vez de soltar la pieza se siente roto
@@ -311,7 +393,7 @@ function Cuerpo({ device, params, encendido, color, apertura }) {
   )
 }
 
-function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, colocando, escala = 1 }) {
+function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, colocando, escala = 1, onEncima }) {
   const p = item.params
   const dev = DEVICE_BY_ID[item.deviceId]
   const luz = useRef()
@@ -344,6 +426,11 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
       position={[item.x, item.y ?? 0, item.z]}
       rotation={[0, item.rot ?? 0, 0]}
       scale={item.esc ?? 1}
+      onPointerOver={(e) => {
+        e.stopPropagation()
+        onEncima(item.id)
+      }}
+      onPointerOut={() => onEncima(null)}
       onPointerDown={(e) => {
         /* Colocando, el clic tiene que llegar al piso: si un mueble lo
            intercepta, seleccionarlo en vez de soltar la pieza se siente roto
@@ -419,13 +506,18 @@ const COLOR_PUNTO = { enchufe: '#7fa6ff', apagador: '#ffc48a', salida: '#8fd694'
  * fue un arrastre y solo mueve. Es lo que hace que el plano se sienta como la
  * casa — le picas al apagador y la luz responde.
  */
-function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colocando }) {
+function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colocando, onEncima }) {
   const desde = useRef(null)
   const esApagador = item.tipo === 'apagador'
 
   return (
     <group
       position={[item.x, item.y ?? 0.4, item.z]}
+      onPointerOver={(e) => {
+        e.stopPropagation()
+        onEncima(item.id)
+      }}
+      onPointerOut={() => onEncima(null)}
       onPointerDown={(e) => {
         if (colocando) return
         e.stopPropagation()
@@ -909,6 +1001,7 @@ export default function Escena({
 }) {
   const { ancho, largo, alto } = plano
   const [arrastrando, setArrastrando] = useState(null)
+  const [encima, setEncima] = useState(null)
   const orbita = useRef()
 
   /* En modo medida la cámara se queda quieta. Era el estorbo principal:
@@ -919,9 +1012,16 @@ export default function Escena({
     if (orbita.current) orbita.current.enabled = !midiendo
   }, [midiendo])
 
+  /* Como en Spline: el primer clic SELECCIONA y nada más. Solo lo que ya está
+     seleccionado se puede arrastrar. Antes cualquier roce movía la pieza que
+     estuviera debajo, y en un cuarto lleno eso significa mover cosas sin
+     enterarse — el daño se descubre cuando ya se guardó. */
   const tomar = (id) => {
     if (midiendo) return
-    onSeleccionar(id)
+    if (seleccion !== id) {
+      onSeleccionar(id)
+      return
+    }
     setArrastrando(id)
     if (orbita.current) orbita.current.enabled = false
   }
@@ -1007,7 +1107,16 @@ export default function Escena({
       {plano.items.map((it) => {
         const sel = it.id === seleccion
         if (it.clase === 'mueble')
-          return <Mueble key={it.id} item={it} seleccionado={sel} onTomar={tomar} colocando={colocando} />
+          return (
+            <Mueble
+              key={it.id}
+              item={it}
+              seleccionado={sel}
+              onTomar={tomar}
+              colocando={colocando}
+              onEncima={setEncima}
+            />
+          )
         if (it.clase === 'equipo')
           return (
             <Equipo
@@ -1021,6 +1130,7 @@ export default function Escena({
               conSombra={conSombra.has(it.id)}
               colocando={colocando}
               escala={exposicion}
+              onEncima={setEncima}
             />
           )
         return (
@@ -1033,6 +1143,7 @@ export default function Escena({
             onAccionar={onAccionar}
             controla={conRegla?.has(it.id)}
             colocando={colocando}
+            onEncima={setEncima}
           />
         )
       })}
@@ -1052,6 +1163,12 @@ export default function Escena({
 
       {/* el aro de giro solo en lo seleccionado: cuatro aros a la vez serían
           ruido y además se pelearían con el arrastre */}
+      {/* el contorno de lo que está bajo el puntero, y el de lo seleccionado */}
+      {encima && encima !== seleccion && (
+        <Contorno item={plano.items.find((i) => i.id === encima)} seleccionado={false} />
+      )}
+      {seleccionado && <Contorno item={seleccionado} seleccionado />}
+
       {seleccionado && !midiendo && modoGizmo && (
         <Gizmo item={seleccionado} modo={modoGizmo} onParchar={onParchar} onFin={onFinGizmo} />
       )}

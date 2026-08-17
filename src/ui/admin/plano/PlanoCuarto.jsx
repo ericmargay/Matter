@@ -285,6 +285,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
   /* ── reglas ── */
 
   const seleccionado = plano.items.find((i) => i.id === seleccion)
+  const enMuros = seleccion === ID_MUROS
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-ink">
@@ -568,7 +569,9 @@ export default function PlanoCuarto({ room, onCerrar }) {
 
         {/* ── inspector ── */}
         <aside className="w-[16rem] shrink-0 overflow-y-auto border-l border-line">
-          {seleccionado ? (
+          {enMuros ? (
+            <InspectorMuros plano={plano} onGuardar={guardar} />
+          ) : seleccionado ? (
             <Inspector
               item={seleccionado}
               onParchar={parchar}
@@ -672,6 +675,8 @@ const GRUPOS = [
   ['punto', 'Instalación'],
 ]
 
+export const ID_MUROS = '__muros'
+
 function Objetos({ items, seleccion, onSeleccionar, onQuitar }) {
   const nombre = (it) =>
     it.clase === 'mueble'
@@ -681,8 +686,19 @@ function Objetos({ items, seleccion, onSeleccionar, onQuitar }) {
         : it.tipo
 
   return (
-    <Grupo titulo={`Objetos · ${items.length}`}>
+    <Grupo titulo={`Objetos · ${items.length + 1}`}>
       <div className="space-y-2">
+        {/* Los muros son un objeto más, como en cualquier editor 3D: se
+            seleccionan y se editan en el inspector, no en un campo suelto
+            del encabezado que nadie encuentra. */}
+        <button
+          onClick={() => onSeleccionar(ID_MUROS)}
+          className={`flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[11.5px] transition-colors ${
+            seleccion === ID_MUROS ? 'bg-ember/20 text-ember' : 'text-cream-2 hover:bg-cream/8'
+          }`}
+        >
+          Muros y piso
+        </button>
         {GRUPOS.map(([clase, label]) => {
           const del = items.filter((i) => i.clase === clase)
           if (!del.length) return null
@@ -721,6 +737,72 @@ function Objetos({ items, seleccion, onSeleccionar, onQuitar }) {
             </div>
           )
         })}
+      </div>
+    </Grupo>
+  )
+}
+
+/* ── inspector de los muros ───────────────────────────────────── */
+
+/**
+ * El grosor del muro no es decoración: decide si la caja del apagador da para
+ * meter el módulo detrás. Un muro de tabique de 12 cm sí; uno de tablaroca de
+ * 7 con la caja a ras, casi nunca — y ahí hay que irse a la luminaria. Por eso
+ * se levanta y por eso ahora se ve en el plano.
+ */
+const MUROS_TIPICOS = [
+  [0.07, 'Tablaroca', 'Poco fondo. El módulo casi siempre se va a la luminaria.'],
+  [0.12, 'Block o tabique', 'Lo normal en la Ciudad de México. El módulo entra detrás.'],
+  [0.2, 'Muro de carga', 'De sobra para cualquier módulo.'],
+]
+
+function InspectorMuros({ plano, onGuardar }) {
+  const grosor = plano.muroGrosor ?? 0.12
+  return (
+    <Grupo titulo="Muros y piso">
+      <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Grosor</p>
+      <div className="mt-1 space-y-1">
+        {MUROS_TIPICOS.map(([v, label, ayuda]) => (
+          <button
+            key={v}
+            onClick={() => onGuardar({ muroGrosor: v }, 'Cambió el grosor de los muros')}
+            className={`block w-full rounded px-1.5 py-1 text-left transition-colors ${
+              Math.abs(grosor - v) < 0.005 ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+            }`}
+          >
+            <span className="block text-[11px]">
+              {label} · {(v * 100).toFixed(0)} cm
+            </span>
+            <span className={`block text-[10px] ${Math.abs(grosor - v) < 0.005 ? 'text-ink/70' : 'text-cream-3'}`}>
+              {ayuda}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
+        <Medida
+          label="Grosor m"
+          value={grosor}
+          step={0.01}
+          min={0.04}
+          onChange={(v) => onGuardar({ muroGrosor: v }, 'Cambió el grosor de los muros')}
+        />
+        <label className="block">
+          <span className="block text-[10px] text-cream-3">Color</span>
+          <input
+            type="color"
+            value={plano.muroColor ?? '#6d6259'}
+            onChange={(e) => onGuardar({ muroColor: e.target.value }, 'Cambió el color de los muros')}
+            className="mt-0.5 h-7 w-full rounded border border-line bg-ink"
+          />
+        </label>
+      </div>
+
+      <div className="mt-2 grid grid-cols-3 gap-1.5">
+        <Medida label="Ancho m" value={plano.ancho} step={0.1} min={1.2} onChange={(v) => onGuardar({ ancho: v }, 'Ajustó las medidas')} />
+        <Medida label="Largo m" value={plano.largo} step={0.1} min={1.2} onChange={(v) => onGuardar({ largo: v }, 'Ajustó las medidas')} />
+        <Medida label="Alto m" value={plano.alto} step={0.05} min={2} onChange={(v) => onGuardar({ alto: v }, 'Ajustó las medidas')} />
       </div>
     </Grupo>
   )
@@ -805,6 +887,16 @@ function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuita
               </span>
             </button>
           ))}
+        </div>
+      )}
+
+      {item.clase === 'mueble' && MUEBLES[item.tipo]?.portafoco && (
+        <div className="mt-2 rounded-lg border border-ember/30 bg-ember/[0.06] px-2 py-2">
+          <p className="text-[10px] tracking-[0.12em] text-ember uppercase">Aquí va un foco inteligente</p>
+          <p className="mt-1 text-[10.5px] leading-snug text-cream-2">
+            Esta lámpara no se cambia: se le cambia el foco. Es la pieza más barata de automatizar de toda la
+            casa y no pide obra ni tocar la instalación.
+          </p>
         </div>
       )}
 
