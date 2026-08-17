@@ -203,6 +203,20 @@ export function crearApp() {
     })
   })
 
+  /* La guía del cliente: solo lectura y solo su proyecto. Devuelve el nombre
+     de cada espacio y qué hay en él — de ahí el navegador arma el resto. Sin
+     precios ni proveedores, igual que el anexador. */
+  app.get('/api/guia/:token', (req, res) => {
+    const id = leerTokenCliente(req.params.token)
+    if (!id) return res.status(404).json({ error: 'enlace inválido' })
+    const pr = verEstado().proyectos.find((p) => p.id === id)
+    if (!pr) return res.status(404).json({ error: 'no existe' })
+    res.json({
+      proyecto: pr.nombre,
+      rooms: (pr.rooms ?? []).map((r) => ({ nombre: r.nombre, items: r.items ?? {} })),
+    })
+  })
+
   app.post('/api/inventario/:token', (req, res) => {
     const id = leerTokenCliente(req.params.token)
     if (!id) return res.status(404).json({ error: 'enlace inválido' })

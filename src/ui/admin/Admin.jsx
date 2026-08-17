@@ -5,6 +5,7 @@ import { paramsDelHash, useProyecto, useSurvey } from '../../store/survey'
 import Logo from '../Logo'
 import Catalog from './Catalog'
 import Escuela from './Escuela'
+import Taller from './Taller'
 import { Avatar } from './Historial'
 import Projects from './Projects'
 import Suppliers from './Suppliers'
@@ -33,6 +34,7 @@ const SECCIONES = [
   { id: 'escuela', label: 'Qué saber' },
   { id: 'catalogo', label: 'Catálogo' },
   { id: 'proveedores', label: 'Proveedores' },
+  { id: 'taller', label: 'Material y herramienta' },
 ]
 
 /** Lo que se ve al entrar a levantar sin proyecto abierto. */
@@ -306,6 +308,8 @@ export default function Admin({ section = 'proyectos' }) {
           <Catalog />
         ) : tab === 'proveedores' ? (
           <Suppliers />
+        ) : tab === 'taller' ? (
+          <Taller />
         ) : (
           <Survey />
         )}

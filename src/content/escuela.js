@@ -150,6 +150,50 @@ export const FICHAS = [
         'La salida más limpia cuando el apagador no da. El módulo va arriba, en el plafón, y el apagador de pared se queda tal cual — para el cliente no cambia nada visible.'),
     ],
   },
+  {
+    id: 'medir',
+    eco: 'Qué medir',
+    titulo: 'Qué se mide en el levantamiento y con qué',
+    entrada:
+      'Un levantamiento sin números es una conversación. Esto es lo que hay que traerse de la casa del cliente para poder cotizar sin adivinar — y sin volver.',
+    pregunta: '¿Qué vas a medir?',
+    variantes: [
+      V('m-espacio', 'Las medidas del espacio', [],
+        'Ancho, largo y alto de plafón de cada cuarto, con medidor láser. El alto importa tanto como la planta: decide cuántos lúmenes hacen falta y si un colgante estorba. Se anota el espesor del muro también — se ve al quitar una placa.'),
+      V('m-neutro', 'Si hay neutro en la caja del apagador', [],
+        'Es LA medición del levantamiento, la que más dinero mueve. Se corta el circuito, se quita la placa y se busca un cable blanco además del de fase. Con el multímetro entre fase y ese cable deben salir ~127 V. Sin neutro no entra un módulo normal y la cotización cambia entera. Se revisa caja por caja, no una y suponer el resto.'),
+      V('m-señal', 'La señal de WiFi donde va a ir cada cosa', [],
+        'Con el teléfono, parado en el punto exacto donde va el aparato — no en medio del cuarto. Debajo de -70 dBm ese punto va a fallar de forma intermitente, que es la peor falla porque no se puede reproducir enfrente del cliente. Se anota el peor punto de cada espacio.'),
+      V('m-tierra', 'Si los contactos tienen tierra y buena polaridad', [],
+        'Con el probador de tres luces, en un contacto por espacio. En casa vieja de la CDMX falta tierra más seguido de lo que uno cree, y varios aparatos —pantallas, racks, fuentes— no la perdonan.'),
+      V('m-carga', 'El centro de carga', [],
+        'Cuántos circuitos hay, cuáles están libres y si hay espacio para pastillas nuevas. Foto de la tapa abierta con las etiquetas. Es lo que dice si un circuito nuevo es media hora o media obra.'),
+      V('m-gas', 'Qué gas hay y por dónde entra', [],
+        'LP de tanque o estacionario, o natural de tubería. Decide qué detector va y a qué altura: el LP pesa y se acumula a ras de piso, el natural sube al plafón. Un detector a la altura equivocada nunca se dispara.'),
+      V('m-fotos', 'Fotos de todo lo que se va a tocar', [],
+        'Cada caja abierta, cada plafón, el centro de carga, el módem y el registro del motor de cortina. Cuestan cero y evitan el segundo viaje. La foto del muro además sirve para escoger el arte.'),
+    ],
+  },
+  {
+    id: 'gas',
+    eco: 'Gas',
+    titulo: 'Quién puede tocar una instalación de gas',
+    entrada:
+      'Esto no es opcional ni negociable: una instalación fija de gas LP en México se rige por la NOM-004-SEDG-2004, y el trabajo tiene que quedar verificado. Nosotros ponemos la automatización; la tubería la toca quien está acreditado.',
+    pregunta: '¿Qué necesitas saber?',
+    variantes: [
+      V('g-norma', 'Cuál es la norma', [],
+        'NOM-004-SEDG-2004. Fija las especificaciones mínimas de seguridad para diseño, construcción y modificación de instalaciones fijas de aprovechamiento de gas LP, y el procedimiento para evaluar que se cumplan.'),
+      V('g-quien', 'Quién dictamina', [],
+        'Una Unidad de Verificación acreditada ante la EMA y aprobada por la autoridad. Ella hace la inspección, las mediciones y la prueba de hermeticidad, y emite el dictamen. Ser instalador capacitado NO es lo mismo que ser Unidad de Verificación: lo segundo es una acreditación de empresa, cara y lenta.'),
+      V('g-capacitar', 'Cómo capacitamos a alguien', [],
+        'Hay cursos de requisitos para instalaciones de gas LP bajo la NOM-004-SEDG-2004 —MCG México da uno— que cubren componentes, distancias mínimas de separación, prueba de hermeticidad e instalación eléctrica en zona de gas. Con eso nuestro instalador puede hacer el trabajo a norma. El dictamen se sigue contratando con una UV acreditada; el camino corto es tener el trabajo bien hecho y pagar la verificación, no acreditarnos como UV.'),
+      V('g-mientras', 'Qué sí podemos hacer hoy', [],
+        'Todo lo que no toca la tubería: el detector de gas —que es autónomo y solo se enchufa—, la alarma, el aviso al teléfono y la escena que apaga lo eléctrico y prende la extracción. Es la mayor parte del valor y no requiere acreditación. La válvula de corte se deja propuesta y se contrata aparte.'),
+      V('g-renta', 'Y si el departamento es rentado', [],
+        'Cortar o modificar la línea fija necesita permiso escrito del propietario, siempre. El detector no: se enchufa, se lleva el día de la mudanza y no deja marca. En vivienda rentada suele ser el único tramo del gas que conviene hacer.'),
+    ],
+  },
 ]
 
 export const FICHA_BY_ID = Object.fromEntries(FICHAS.map((f) => [f.id, f]))

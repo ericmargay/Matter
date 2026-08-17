@@ -52,6 +52,10 @@ const Catalogo = lazy(() => import('./ui/Catalogo'))
  *  catálogo es el de lo que la gente YA tiene, no el de lo que vendemos. */
 const MiEquipo = lazy(() => import('./ui/MiEquipo'))
 
+/** La guía de qué le puede pedir a su casa. Se arma desde el levantamiento,
+ *  así que no envejece: cambia cuando cambia la instalación. */
+const MiCasa = lazy(() => import('./ui/MiCasa'))
+
 /** Ruteo por hash: #/admin abre el panel. Sin router ni servidor extra. */
 function useHashRoute() {
   const [hash, setHash] = useState(() => window.location.hash)
@@ -107,6 +111,16 @@ export default function App() {
     return (
       <Suspense fallback={<div className="min-h-screen bg-ink" />}>
         <MiEquipo token={t} />
+      </Suspense>
+    )
+  }
+
+  // #/mi-casa?t=<token> — qué le puede pedir a su casa
+  if (route.startsWith('#/mi-casa')) {
+    const t = new URLSearchParams(route.split('?')[1] ?? '').get('t') ?? ''
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-ink" />}>
+        <MiCasa token={t} />
       </Suspense>
     )
   }

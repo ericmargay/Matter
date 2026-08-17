@@ -484,3 +484,117 @@ export function leerInventario(inv = []) {
 
   return s
 }
+
+/* ── compatibilidad entre lo que hay y lo que se cotizó ───────── */
+
+/**
+ * Revisa que lo cotizado pueda funcionar con lo que hay en la casa.
+ *
+ * Existe porque este error ya pasó y va a volver a pasar: se cotizan módulos
+ * Zigbee dando por hecho que el Echo del cliente es de 4ª generación, y
+ * resulta ser un Echo Dot que no trae radio Zigbee. Los módulos llegan, no
+ * emparejan, y el problema se descubre con el instalador arriba de la
+ * escalera.
+ *
+ * Por eso el chequeo no vive en la cabeza de nadie: se recalcula cada vez que
+ * el inventario o el equipo cambian. Si el cliente corrige la generación de su
+ * Echo desde su enlace, la advertencia aparece sola en el levantamiento — que
+ * es exactamente cuando hay que ajustar, y no el día de la instalación.
+ *
+ * @param inv    inventario del cliente (unidades)
+ * @param items  mapa deviceId → cantidad, de TODO el proyecto
+ * @param cat    DEVICE_BY_ID, se pasa para no acoplar este módulo al catálogo
+ */
+export function revisarCompatibilidad(inv = [], items = {}, cat = {}) {
+  const avisos = []
+  const cotizado = Object.entries(items).filter(([, n]) => n > 0)
+  const conLink = (link) => cotizado.filter(([id]) => cat[id]?.link === link)
+
+  const nombres = (lista) => [...new Set(lista.map(([id]) => cat[id]?.name ?? id))].join(', ')
+  const piezas = (lista) => lista.reduce((a, [, n]) => a + n, 0)
+
+  /* ── Zigbee: ¿hay puente? ── */
+  const zig = conLink('zigbee')
+  if (zig.length > 0) {
+    const puentes = inv.filter((u) => POR_ID[u.id]?.zigbee)
+    /* Tres estados distintos, no dos. Un modelo SIN confirmar es una duda —se
+       avisa y se pregunta—; un modelo confirmado viejo es una incompatibilidad
+       —hay que rehacer el levantamiento—. Meterlos en el mismo cajón hacía que
+       el caso grave se leyera igual de suave que el caso dudoso, y ese es
+       justo el aviso que uno se salta. */
+    const viejos = puentes.filter((u) => /3ª|más viejo/i.test(u.modelo ?? ''))
+    const dudosos = puentes.filter((u) => !u.modelo || /no sé/i.test(u.modelo))
+    const seguros = puentes.filter((u) => !viejos.includes(u) && !dudosos.includes(u))
+
+    if (puentes.length === 0) {
+      avisos.push({
+        nivel: 'falta',
+        titulo: `${piezas(zig)} piezas Zigbee cotizadas y no hay puente`,
+        porque: `${nombres(zig)} hablan Zigbee, y nada de lo que hay en la casa lo entiende.`,
+        accion: 'Sumar un Echo grande de 4ª generación, un Echo Show o el puente Zigbee de Sonoff. Sin eso, esas piezas no emparejan.',
+      })
+    } else if (seguros.length === 0 && viejos.length > 0) {
+      avisos.push({
+        nivel: 'falta',
+        titulo: `${piezas(zig)} piezas Zigbee no van a funcionar`,
+        porque: `El único puente sería ${viejos.map((u) => POR_ID[u.id]?.label).join(', ')}, y esa generación NO trae radio Zigbee. Está confirmado, no es duda.`,
+        accion: 'Hay que rehacer esta parte del levantamiento: o se suma un puente Zigbee, o esas piezas se cambian por su equivalente Matter sobre WiFi.',
+      })
+    } else if (seguros.length === 0) {
+      avisos.push({
+        nivel: 'ojo',
+        titulo: 'El puente Zigbee depende de un modelo sin confirmar',
+        porque: `Hay ${piezas(zig)} piezas Zigbee cotizadas y el puente sería ${dudosos.map((u) => POR_ID[u.id]?.label).join(', ')}, con generación sin definir. El Echo Dot y el Echo de 3ª generación NO traen radio Zigbee.`,
+        accion: 'Confirmar la generación antes de comprar. Si resulta vieja, hay que sumar puente o cambiar las piezas a Matter sobre WiFi.',
+      })
+    }
+  }
+
+  /* ── Thread: ¿hay router de borde? ── */
+  const thread = conLink('thread')
+  if (thread.length > 0 && !inv.some((u) => POR_ID[u.id]?.border)) {
+    avisos.push({
+      nivel: 'falta',
+      titulo: `${piezas(thread)} piezas Thread y ningún router de borde`,
+      porque: `${nombres(thread)} necesitan una malla Thread que nadie está armando.`,
+      accion: 'Un HomePod mini, un Apple TV 4K de 128 GB, un Echo de 4ª generación o un Nest Hub de 2ª.',
+    })
+  }
+
+  /* ── Matter: ¿hay quién adopte? ── */
+  const matter = conLink('matter')
+  if (matter.length > 0 && !inv.some((u) => POR_ID[u.id]?.matter || POR_ID[u.id]?.control)) {
+    avisos.push({
+      nivel: 'falta',
+      titulo: 'Se cotizó Matter y no hay controlador',
+      porque: 'Matter necesita una app y un hub que lo adopte; en la casa no hay ninguno.',
+      accion: 'Definir el ecosistema antes de comprar: Apple, Alexa o Google.',
+    })
+  }
+
+  /* ── WiFi: cuántas piezas van a colgarse del módem ── */
+  const wifi = [...conLink('wifi'), ...matter].filter(([id]) => cat[id]?.link !== 'thread')
+  const nWifi = piezas(wifi)
+  const hayMalla = inv.some((u) => u.id === 'meshWifi')
+  if (nWifi >= 12 && !hayMalla) {
+    avisos.push({
+      nivel: 'ojo',
+      titulo: `${nWifi} piezas colgando del WiFi y no hay malla`,
+      porque:
+        'El módem del proveedor empieza a tirar conexiones alrededor de los treinta aparatos, y una casa automatizada los junta rápido.',
+      accion: 'Proponer malla antes de instalar. Sale más barato que ir a resolver desconexiones intermitentes después.',
+    })
+  }
+
+  /* ── el repetidor: incompatible con casi todo ── */
+  if (inv.some((u) => u.id === 'repetidor') && cotizado.length > 0) {
+    avisos.push({
+      nivel: 'ojo',
+      titulo: 'Hay un repetidor de WiFi en la casa',
+      porque: 'Parte la red en dos y los aparatos brincan de una a otra perdiendo la conexión.',
+      accion: 'Cambiarlo por malla ANTES de instalar. Es la causa número uno de “se me desconecta solo”.',
+    })
+  }
+
+  return avisos
+}

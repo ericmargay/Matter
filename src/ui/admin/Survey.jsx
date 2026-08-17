@@ -16,6 +16,7 @@ import { planoVacio } from '../../sync/eventos'
 import { tipoPorNombre } from './plano/catalogo'
 import { disponerCuarto, disponerPlanta } from './plano/disponer'
 import { ESPACIOS, PROPIEDADES, espaciosDe } from '../../content/espacios'
+import { revisarCompatibilidad } from '../../content/inventario'
 import Inventario from '../Inventario'
 import Compartir from './Compartir'
 import { buildQuotePayload, encodeQuote } from '../../content/quoteLink'
@@ -310,6 +311,13 @@ export default function Survey() {
      las sugerencias se recalcularían siempre aunque nada haya cambiado. */
   const net = useMemo(() => networkCheck({ obra, rooms }), [obra, rooms])
 
+  /* Lo cotizado de TODO el proyecto contra lo que el cliente ya tiene. */
+  const compat = useMemo(() => {
+    const todo = {}
+    for (const r of rooms) for (const [id, n] of Object.entries(r.items ?? {})) todo[id] = (todo[id] ?? 0) + n
+    return revisarCompatibilidad(proyecto.perfil?.inv ?? [], todo, DEVICE_BY_ID)
+  }, [rooms, proyecto.perfil])
+
   /* La cotización recién generada, para poder acortarla y mandarla sin salir
      de aquí. El token son mil y pico de caracteres. */
   const [cotizacionUrl, setCotizacionUrl] = useState(null)
@@ -599,6 +607,29 @@ export default function Survey() {
               onCambiar={(inv) => survey.setPerfil({ inv })}
               espacios={rooms.map((r) => r.nombre)}
             />
+
+          {/* El cruce entre lo que hay y lo que se cotizó. Se recalcula solo:
+              si el cliente corrige la generación de su Echo desde su enlace,
+              la advertencia aparece aquí sin que nadie la busque. */}
+          {compat.length > 0 && (
+            <div className="mt-4 space-y-1.5 border-t border-line pt-3">
+              <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">
+                Revisión de compatibilidad · {compat.length}
+              </p>
+              {compat.map((x) => (
+                <div
+                  key={x.titulo}
+                  className={`rounded-lg border px-2.5 py-2 ${
+                    x.nivel === 'falta' ? 'border-rose-500/40 bg-rose-500/[0.07]' : 'border-ember/30 bg-ember/[0.05]'
+                  }`}
+                >
+                  <p className="text-[11.5px] text-cream">{x.titulo}</p>
+                  <p className="mt-0.5 text-[10.5px] leading-snug text-cream-3">{x.porque}</p>
+                  <p className="mt-0.5 text-[10.5px] leading-snug text-cream-2">{x.accion}</p>
+                </div>
+              ))}
+            </div>
+          )}
           </div>
 
           <label className="mt-4 block">
@@ -956,11 +987,19 @@ function EnlaceCliente({ proyectoId, nombre }) {
   if (!largo) return null
 
   return (
-    <Compartir
-      destino={largo}
-      etiqueta={`Anexador · ${nombre}`}
-      titulo="Que lo llene el cliente"
-      ayuda="Mándale este enlace. Anexa lo suyo desde el teléfono y llega aquí solo — sin cuenta y sin que nadie transcriba nada. Solo abre su inventario: ni precios ni el resto del levantamiento."
-    />
+    <div className="space-y-2">
+      <Compartir
+        destino={largo}
+        etiqueta={`Anexador · ${nombre}`}
+        titulo="Que lo llene el cliente"
+        ayuda="Mándale este enlace. Anexa lo suyo desde el teléfono y llega aquí solo — sin cuenta y sin que nadie transcriba nada. Solo abre su inventario: ni precios ni el resto del levantamiento."
+      />
+      <Compartir
+        destino={largo.replace('/#/mi-equipo?', '/#/mi-casa?')}
+        etiqueta={`Guía de la casa · ${nombre}`}
+        titulo="La guía de su casa"
+        ayuda="Qué le puede pedir a su casa, espacio por espacio, con las frases que sí funcionan en su bocina. Se arma sola desde el levantamiento: si mañana cambia la instalación, la guía cambia con ella."
+      />
+    </div>
   )
 }
