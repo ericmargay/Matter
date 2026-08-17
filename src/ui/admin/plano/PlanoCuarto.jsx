@@ -6,6 +6,15 @@ import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
 import { ESPACIOS } from '../../../content/espacios'
 import { ALTURA_POR_FORMA, diagnosticoLux, luxDelCuarto, parametrosIniciales } from './luz'
+import {
+  ACCIONES,
+  DISPAROS,
+  accionesDe,
+  compVacio,
+  duracionDe,
+  frasear,
+  useSimulacion,
+} from './comportamiento'
 
 /* three pesa; el plano se carga solo cuando alguien lo abre */
 const Escena = lazy(() => import('./Escena'))
@@ -90,7 +99,10 @@ export default function PlanoCuarto({ room, onCerrar }) {
      girar vivos al mismo tiempo, arrastrar una pieza la giraba de pasada. */
   const [modoGizmo, setModoGizmo] = useState('mover')
   const [simulando, setSimulando] = useState(false)
-  const [apagados, setApagados] = useState(() => new Set())
+  /* El simulador vive aquí y no en el store: es estado de la demostración,
+     no del levantamiento. Que el cliente deje una luz apagada probando no
+     tiene por qué viajarle a Carpio ni quedar en el historial. */
+  const { sim, comps, disparar, dispararPorPieza } = useSimulacion(plano)
   const [uniendo, setUniendo] = useState(null)
 
   // el fondo no debe desplazarse detrás del editor
@@ -254,20 +266,16 @@ export default function PlanoCuarto({ room, onCerrar }) {
   /* ── luz ── */
 
   /** Qué apagadores tienen una regla: son los únicos que hacen algo al tocarlos. */
-  const conRegla = useMemo(() => new Set((plano.reglas ?? []).map((r) => r.disparo)), [plano.reglas])
+  const conRegla = useMemo(() => new Set(comps.map((c) => c.cuando.ref).filter(Boolean)), [comps])
 
-  const encendidos = useMemo(() => {
-    const s = new Set()
-    for (const i of plano.items) if (!apagados.has(i.id)) s.add(i.id)
-    return s
-  }, [plano.items, apagados])
-
+  /* Los lúmenes siguen al simulador: atenuar al 40 % baja los lux del
+     recuadro, que es justo la pregunta que se contesta con el deslizador. */
   const lumenes = useMemo(
     () =>
       plano.items
-        .filter((i) => i.clase === 'equipo' && i.params && encendidos.has(i.id))
-        .reduce((a, i) => a + i.params.lm * ((i.params.brillo ?? 100) / 100), 0),
-    [plano.items, encendidos],
+        .filter((i) => i.clase === 'equipo' && i.params)
+        .reduce((a, i) => a + i.params.lm * ((i.params.brillo ?? 100) / 100) * (sim[i.id]?.nivel ?? 1), 0),
+    [plano.items, sim],
   )
 
   const area = plano.ancho * plano.largo
@@ -275,33 +283,6 @@ export default function PlanoCuarto({ room, onCerrar }) {
   const diag = diagnosticoLux(lux, tipo)
 
   /* ── reglas ── */
-
-  const apagadores = plano.items.filter((i) => i.clase === 'punto' && i.tipo === 'apagador')
-  const equipos = plano.items.filter((i) => i.clase === 'equipo')
-
-  /**
-   * Tocar un apagador.
-   *
-   * Vale igual para luces y para cortinas: en el modelo son lo mismo —algo que
-   * el apagador prende o apaga— y en la escena una cortina "encendida" se
-   * dibuja recogida. Así el mismo gesto sirve para las dos cosas y no hay que
-   * explicar dos controles distintos.
-   */
-  const accionar = (puntoId) => {
-    const regla = (plano.reglas ?? []).find((r) => r.disparo === puntoId)
-    if (!regla) return
-    setApagados((prev) => {
-      const s = new Set(prev)
-      // el apagador invierte lo que haya: si algo de su grupo está prendido,
-      // apaga todo; si no, prende todo. Es como se comporta uno de pared.
-      const algunoPrendido = regla.destinos.some((d) => !s.has(d))
-      for (const d of regla.destinos) {
-        if (algunoPrendido) s.add(d)
-        else s.delete(d)
-      }
-      return s
-    })
-  }
 
   const seleccionado = plano.items.find((i) => i.id === seleccion)
 
@@ -477,9 +458,9 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onMover={mover}
               onColocar={colocar}
               colocando={!!colocando}
-              encendidos={encendidos}
+              sim={sim}
               modo={modo}
-              onAccionar={accionar}
+              onAccionar={dispararPorPieza}
               conRegla={conRegla}
               onMedida={medir}
               midiendo={midiendo}
@@ -608,13 +589,11 @@ export default function PlanoCuarto({ room, onCerrar }) {
 
           <Automatizaciones nombre={room.nombre} />
 
-          <Reglas
-            reglas={plano.reglas ?? []}
-            apagadores={apagadores}
-            equipos={equipos}
-            apagados={apagados}
-            onAccionar={accionar}
-            onGuardar={(reglas, que) => guardar({ reglas }, que)}
+          <Comportamientos
+            comps={comps}
+            items={plano.items}
+            onDisparar={disparar}
+            onGuardar={(cs, que) => guardar({ comportamientos: cs }, que)}
           />
         </aside>
       </div>
@@ -923,106 +902,277 @@ function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuita
   )
 }
 
-/* ── reglas de comportamiento ─────────────────────────────────── */
+/* ── comportamientos: eventos, acciones y tiempos reales ──────── */
 
-function Reglas({ reglas, apagadores, equipos, apagados, onAccionar, onGuardar }) {
-  const [nueva, setNueva] = useState(null)
+/**
+ * El editor de "qué pasa cuando pasa algo".
+ *
+ * Sustituye a las reglas viejas, que solo sabían de un apagador alternando un
+ * grupo de luces. Ahora el disparador puede ser un sensor, una frase, una
+ * hora o que alguien llegue, y la acción puede atenuar, cambiar el tono o
+ * abrir una cortina a la mitad.
+ *
+ * Cada acción trae el tiempo que tarda el aparato de verdad, y ese tiempo se
+ * ve correr en el plano. No es adorno: es lo que se va a programar en la
+ * puesta en marcha, y lo que el cliente ya vio y aprobó.
+ */
+function Comportamientos({ comps, items, onGuardar, onDisparar }) {
+  const [abierto, setAbierto] = useState(null)
 
-  const nombreDe = (id) => {
-    const e = equipos.find((x) => x.id === id)
-    return e ? DEVICE_BY_ID[e.deviceId]?.name ?? 'dispositivo' : 'dispositivo'
+  const puntos = items.filter((i) => i.clase === 'punto' && i.tipo === 'apagador')
+  const equipos = items.filter((i) => i.clase === 'equipo')
+  const sensores = equipos.filter((i) => DEVICE_BY_ID[i.deviceId]?.cat === 'sensores')
+
+  const nombreDe = (it) =>
+    it.clase === 'equipo' ? (DEVICE_BY_ID[it.deviceId]?.name ?? 'dispositivo') : it.tipo
+
+  const guardar = (nuevos, que) => onGuardar(nuevos, que)
+
+  const parchar = (id, parche) =>
+    guardar(
+      comps.map((c) => (c.id === id ? { ...c, ...parche } : c)),
+      'Cambió un comportamiento',
+    )
+
+  const agregar = () => {
+    const c = compVacio(uid('c'))
+    guardar([...comps, c], 'Agregó un comportamiento')
+    setAbierto(c.id)
   }
 
-  const crear = (disparo) => setNueva({ id: uid('g'), disparo, destinos: [] })
+  const quitar = (id) => guardar(comps.filter((c) => c.id !== id), 'Quitó un comportamiento')
 
-  const alternarDestino = (id) =>
-    setNueva((n) => ({ ...n, destinos: n.destinos.includes(id) ? n.destinos.filter((d) => d !== id) : [...n.destinos, id] }))
-
-  const guardarNueva = () => {
-    if (!nueva?.destinos.length) return
-    onGuardar([...reglas.filter((r) => r.disparo !== nueva.disparo), nueva], 'Definió qué controla un apagador')
-    setNueva(null)
+  const agregarAccion = (c) => {
+    const primero = equipos[0]
+    if (!primero) return
+    const acciones = accionesDe(DEVICE_BY_ID[primero.deviceId])
+    parchar(c.id, {
+      entonces: [...c.entonces, { objetivo: primero.id, accion: acciones[0], valor: ACCIONES[acciones[0]].def ?? null }],
+    })
   }
+
+  const parcharAccion = (c, i, parche) =>
+    parchar(c.id, { entonces: c.entonces.map((a, n) => (n === i ? { ...a, ...parche } : a)) })
 
   return (
-    <Grupo titulo={`Comportamiento · ${reglas.length}`}>
-      {apagadores.length === 0 ? (
+    <Grupo
+      titulo={`Comportamiento · ${comps.length}`}
+      right={
+        <button onClick={agregar} className="text-[10.5px] text-cream-3 hover:text-ember">
+          agregar
+        </button>
+      }
+    >
+      {comps.length === 0 && (
         <p className="text-[11px] leading-relaxed text-cream-3">
-          Coloca un apagador para definir qué enciende. Es la parte que el cliente sí entiende del levantamiento.
+          Nada automatizado todavía. Esto es lo que el cliente sí entiende del levantamiento — y lo que se
+          programa el día de la puesta en marcha.
         </p>
-      ) : (
-        <div className="space-y-2">
-          {apagadores.map((ap, i) => {
-            const regla = reglas.find((r) => r.disparo === ap.id)
-            const editando = nueva?.disparo === ap.id
-            return (
-              <div key={ap.id} className="rounded-lg border border-line px-2 py-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11.5px] text-cream-2">Apagador {i + 1}</span>
-                  {/* Siempre accionable, sin modo aparte: el interruptor
-                      también se toca directo en la escena, y tener que
-                      acordarse de prender "Simular" antes era un paso que solo
-                      servía para que la demostración fallara enfrente del
-                      cliente. */}
-                  <span className="flex items-center gap-2">
-                    {regla && (
-                      <button
-                        onClick={() => onAccionar(ap.id)}
-                        className="rounded border border-ember px-2 py-0.5 text-[10.5px] text-ember hover:bg-ember hover:text-ink"
-                      >
-                        accionar
-                      </button>
-                    )}
-                    <button onClick={() => crear(ap.id)} className="text-[10.5px] text-cream-3 hover:text-ember">
-                      {regla ? 'cambiar' : 'definir'}
-                    </button>
-                  </span>
-                </div>
+      )}
 
-                {regla && !editando && (
-                  <p className="mt-0.5 text-[10.5px] leading-snug text-cream-3">
-                    Controla {regla.destinos.map(nombreDe).join(', ')}
-                    {(
-                      <span className="ml-1 text-cream-2">
-                        · {regla.destinos.every((d) => apagados.has(d)) ? 'apagado' : 'encendido'}
-                      </span>
-                    )}
+      <div className="space-y-1.5">
+        {comps.map((c) => {
+          const f = frasear(c, items)
+          const d = DISPAROS[c.cuando.tipo]
+          const editando = abierto === c.id
+          const listo = c.entonces.length > 0 && (d?.pide == null || c.cuando.ref || c.cuando.valor)
+
+          return (
+            <div key={c.id} className="rounded-lg border border-line px-2 py-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[11px] leading-snug text-cream">
+                    <span className="text-cream-3">Cuando</span> {f.cuando}
                   </p>
-                )}
+                  <p className="text-[10.5px] leading-snug text-cream-2">
+                    <span className="text-cream-3">Entonces</span> {f.entonces}
+                  </p>
+                </div>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  {listo && (
+                    <button
+                      onClick={() => onDisparar(c.id)}
+                      className="rounded border border-ember px-2 py-0.5 text-[10.5px] text-ember hover:bg-ember hover:text-ink"
+                    >
+                      probar
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setAbierto(editando ? null : c.id)}
+                    className="text-[10.5px] text-cream-3 hover:text-ember"
+                  >
+                    {editando ? 'listo' : 'editar'}
+                  </button>
+                </span>
+              </div>
 
-                {editando && (
-                  <div className="mt-1.5 space-y-1">
-                    {equipos.length === 0 && <p className="text-[10.5px] text-cream-3">No hay dispositivos colocados.</p>}
-                    {equipos.map((e) => (
-                      <label key={e.id} className="flex items-center gap-1.5 text-[11px] text-cream-2">
-                        <input
-                          type="checkbox"
-                          checked={nueva.destinos.includes(e.id)}
-                          onChange={() => alternarDestino(e.id)}
-                          className="accent-[var(--color-ember)]"
-                        />
-                        {DEVICE_BY_ID[e.deviceId]?.name}
-                      </label>
-                    ))}
-                    <div className="flex gap-1.5 pt-1">
-                      <button
-                        onClick={guardarNueva}
-                        disabled={!nueva.destinos.length}
-                        className="rounded bg-ember px-2 py-0.5 text-[10.5px] text-ink disabled:opacity-40"
+              {editando && (
+                <div className="mt-2 space-y-2 border-t border-line pt-2">
+                  {/* ── el disparador ── */}
+                  <div>
+                    <p className="mb-1 text-[10px] tracking-[0.12em] text-cream-3 uppercase">Cuando</p>
+                    <select
+                      value={c.cuando.tipo}
+                      onChange={(e) =>
+                        parchar(c.id, { cuando: { tipo: e.target.value, ref: null, valor: null } })
+                      }
+                      className="w-full rounded border border-line bg-ink px-1.5 py-1 text-[11px] text-cream"
+                    >
+                      {Object.entries(DISPAROS).map(([id, v]) => (
+                        <option key={id} value={id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    {d?.pide === 'punto' && (
+                      <select
+                        value={c.cuando.ref ?? ''}
+                        onChange={(e) => parchar(c.id, { cuando: { ...c.cuando, ref: e.target.value } })}
+                        className="mt-1 w-full rounded border border-line bg-ink px-1.5 py-1 text-[11px] text-cream"
                       >
-                        guardar
-                      </button>
-                      <button onClick={() => setNueva(null)} className="text-[10.5px] text-cream-3">
-                        cancelar
+                        <option value="">Cuál apagador…</option>
+                        {puntos.map((x, n) => (
+                          <option key={x.id} value={x.id}>
+                            Apagador {n + 1}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
+                    {d?.pide === 'equipo' && (
+                      <select
+                        value={c.cuando.ref ?? ''}
+                        onChange={(e) => parchar(c.id, { cuando: { ...c.cuando, ref: e.target.value } })}
+                        className="mt-1 w-full rounded border border-line bg-ink px-1.5 py-1 text-[11px] text-cream"
+                      >
+                        <option value="">Cuál sensor…</option>
+                        {(sensores.length ? sensores : equipos).map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {nombreDe(x)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
+                    {(d?.pide === 'frase' || d?.pide === 'hora') && (
+                      <input
+                        type={d.pide === 'hora' ? 'time' : 'text'}
+                        value={c.cuando.valor ?? ''}
+                        placeholder={d.pide === 'frase' ? 'Oye Siri, buenas noches' : ''}
+                        onChange={(e) => parchar(c.id, { cuando: { ...c.cuando, valor: e.target.value } })}
+                        className="mt-1 w-full rounded border border-line bg-ink px-1.5 py-1 text-[11px] text-cream"
+                      />
+                    )}
+
+                    {d?.ayuda && <p className="mt-1 text-[10px] leading-snug text-cream-3">{d.ayuda}</p>}
+                  </div>
+
+                  {/* ── las acciones ── */}
+                  <div>
+                    <div className="mb-1 flex items-baseline justify-between">
+                      <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Entonces</p>
+                      <button onClick={() => agregarAccion(c)} className="text-[10.5px] text-cream-3 hover:text-ember">
+                        + acción
                       </button>
                     </div>
+
+                    {equipos.length === 0 && (
+                      <p className="text-[10.5px] text-cream-3">No hay dispositivos colocados en este espacio.</p>
+                    )}
+
+                    <div className="space-y-1.5">
+                      {c.entonces.map((a, i) => {
+                        const obj = items.find((x) => x.id === a.objetivo)
+                        const dev = obj ? DEVICE_BY_ID[obj.deviceId] : null
+                        const opciones = accionesDe(dev)
+                        const acc = ACCIONES[a.accion]
+                        const seg = duracionDe(dev, a.accion)
+                        return (
+                          <div key={i} className="rounded border border-line px-1.5 py-1">
+                            <div className="flex items-center gap-1">
+                              <select
+                                value={a.accion}
+                                onChange={(e) =>
+                                  parcharAccion(c, i, {
+                                    accion: e.target.value,
+                                    valor: ACCIONES[e.target.value].def ?? null,
+                                  })
+                                }
+                                className="rounded border border-line bg-ink px-1 py-0.5 text-[10.5px] text-cream"
+                              >
+                                {opciones.map((o) => (
+                                  <option key={o} value={o}>
+                                    {ACCIONES[o].label}
+                                  </option>
+                                ))}
+                              </select>
+
+                              {acc?.valor && (
+                                <input
+                                  type="number"
+                                  value={a.valor ?? acc.def}
+                                  min={acc.min}
+                                  max={acc.max}
+                                  step={acc.paso ?? 5}
+                                  onChange={(e) => parcharAccion(c, i, { valor: num(e.target.value) })}
+                                  className="w-14 rounded border border-line bg-ink px-1 py-0.5 text-[10.5px] tabular-nums text-cream"
+                                />
+                              )}
+                              {acc?.valor && <span className="text-[10px] text-cream-3">{acc.unidad}</span>}
+
+                              <button
+                                onClick={() => parchar(c.id, { entonces: c.entonces.filter((_, n) => n !== i) })}
+                                className="ml-auto text-[11px] text-cream-3 hover:text-ember"
+                                aria-label="Quitar acción"
+                              >
+                                ×
+                              </button>
+                            </div>
+
+                            <select
+                              value={a.objetivo}
+                              onChange={(e) => {
+                                const nuevo = items.find((x) => x.id === e.target.value)
+                                const ops = accionesDe(nuevo ? DEVICE_BY_ID[nuevo.deviceId] : null)
+                                parcharAccion(c, i, {
+                                  objetivo: e.target.value,
+                                  accion: ops.includes(a.accion) ? a.accion : ops[0],
+                                })
+                              }}
+                              className="mt-1 w-full rounded border border-line bg-ink px-1 py-0.5 text-[10.5px] text-cream"
+                            >
+                              {equipos.map((x) => (
+                                <option key={x.id} value={x.id}>
+                                  {nombreDe(x)}
+                                </option>
+                              ))}
+                            </select>
+
+                            {/* El tiempo no se edita: lo pone el aparato. */}
+                            <p className="mt-0.5 text-[10px] text-cream-3">
+                              Tarda {seg < 1 ? `${Math.round(seg * 1000)} ms` : `${seg} s`} · lo que tarda de verdad
+                            </p>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+
+                  <button onClick={() => quitar(c.id)} className="text-[10.5px] text-cream-3 hover:text-ember">
+                    quitar este comportamiento
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <p className="mt-2 text-[10px] leading-relaxed text-cream-3">
+        Los tiempos salen del aparato, no de la animación. Lo que se ve aquí es lo que se programa el día de la
+        puesta en marcha.
+      </p>
     </Grupo>
   )
 }

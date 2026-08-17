@@ -73,6 +73,45 @@ export const MUEBLES = {
   perro: A('Perro dormido', X.PerroDormido, 0.5, 0.7, 0.35),
   camaMascota: A('Cama de mascota', X.CamaMascota, 0.65, 0.65, 0.15),
 
+  /* ── el lote grande ──
+     La herramienta es solo para casas inteligentes, así que el catálogo puede
+     ser largo sin volverse un cajón de sastre: todo lo que está aquí es algo
+     que de verdad aparece en un levantamiento, y varias de estas piezas son
+     justo donde va la instalación —la lavadora que se va a medir, el boiler
+     que decide si hay gas, la lámpara de pie que va a llevar el foco. */
+  sillon: A('Sillón', X.Sillon, 0.95, 0.9, 0.8),
+  puf: A('Puf', X.Puf, 0.62, 0.62, 0.4),
+  lamparaPie: A('Lámpara de pie', X.LamparaPie, 0.35, 0.35, 1.75),
+  chimenea: A('Chimenea', X.Chimenea, 1.7, 0.45, 1.2),
+  relojPared: A('Reloj de pared', X.RelojPared, 0.34, 0.05, 0.34),
+  revistero: A('Revistero', X.Revistero, 0.42, 0.3, 0.45),
+
+  sillaComedor: A('Silla de comedor', X.SillaComedor, 0.46, 0.46, 0.95),
+  bancoBarra: A('Banco de barra', X.BancoBarra, 0.36, 0.36, 0.72),
+  alacena: A('Alacena', X.Alacena, 1.8, 0.35, 0.7),
+  campana: A('Campana', X.Campana, 0.84, 0.84, 0.7),
+  estufa: A('Estufa', X.Estufa, 0.78, 0.64, 0.95),
+  microondas: A('Microondas', X.Microondas, 0.52, 0.38, 0.3),
+  lavavajillas: A('Lavavajillas', X.Lavavajillas, 0.6, 0.6, 0.85),
+
+  comoda: A('Cómoda', X.Comoda, 1.1, 0.45, 0.8),
+  espejoPie: A('Espejo de pie', X.EspejoPie, 0.55, 0.3, 1.65),
+  bancaPie: A('Banca de pie de cama', X.BancaPie, 1.2, 0.4, 0.5),
+  cuna: A('Cuna', X.Cuna, 1.3, 0.7, 0.75),
+
+  tina: A('Tina', X.Tina, 1.7, 0.78, 0.6),
+  lavadora: A('Lavadora', X.Lavadora, 0.64, 0.64, 0.88),
+  secadora: A('Secadora', X.Secadora, 0.64, 0.64, 0.88),
+  boiler: A('Boiler', X.Boiler, 0.42, 0.25, 0.7),
+  lavadero: A('Lavadero', X.Lavadero, 0.94, 0.64, 0.9),
+  tendedero: A('Tendedero', X.Tendedero, 1.45, 0.2, 1.1),
+  tinaco: A('Tinaco', X.Tinaco, 0.9, 0.9, 1.05),
+
+  archivero: A('Archivero', X.Archivero, 0.45, 0.55, 0.7),
+  pizarron: A('Pizarrón', X.Pizarron, 1.8, 0.05, 1.05),
+  sillaVisita: A('Silla de visita', X.SillaVisita, 0.46, 0.46, 0.9),
+  macetaGrande: A('Maceta grande', X.MacetaGrande, 0.55, 0.55, 1.3),
+
   /* ── envolvente ── */
   ventana: A('Ventana', P.WindowUnit, 1.4, 0.1, 1.5),
   persiana: A('Persiana', P.Blinds, 1.4, 0.1, 1.5),
@@ -87,13 +126,13 @@ export const MUEBLES = {
  * no quiere ir descartando WCs. Siempre se puede abrir el catálogo completo.
  */
 export const POR_TIPO = {
-  sala: ['sofa', 'mesaCentro', 'mueble_tv', 'tv', 'tapete', 'libreroLleno', 'plantaAlta', 'macetaChica', 'bocina', 'mesaLateral', 'mesaRedonda', 'muroCuadros', 'cuadroSolo', 'gato', 'perro', 'camaMascota', 'ventana', 'persiana'],
-  recamara: ['cama', 'buro', 'closet', 'tapete', 'tv', 'plantaAlta', 'macetaChica', 'libreroLleno', 'muroCuadros', 'cuadroSolo', 'gato', 'camaMascota', 'ventana', 'persiana'],
-  cocina: ['barra', 'isla', 'refri', 'ventana', 'planta'],
-  bano: ['wc', 'lavabo', 'regadera', 'espejo', 'toallero', 'ventana'],
-  estudio: ['escritorio', 'mesaTrabajo', 'monitor', 'silla', 'libreroLleno', 'rack', 'plantaAlta', 'macetaChica', 'muroCuadros', 'gato', 'ventana', 'persiana'],
-  comedor: ['mesaComedor', 'mesaRedonda', 'tapete', 'libreroLleno', 'plantaAlta', 'macetaChica', 'muroCuadros', 'ventana', 'bocina'],
-  servicio: ['rack', 'librero', 'ventana'],
+  sala: ['sofa', 'sillon', 'puf', 'mesaCentro', 'mueble_tv', 'tv', 'tapete', 'libreroLleno', 'lamparaPie', 'chimenea', 'plantaAlta', 'macetaChica', 'macetaGrande', 'bocina', 'mesaLateral', 'mesaRedonda', 'muroCuadros', 'cuadroSolo', 'relojPared', 'revistero', 'gato', 'perro', 'camaMascota', 'ventana', 'persiana'],
+  recamara: ['cama', 'buro', 'closet', 'comoda', 'bancaPie', 'espejoPie', 'cuna', 'tapete', 'tv', 'lamparaPie', 'plantaAlta', 'macetaChica', 'libreroLleno', 'muroCuadros', 'cuadroSolo', 'relojPared', 'gato', 'camaMascota', 'ventana', 'persiana'],
+  cocina: ['barra', 'isla', 'refri', 'estufa', 'campana', 'alacena', 'microondas', 'lavavajillas', 'bancoBarra', 'sillaComedor', 'ventana', 'planta', 'macetaChica', 'relojPared'],
+  bano: ['wc', 'lavabo', 'tina', 'regadera', 'espejo', 'toallero', 'boiler', 'ventana', 'macetaChica'],
+  estudio: ['escritorio', 'mesaTrabajo', 'monitor', 'silla', 'sillaVisita', 'archivero', 'pizarron', 'libreroLleno', 'rack', 'lamparaPie', 'plantaAlta', 'macetaChica', 'muroCuadros', 'gato', 'ventana', 'persiana'],
+  comedor: ['mesaComedor', 'mesaRedonda', 'sillaComedor', 'tapete', 'libreroLleno', 'lamparaPie', 'plantaAlta', 'macetaChica', 'macetaGrande', 'muroCuadros', 'relojPared', 'ventana', 'bocina'],
+  servicio: ['lavadora', 'secadora', 'lavadero', 'boiler', 'tendedero', 'tinaco', 'rack', 'librero', 'archivero', 'ventana'],
   exterior: ['planta', 'tapete', 'bocina'],
   generico: Object.keys(MUEBLES),
 }

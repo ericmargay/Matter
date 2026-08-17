@@ -163,7 +163,7 @@ function Mueble({ item, seleccionado, onTomar, colocando }) {
  * cuarto de cuatro metros— pero la SILUETA sí se distingue, y es lo que
  * permite leer el plano sin leyenda.
  */
-function Cuerpo({ device, params, encendido, color }) {
+function Cuerpo({ device, params, encendido, color, apertura }) {
   const cat = device?.cat
   const forma = params?.forma
   const prendido = params && encendido
@@ -276,9 +276,11 @@ function Cuerpo({ device, params, encendido, color }) {
     )
 
   if (cat === 'cortinas') {
-    // `encendido` significa "abierta". La tela se recoge hacia arriba, que es
-    // como se mueve una persiana enrollable de verdad.
-    const caida = encendido ? 0.12 : 1.25
+    /* `apertura` va de 0 a 1 de forma continua: la tela se recoge hacia
+       arriba como una enrollable de verdad, y tarda los doce segundos que
+       tarda. Antes eran dos posiciones y un salto — que es justo la mentira
+       que hace que el cliente espere en su casa algo que no va a pasar. */
+    const caida = 1.25 - (apertura ?? 0) * 1.13
     return (
       <group>
         <mesh castShadow>
@@ -309,18 +311,23 @@ function Cuerpo({ device, params, encendido, color }) {
   )
 }
 
-function Equipo({ item, encendido, seleccionado, onTomar, modo, alto, conSombra, colocando, escala = 1 }) {
+function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, colocando, escala = 1 }) {
   const p = item.params
   const dev = DEVICE_BY_ID[item.deviceId]
   const luz = useRef()
 
-  const color = useMemo(() => kelvinAColor(p?.k ?? 2700), [p?.k])
+  const nivel = estado?.nivel ?? 1
+  const encendido = nivel > 0.02
+  const kelvin = estado?.k ?? p?.k ?? 2700
+  const color = useMemo(() => kelvinAColor(kelvin), [kelvin])
 
   // la potencia se resuelve cada frame: así el deslizador de brillo y el
   // simulador de reglas se ven al instante, sin reconstruir la escena
   useFrame(() => {
     if (!luz.current || !p) return
-    const factor = encendido ? (p.brillo ?? 100) / 100 : 0
+    // el nivel del simulador multiplica al brillo de la pieza: atenuar al
+    // 40 % un foco que ya estaba al 70 % da 28 %, que es lo que daría de verdad
+    const factor = ((p.brillo ?? 100) / 100) * nivel
     // `escala` es el diafragma de la cámara (ver exposicionDe). No cambia la
     // proporción entre piezas —una de 1600 lm sigue dando el doble que una de
     // 800— solo el nivel al que se revela el conjunto.
@@ -351,7 +358,7 @@ function Equipo({ item, encendido, seleccionado, onTomar, modo, alto, conSombra,
           pegada al muro, una cámara es un cilindro que apunta. Importa porque
           el plano se le enseña al cliente: reconocer de un vistazo qué es cada
           cosa vale más que la geometría exacta de la carcasa. */}
-      <Cuerpo device={dev} params={p} encendido={encendido} color={color} />
+      <Cuerpo device={dev} params={p} encendido={encendido} color={color} apertura={estado?.apertura} />
 
       {/* módulo inteligente metido en el registro de la luminaria: la otra
           forma de hacerlo cuando la caja del apagador no da o no hay neutro */}
@@ -889,7 +896,7 @@ export default function Escena({
   onMover,
   onColocar,
   colocando,
-  encendidos,
+  sim,
   modo = 'noche',
   onAccionar,
   onMedida,
@@ -1008,7 +1015,7 @@ export default function Escena({
               item={it}
               seleccionado={sel}
               onTomar={tomar}
-              encendido={encendidos?.has(it.id) ?? true}
+              estado={sim?.[it.id]}
               modo={modo}
               alto={alto}
               conSombra={conSombra.has(it.id)}
@@ -1022,7 +1029,7 @@ export default function Escena({
             item={it}
             seleccionado={sel}
             onTomar={tomar}
-            activo={encendidos?.has(it.id)}
+            activo={(sim?.[it.id]?.nivel ?? 1) > 0.02}
             onAccionar={onAccionar}
             controla={conRegla?.has(it.id)}
             colocando={colocando}
