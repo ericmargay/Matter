@@ -82,3 +82,24 @@ export function sesionDeCookies(raw) {
 }
 
 export const MAX_EDAD_COOKIE = HORAS * 3600e3
+
+/* ── enlace del cliente ──────────────────────────────────────────
+   El cliente no tiene cuenta ni la va a tener. El enlace ES la credencial:
+   un HMAC del id del proyecto con el mismo secreto de las sesiones. No hay
+   que guardar nada, no caduca, y solo abre UN proyecto y solo su inventario
+   —no el levantamiento, no los precios, no el catálogo de operaciones—. */
+
+export function tokenCliente(proyectoId) {
+  return `${proyectoId}.${firmar(`inv:${proyectoId}`)}`
+}
+
+export function leerTokenCliente(token) {
+  if (typeof token !== 'string') return null
+  const i = token.lastIndexOf('.')
+  if (i < 1) return null
+  const id = token.slice(0, i)
+  const esperado = firmar(`inv:${id}`)
+  const dado = token.slice(i + 1)
+  if (dado.length !== esperado.length) return null
+  return crypto.timingSafeEqual(Buffer.from(dado), Buffer.from(esperado)) ? id : null
+}

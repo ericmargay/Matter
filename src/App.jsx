@@ -47,6 +47,11 @@ const Quote = lazy(() => import('./ui/admin/Quote'))
  *  pintar el hero. */
 const Catalogo = lazy(() => import('./ui/Catalogo'))
 
+/** El anexador que llena el cliente. Va en el build público porque es un
+ *  enlace que se manda por WhatsApp, y no arrastra nada de operaciones: su
+ *  catálogo es el de lo que la gente YA tiene, no el de lo que vendemos. */
+const MiEquipo = lazy(() => import('./ui/MiEquipo'))
+
 /** Ruteo por hash: #/admin abre el panel. Sin router ni servidor extra. */
 function useHashRoute() {
   const [hash, setHash] = useState(() => window.location.hash)
@@ -89,6 +94,16 @@ export default function App() {
     return (
       <Suspense fallback={<div className="min-h-screen bg-ink" />}>
         <Quote token={token} />
+      </Suspense>
+    )
+  }
+
+  // #/mi-equipo?t=<token> — el cliente anexa lo que ya tiene en casa
+  if (route.startsWith('#/mi-equipo')) {
+    const t = new URLSearchParams(route.split('?')[1] ?? '').get('t') ?? ''
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-ink" />}>
+        <MiEquipo token={t} />
       </Suspense>
     )
   }

@@ -16,7 +16,7 @@ import { planoVacio } from '../../sync/eventos'
 import { tipoPorNombre } from './plano/catalogo'
 import { disponerCuarto, disponerPlanta } from './plano/disponer'
 import { ESPACIOS, PROPIEDADES, espaciosDe } from '../../content/espacios'
-import { CEREBROS, MOVILES, sugerencias } from '../../content/loQueTiene'
+import Inventario from '../Inventario'
 import { buildQuotePayload, encodeQuote } from '../../content/quoteLink'
 import { CLAVE_PROD_SERV, CLAVE_UNIDAD } from '../../content/fiscal'
 import DevicePhoto, { PhotoFrame } from '../catalog/DevicePhoto'
@@ -307,6 +307,8 @@ export default function Survey() {
 
   /* useMemo con el objeto por defecto adentro: si se creara en cada render,
      las sugerencias se recalcularían siempre aunque nada haya cambiado. */
+  const net = useMemo(() => networkCheck({ obra, rooms }), [obra, rooms])
+
   const perfil = useMemo(
     () => proyecto.perfil ?? { moviles: [], cerebros: [], existente: {}, notas: '' },
     [proyecto.perfil],
@@ -314,14 +316,6 @@ export default function Survey() {
 
   const q = useMemo(() => quote({ obra, rooms, extras }), [obra, rooms, extras])
 
-  /* Las sugerencias miran TODO lo cotizado del proyecto, no un cuarto: la
-     pregunta "¿alcanza el border router?" es de la casa entera. */
-  const sugeridas = useMemo(() => {
-    const todo = {}
-    for (const r of rooms) for (const [id, n] of Object.entries(r.items ?? {})) todo[id] = (todo[id] ?? 0) + n
-    return sugerencias(perfil, todo)
-  }, [perfil, rooms])
-  const net = useMemo(() => networkCheck({ obra, rooms }), [obra, rooms])
 
   // se relee del proyecto en cada render para que el selector vea las piezas
   // que él mismo acaba de agregar
@@ -586,97 +580,31 @@ export default function Survey() {
         {/* ── lo que ya tiene ── */}
         <Card title="Lo que ya tiene" seccion="perfil" proyectoId={proyecto.id}>
           <p className="mb-3 text-[11.5px] leading-relaxed text-cream-3">
-            Casi nadie parte de cero. Lo que ya está en la casa cambia qué se propone —un Echo de 4ª gen ya
-            trae Zigbee y abarata los sensores— y cambia el precio: lo que ya tienen no se cobra.
+            Casi nadie parte de cero. Lo que ya está en la casa cambia qué se propone —un Echo grande ya trae
+            Zigbee y abarata los sensores— y cambia el precio: lo que ya tienen no se cobra.
           </p>
 
-          <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Con qué teléfonos</p>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {MOVILES.map((m) => {
-              const on = (perfil.moviles ?? []).includes(m.id)
-              return (
-                <button
-                  key={m.id}
-                  onClick={() =>
-                    survey.setPerfil({
-                      moviles: on
-                        ? perfil.moviles.filter((x) => x !== m.id)
-                        : [...(perfil.moviles ?? []), m.id],
-                    })
-                  }
-                  className={`rounded-full border px-2.5 py-1 text-[11.5px] transition-colors ${
-                    on ? 'border-ember bg-ember text-ink' : 'border-line text-cream-3 hover:border-cream/35'
-                  }`}
-                >
-                  {m.label}
-                </button>
-              )
-            })}
+          <EnlaceCliente proyectoId={proyecto.id} />
+
+          <div className="mt-3">
+            <Inventario
+              inv={perfil.inv ?? []}
+              onCambiar={(inv) => survey.setPerfil({ inv })}
+            />
           </div>
 
-          <p className="mt-3 text-[10px] tracking-[0.12em] text-cream-3 uppercase">Qué cerebros ya hay</p>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {CEREBROS.map((c) => {
-              const on = (perfil.cerebros ?? []).includes(c.id)
-              return (
-                <button
-                  key={c.id}
-                  onClick={() =>
-                    survey.setPerfil({
-                      cerebros: on
-                        ? perfil.cerebros.filter((x) => x !== c.id)
-                        : [...(perfil.cerebros ?? []), c.id],
-                    })
-                  }
-                  className={`rounded-full border px-2.5 py-1 text-[11.5px] transition-colors ${
-                    on ? 'border-ember bg-ember text-ink' : 'border-line text-cream-3 hover:border-cream/35'
-                  }`}
-                >
-                  {c.label}
-                  {c.border && <span className={on ? 'text-ink/60' : 'text-thread'}> · Thread</span>}
-                  {c.zigbee && <span className={on ? 'text-ink/60' : 'text-ember-2'}> · Zigbee</span>}
-                </button>
-              )
-            })}
-          </div>
-
-          <label className="mt-3 block">
+          <label className="mt-4 block">
             <span className="mb-1 block text-[10px] tracking-[0.12em] text-cream-3 uppercase">
-              Otras cosas que ya tiene
+              Notas — lo que no entre arriba
             </span>
             <Input
               value={perfil.notas ?? ''}
               onChange={(e) => survey.setPerfil({ notas: e.target.value })}
-              placeholder="Focos Hue en la sala, minisplit Mirage 2021, cámara vieja en la cochera…"
+              placeholder="Minisplit Mirage 2021 en la recámara, cámara vieja en la cochera…"
             />
           </label>
-
-          {sugeridas.length > 0 && (
-            <div className="mt-4 space-y-1.5 border-t border-line pt-3">
-              <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">
-                Qué significa · {sugeridas.length}
-              </p>
-              {sugeridas.map((x) => (
-                <div
-                  key={x.titulo}
-                  className={`rounded-lg border px-2.5 py-2 ${
-                    x.nivel === 'falta'
-                      ? 'border-red-500/35 bg-red-500/[0.06]'
-                      : x.nivel === 'aprovecha'
-                        ? 'border-emerald-500/30 bg-emerald-500/[0.06]'
-                        : 'border-ember/30 bg-ember/[0.06]'
-                  }`}
-                >
-                  <p className="text-[12px] text-cream">{x.titulo}</p>
-                  <p className="mt-0.5 text-[11px] leading-snug text-cream-3">{x.porque}</p>
-                  <p className="mt-0.5 text-[11px] leading-snug text-cream-2">{x.accion}</p>
-                </div>
-              ))}
-            </div>
-          )}
         </Card>
 
-        {/* ── red ── */}
         <Card title="Cómo se comunica la casa">
           <div className="flex flex-wrap gap-2">
             {Object.entries(net.byLink).map(([k, n]) => (
@@ -976,6 +904,56 @@ export default function Survey() {
           />
         </Suspense>
       )}
+    </div>
+  )
+}
+
+/**
+ * El enlace que se le manda al cliente.
+ *
+ * El token lo firma el servidor con el mismo secreto de las sesiones, así que
+ * no hay nada que guardar ni que caduque. Se copia y se manda por WhatsApp:
+ * el cliente anexa lo suyo desde el teléfono y aparece de este lado sin que
+ * nadie transcriba nada.
+ */
+function EnlaceCliente({ proyectoId }) {
+  const [url, setUrl] = useState(null)
+  const [copiado, setCopiado] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/enlace-inventario/${proyectoId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setUrl(`${window.location.origin}/#/mi-equipo?t=${d.token}`))
+      .catch(() => {})
+  }, [proyectoId])
+
+  if (!url) return null
+
+  return (
+    <div className="rounded-xl border border-thread/30 bg-thread/[0.05] px-3 py-2.5">
+      <p className="text-[10px] tracking-[0.12em] text-thread uppercase">Que lo llene el cliente</p>
+      <p className="mt-1 text-[11px] leading-relaxed text-cream-2">
+        Mándale este enlace. Anexa lo suyo desde el teléfono y llega aquí solo — sin cuenta y sin que nadie
+        transcriba nada. Solo abre su inventario: ni precios ni el resto del levantamiento.
+      </p>
+      <div className="mt-2 flex gap-1.5">
+        <input
+          readOnly
+          value={url}
+          onFocus={(e) => e.target.select()}
+          className="min-w-0 flex-1 rounded border border-line bg-ink px-2 py-1 text-[10.5px] text-cream-3"
+        />
+        <button
+          onClick={() => {
+            navigator.clipboard?.writeText(url)
+            setCopiado(true)
+            setTimeout(() => setCopiado(false), 1800)
+          }}
+          className="shrink-0 rounded border border-thread px-2.5 py-1 text-[11px] text-thread-2 hover:bg-thread/15"
+        >
+          {copiado ? 'copiado' : 'copiar'}
+        </button>
+      </div>
     </div>
   )
 }

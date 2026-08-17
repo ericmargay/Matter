@@ -2,9 +2,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import express from 'express'
 
-import { MAX_EDAD_COOKIE, USERS, crearSesion, sesionDeCookies, verificar } from './auth.js'
+import { MAX_EDAD_COOKIE, USERS, crearSesion, leerTokenCliente, tokenCliente, sesionDeCookies, verificar } from './auth.js'
 import { SOCIOS } from './socios.js'
-import { verEstado, verEventos } from './registro.js'
+import { registrar, verEstado, verEventos } from './registro.js'
 
 /**
  * La aplicación HTTP.
@@ -89,6 +89,8 @@ export function crearApp() {
   app.disable('x-powered-by')
   app.set('trust proxy', 1) // Railway va detrás de proxy: necesario para cookies secure
   app.use(express.urlencoded({ extended: false }))
+  // el anexador del cliente manda JSON; el login manda formulario
+  app.use(express.json({ limit: '64kb' }))
 
   app.use((req, _res, next) => {
     req.sesion = sesionDeCookies(req.headers.cookie)
@@ -150,6 +152,44 @@ export function crearApp() {
   app.get('/api/estado', (req, res) => {
     if (!req.sesion) return res.status(401).json({ error: 'sin sesión' })
     res.json({ estado: verEstado(), eventos: verEventos().length })
+  })
+
+  // el enlace se arma del lado del servidor: la firma nunca sale al navegador
+  app.get('/api/enlace-inventario/:id', (req, res) => {
+    if (!req.sesion) return res.status(401).json({ error: 'sin sesión' })
+    res.json({ token: tokenCliente(req.params.id) })
+  })
+
+  /* ── el inventario del cliente, sin sesión ──
+     Lo abre quien tenga el enlace. Devuelve solo el nombre del proyecto y su
+     inventario: nada de precios, nada de proveedores, nada del resto del
+     levantamiento. El autor del cambio se registra como el cliente, así que
+     en el historial se distingue de lo que capturamos nosotros. */
+  app.get('/api/inventario/:token', (req, res) => {
+    const id = leerTokenCliente(req.params.token)
+    if (!id) return res.status(404).json({ error: 'enlace inválido' })
+    const pr = verEstado().proyectos.find((p) => p.id === id)
+    if (!pr) return res.status(404).json({ error: 'no existe' })
+    res.json({ proyecto: pr.nombre, cliente: pr.cliente?.nombre ?? '', inv: pr.perfil?.inv ?? [] })
+  })
+
+  app.post('/api/inventario/:token', (req, res) => {
+    const id = leerTokenCliente(req.params.token)
+    if (!id) return res.status(404).json({ error: 'enlace inválido' })
+    const inv = req.body?.inv
+    if (!Array.isArray(inv) || inv.length > 200) return res.status(400).json({ error: 'lista inválida' })
+    const limpio = inv
+      .filter((l) => l && typeof l.id === 'string' && l.id.length < 40)
+      .map((l) => ({
+        id: l.id,
+        cant: Math.max(0, Math.min(99, Number(l.cant) || 0)),
+        modelo: String(l.modelo ?? '').slice(0, 60),
+        // la nota la escribimos nosotros ("el suyo y el de Gaby"); si el
+        // cliente toca su lista no tiene por qué perderse
+        nota: String(l.nota ?? '').slice(0, 200),
+      }))
+    registrar({ tipo: 'perfil.editar', proyectoId: id, datos: { patch: { inv: limpio } } }, 'cliente')
+    res.json({ ok: true, inv: limpio })
   })
 
   return app
