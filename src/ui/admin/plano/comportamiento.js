@@ -60,6 +60,13 @@ export const DISPAROS = {
     pide: 'hora',
     ayuda: 'También sirve para “al atardecer”, que el hub calcula solo según la fecha.',
   },
+  gas: {
+    label: 'El detector de gas se dispara',
+    pide: 'equipo',
+    cat: 'sensores',
+    ayuda:
+      'Mientras no haya válvula de corte instalada a norma, esto es lo que protege: el aviso llega al teléfono aunque no haya nadie en casa.',
+  },
   llegada: {
     label: 'Alguien llega a casa',
     pide: null,
@@ -70,6 +77,12 @@ export const DISPAROS = {
 /* ── qué hace ─────────────────────────────────────────────────── */
 
 export const ACCIONES = {
+  /* Avisar no mueve nada, y en el caso del gas eso es justamente el punto:
+     con fuga NO se debe abrir ni cerrar un solo contacto eléctrico, porque
+     abrir o cerrar hace chispa. La automatización avisa; ventilar y cerrar la
+     llave lo hace una persona con la mano. */
+  avisar: { label: 'Avisar al teléfono', sinObjetivo: true },
+  alarma: { label: 'Sonar la alarma', sinObjetivo: true },
   encender: { label: 'Encender' },
   apagar: { label: 'Apagar' },
   alternar: { label: 'Alternar', ayuda: 'Si está prendido apaga, y al revés. Es como se porta un apagador.' },
@@ -80,7 +93,7 @@ export const ACCIONES = {
 
 /** Qué acciones acepta cada cosa. Ofrecer “atenuar” a un enchufe es mentir. */
 export function accionesDe(device) {
-  if (!device) return ['alternar', 'encender', 'apagar']
+  if (!device) return ['avisar', 'alarma', 'alternar', 'encender', 'apagar']
   if (device.cat === 'cortinas') return ['abrir', 'alternar']
   if (device.luz) return ['alternar', 'encender', 'apagar', 'atenuar', 'tono']
   return ['alternar', 'encender', 'apagar']
@@ -108,6 +121,7 @@ const SEGUNDOS_POR_CAT = {
 }
 
 export function duracionDe(device, accion) {
+  if (accion === 'avisar' || accion === 'alarma') return 0.2
   if (accion === 'tono') return 0.9
   const s = SEGUNDOS_POR_CAT[device?.cat]
   if (s != null) return s
@@ -245,6 +259,7 @@ export function useSimulacion(plano) {
       const de = estado.current[objetivo] ?? inicial(it)
       const destino = { de, t0: performance.now(), dur: duracionDe(dev, accion) }
 
+      if (accion === 'avisar' || accion === 'alarma') return
       if (accion === 'encender') destino.nivel = 1
       else if (accion === 'apagar') destino.nivel = 0
       else if (accion === 'atenuar') destino.nivel = Math.max(0, Math.min(1, (valor ?? 0) / 100))

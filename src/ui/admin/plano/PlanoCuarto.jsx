@@ -1222,6 +1222,13 @@ function Comportamientos({ comps, items, onGuardar, onDisparar }) {
                               </button>
                             </div>
 
+                            {/* Avisar y sonar la alarma no le hacen nada a un
+                                aparato: no piden objetivo. */}
+                            {acc?.sinObjetivo ? (
+                              <p className="mt-1 text-[10.5px] text-thread-2">
+                                No mueve ningún aparato — solo avisa.
+                              </p>
+                            ) : (
                             <select
                               value={a.objetivo}
                               onChange={(e) => {
@@ -1240,6 +1247,7 @@ function Comportamientos({ comps, items, onGuardar, onDisparar }) {
                                 </option>
                               ))}
                             </select>
+                            )}
 
                             {/* El tiempo no se edita: lo pone el aparato. */}
                             <p className="mt-0.5 text-[10px] text-cream-3">
