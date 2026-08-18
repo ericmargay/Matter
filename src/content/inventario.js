@@ -621,3 +621,65 @@ export function revisarCompatibilidad(inv = [], items = {}, cat = {}) {
 
   return avisos
 }
+
+/* ── cómo se ve cada cosa ─────────────────────────────────────── */
+
+/**
+ * La foto, cuando existe y es del aparato de verdad.
+ *
+ * Se reusan las del catálogo de venta donde el mapeo es honesto: el Echo Dot
+ * de aquí es el mismo Echo Dot de allá. Donde no lo es —el Echo grande no se
+ * parece al Dot, un minisplit no es el controlador que lo vuelve inteligente—
+ * se deja sin foto a propósito y entra el glifo. Enseñar la foto del hermano
+ * parecido es peor que no enseñar ninguna: el cliente marca lo que reconoce en
+ * la imagen, no lo que dice el texto.
+ */
+const FOTOS = {
+  echoDot: 'echo-dot',
+  echoShow: 'echo-show8',
+  homepodMini: 'homepod-mini',
+  appleTv: 'appletv-4k',
+  nestHub: 'nest-hub2',
+  huePuente: 'hue-bridge',
+  focoNanoleaf: 'nanoleaf-essentials',
+  sonos: 'sonos-era100',
+  teleSamsung: 'samsung-qn90',
+  teleLg: 'lg-c5-oled',
+  meshWifi: 'tplink-deco',
+  switchRed: 'unifi-switch8',
+  nobreak: 'apc-ups',
+  camara: 'eufy-indoor',
+  cerradura: 'yale-assure2',
+  robot: 'roborock-s8',
+  enchufeSmart: 'meross-plug',
+  sensor: 'aqara-fp2',
+  alimentador: 'petlibro-granary',
+  fuenteAgua: 'petkit-fountain',
+}
+
+export const fotoDe = (id) => (FOTOS[id] ? `/catalogo/${FOTOS[id]}.webp` : null)
+
+/**
+ * Glifo para lo que no tiene foto honesta.
+ *
+ * Un dibujo plano y reconocible vale más que una foto de archivo de "un
+ * teléfono": el cliente ya sabe cómo es su teléfono, lo que necesita es
+ * distinguir de un vistazo la fila del teléfono de la del módem.
+ */
+const GLIFOS = {
+  moviles: 'telefono',
+  tabletas: 'tableta',
+  asistentes: 'bocina',
+  tele: 'pantalla',
+  luces: 'foco',
+  casa: 'casa',
+  red: 'red',
+}
+
+export const glifoDe = (id) => {
+  const d = POR_ID[id]
+  if (!d) return 'casa'
+  if (['appleWatch', 'galaxyWatch'].includes(id)) return 'reloj'
+  if (id.startsWith('modem')) return 'red'
+  return GLIFOS[d.familia] ?? 'casa'
+}
