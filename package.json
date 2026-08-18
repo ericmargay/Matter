@@ -14,7 +14,8 @@
     "build:admin": "VITE_ADMIN=on BASE_PATH=/panel/ vite build --outDir dist-admin",
     "build:all": "BASE_PATH=/ VITE_ADMIN=off vite build && npm run build:admin",
     "start": "node server/index.js",
-    "hash-password": "node scripts/hash-password.mjs"
+    "hash-password": "node scripts/hash-password.mjs",
+    "og": "node scripts/og.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",

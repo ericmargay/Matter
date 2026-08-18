@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import {
   FAMILIAS,
   POR_ID,
-  esPersonal,
+  preguntaDueno,
   sinEspacio,
   leerInventario,
   migrar,
@@ -59,7 +59,7 @@ const Mini = ({ activo, children, ...props }) => (
 )
 
 /** Una unidad: este aparato en concreto, no "los Echo Dot". */
-function Unidad({ u, indice, total, espacios, nombres, onCambiar, onQuitar }) {
+function Unidad({ u, indice, total, espacios, nombres, onCambiar, onQuitar, onBorrarNombre }) {
   const [yendose, setYendose] = useState(false)
   const d = POR_ID[u.id]
   if (!d) return null
@@ -73,6 +73,7 @@ function Unidad({ u, indice, total, espacios, nombres, onCambiar, onQuitar }) {
 
   const set = (parche) => onCambiar({ ...parche, modificado: new Date().toISOString() })
   const noVa = sinEspacio(u.id)
+  const pregunta = preguntaDueno(u.id)
 
   return (
     <div className={`rounded-lg border border-line px-2.5 py-2 ${yendose ? 'se-va' : ''}`}>
@@ -127,16 +128,29 @@ function Unidad({ u, indice, total, espacios, nombres, onCambiar, onQuitar }) {
         </div>
       )}
 
-      {/* De quién es, solo en lo personal: preguntar de quién es el módem no
-          tiene sentido, preguntar de quién es el iPhone es la mitad del dato */}
-      {esPersonal(u.id) && (
+      {/* De quién es: de una persona si es teléfono o reloj, de una mascota
+          si es su alimentador. Preguntar de quién es el módem no tiene
+          sentido; preguntar de quién es el iPhone es la mitad del dato. */}
+      {pregunta && (
         <div className="mt-1.5">
-          <span className="text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">De quién es</span>
+          <span className="text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">{pregunta}</span>
           <div className="mt-0.5 flex flex-wrap items-center gap-1">
             {nombres.map((n) => (
-              <Mini key={n} activo={u.quien === n} onClick={() => set({ quien: u.quien === n ? '' : n })}>
-                {n}
-              </Mini>
+              <span key={n} className="inline-flex items-center">
+                <Mini activo={u.quien === n} onClick={() => set({ quien: u.quien === n ? '' : n })}>
+                  {n}
+                </Mini>
+                {/* Se borra el nombre de TODOS lados: se pone cuando alguien
+                    se escribió mal o cuando esa persona ya no vive aquí, y en
+                    los dos casos no tiene caso dejarlo colgando en otra pieza. */}
+                <button
+                  onClick={() => onBorrarNombre(n)}
+                  aria-label={`Borrar el nombre ${n}`}
+                  className="-ml-0.5 px-1 text-[11px] text-cream-3 transition-colors hover:text-rose-400"
+                >
+                  ×
+                </button>
+              </span>
             ))}
             <input
               value={u.quien ?? ''}
@@ -207,6 +221,12 @@ export default function Inventario({ inv = [], onCambiar, espacios = [], modo = 
 
   const agregar = (id) => onCambiar([...unidades, unidadVacia(id)])
   const cambiar = (uid, parche) => onCambiar(unidades.map((u) => (u.uid === uid ? { ...u, ...parche } : u)))
+
+  const borrarNombre = (n) => {
+    const cuantos = unidades.filter((u) => u.quien === n).length
+    if (cuantos > 1 && !confirm(`"${n}" está en ${cuantos} aparatos. ¿Quitarlo de todos?`)) return
+    onCambiar(unidades.map((u) => (u.quien === n ? { ...u, quien: '', modificado: new Date().toISOString() } : u)))
+  }
   const quitar = (uid) => onCambiar(unidades.filter((u) => u.uid !== uid))
 
   const familiaAbierta = FAMILIAS.find((f) => f.id === filtro)
@@ -279,6 +299,7 @@ export default function Inventario({ inv = [], onCambiar, espacios = [], modo = 
                   nombres={nombres}
                   onCambiar={(parche) => cambiar(u.uid, parche)}
                   onQuitar={() => quitar(u.uid)}
+                  onBorrarNombre={borrarNombre}
                 />
               )
             })}

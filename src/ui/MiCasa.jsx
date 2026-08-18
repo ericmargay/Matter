@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { DEVICE_BY_ID } from '../content/catalog'
 import { armarGuia } from '../content/guia'
+import Logo from './Logo'
 
 /**
  * La guía que se le manda al cliente: qué puede pedirle a su casa.
@@ -52,7 +53,14 @@ export default function MiCasa({ token }) {
     <main className="min-h-screen bg-ink px-4 pb-16 sm:px-6">
       <div className="mx-auto max-w-2xl">
         <header className="border-b border-line py-6">
-          <p className="text-[10px] tracking-[0.14em] text-cream-3 uppercase">Matter · {datos.proyecto}</p>
+          {/* La marca en grande. Esta página llega por WhatsApp a alguien que
+              no la pidió: si no se ve de quién es en el primer vistazo, se
+              cierra sin leer. */}
+          <div className="flex items-center gap-2.5">
+            <Logo size={34} />
+            <span className="display text-[30px] leading-none tracking-tight text-cream">Matter</span>
+          </div>
+          <p className="mt-3 text-[10px] tracking-[0.14em] text-cream-3 uppercase">{datos.proyecto}</p>
           <h1 className="display mt-1 text-[26px] leading-tight text-cream sm:text-[32px]">
             Qué le puedes pedir a tu casa
           </h1>

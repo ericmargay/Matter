@@ -157,9 +157,55 @@ export function crearApp() {
   /* ── el acortador ──
      `/i/<codigo>` redirige. Va antes que los estáticos y usa un prefijo de
      una letra para no chocar con ninguna ruta del sitio. */
+  /* Los robots que arman la vista previa —WhatsApp, Telegram, Slack— piden la
+     URL y leen sus etiquetas Open Graph. Si les damos el 302 acaban en el
+     index del sitio y la tarjeta sale con el texto genérico de la página
+     principal, que no dice nada del enlace que se mandó.
+
+     Así que al robot se le contesta con una página de puras etiquetas, hecha
+     a la medida del destino; a la persona se le sigue dando el 302 de
+     siempre. Es la única forma de que un enlace corto tenga vista previa
+     propia: el destino real va en el hash, y el hash no viaja al servidor. */
+  const ES_ROBOT = /whatsapp|facebookexternalhit|twitterbot|slackbot|telegrambot|discordbot|linkedinbot|bot\b|preview/i
+
+  const TARJETAS = {
+    'mi-equipo': ['¿Qué ya tienes en casa?', 'Anexa lo que ya haya en tu casa desde el teléfono. Toma dos minutos y nos sirve para ajustar la propuesta.'],
+    'mi-casa': ['Qué le puedes pedir a tu casa', 'Tu guía, armada con lo que quedó instalado. Con las frases que sí funcionan en tu bocina.'],
+    catalogo: ['El catálogo', 'Lo que se le puede poner a una casa, explicado sin tecnicismos.'],
+    cotizacion: ['Tu cotización', 'Con los precios congelados del día que se generó.'],
+  }
+
+  const escapar = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+
+  function paginaVistaPrevia(destino, base) {
+    const cual = Object.keys(TARJETAS).find((k) => destino.includes(k)) ?? 'default'
+    const [titulo, bajada] = TARJETAS[cual] ?? ['Matter', 'Casas que te entienden.']
+    const img = `${base}/og/${cual}.png`
+    return `<!doctype html><html lang="es-MX"><head><meta charset="utf-8">
+<title>${escapar(titulo)} · Matter</title>
+<meta name="description" content="${escapar(bajada)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Matter">
+<meta property="og:locale" content="es_MX">
+<meta property="og:title" content="${escapar(titulo)}">
+<meta property="og:description" content="${escapar(bajada)}">
+<meta property="og:image" content="${escapar(img)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta http-equiv="refresh" content="0;url=${escapar(destino)}">
+</head><body></body></html>`
+  }
+
   app.get('/i/:codigo', (req, res) => {
     const destino = resolver(req.params.codigo)
     if (!destino) return res.status(404).redirect('/')
+
+    if (ES_ROBOT.test(req.get('user-agent') ?? '')) {
+      const base = `${req.protocol}://${req.get('host')}`
+      res.type('html').send(paginaVistaPrevia(destino, base))
+      return
+    }
     res.redirect(302, destino)
   })
 

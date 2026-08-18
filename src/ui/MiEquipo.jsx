@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import Inventario from './Inventario'
+import Logo from './Logo'
 
 /**
  * La página que se le manda al cliente.
@@ -68,13 +69,20 @@ export default function MiEquipo({ token }) {
     <main className="min-h-screen bg-ink px-4 pb-24 sm:px-6">
       <div className="mx-auto max-w-2xl">
         <header className="border-b border-line py-6">
-          <p className="text-[10px] tracking-[0.14em] text-cream-3 uppercase">Matter · {datos.proyecto}</p>
+          {/* La marca en grande. Esta página llega por WhatsApp a alguien que
+              no la pidió: si no se ve de quién es en el primer vistazo, se
+              cierra sin leer. */}
+          <div className="flex items-center gap-2.5">
+            <Logo size={34} />
+            <span className="display text-[30px] leading-none tracking-tight text-cream">Matter</span>
+          </div>
+          <p className="mt-3 text-[10px] tracking-[0.14em] text-cream-3 uppercase">{datos.proyecto}</p>
           <h1 className="display mt-1 text-[26px] leading-tight text-cream sm:text-[32px]">
             ¿Qué ya tienes en casa?
           </h1>
           <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-cream-2">
-            Anexa lo que ya haya —teléfonos, bocinas, focos, la tele—. Con eso ajustamos la propuesta: lo que ya
-            tienes no te lo volvemos a cobrar, y saber con qué marcas llegas cambia lo que conviene poner.
+            Anexa lo que ya haya —teléfonos, bocinas, focos, la tele, hasta el alimentador del perro—. Saber con
+            qué marcas llegas cambia lo que conviene poner en tu casa.
           </p>
           <p className="mt-2 text-[12px] leading-relaxed text-cream-3">
             No tienes que saber los modelos. Si no sabes, déjalo en blanco o toca “No sé cuál”.

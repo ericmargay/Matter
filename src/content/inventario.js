@@ -143,6 +143,15 @@ export const FAMILIAS = [
       D('cerradura', 'Cerradura inteligente', {}),
       D('timbre', 'Timbre con cámara', {}),
       D('robot', 'Robot aspiradora', {}),
+      D('alimentador', 'Alimentador automático de mascota', {
+        eco: 'otro',
+        wifi: true,
+        ojo: 'marca-blanca',
+        mascota: true,
+        modelos: ['Steren', 'PetSafe', 'Genérico WiFi', 'No sé cuál'],
+      }),
+      D('fuenteAgua', 'Fuente de agua para mascota', { mascota: true }),
+      D('puertaMascota', 'Puerta para mascota', { mascota: true }),
       D('minisplit', 'Minisplit con WiFi', {}),
       D('lavadoraSmart', 'Lavadora con WiFi', {}),
       D('sensor', 'Sensores (movimiento, puerta)', {}),
@@ -289,6 +298,20 @@ export function migrar(inv = []) {
 
 /** Aparatos personales: son los que tiene sentido asignarle a alguien. */
 export const esPersonal = (id) => ['moviles', 'tabletas'].includes(POR_ID[id]?.familia)
+
+/**
+ * Lo que es de una mascota, no de una persona.
+ *
+ * Usa el mismo campo `quien` que los teléfonos porque la pregunta es la misma
+ * —de quién es esto— y solo cambia a quién se refiere. Y sí importa saberlo:
+ * con dos perros, el alimentador de uno y el del otro llevan raciones y
+ * horarios distintos, y en la automatización eso son dos rutinas, no una.
+ */
+export const esMascota = (id) => !!POR_ID[id]?.mascota
+
+/** Cómo se pregunta de quién es, según qué sea. */
+export const preguntaDueno = (id) =>
+  esMascota(id) ? 'De cuál mascota' : esPersonal(id) ? 'De quién es' : null
 
 /**
  * Lo que anda en la bolsa no vive en un cuarto.
