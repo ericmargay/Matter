@@ -5,6 +5,10 @@ import { uid, planoVacio } from '../../../sync/eventos'
 import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
 import { ESPACIOS } from '../../../content/espacios'
+
+/* El taller de estilo arrastra su propio Canvas y postproceso: se carga solo
+   cuando se abre, para no engordar el editor del cuarto. */
+const Taller3D = lazy(() => import('./Taller3D'))
 import { ALTURA_POR_FORMA, diagnosticoLux, luxDelCuarto, parametrosIniciales } from './luz'
 import {
   ACCIONES,
@@ -98,6 +102,12 @@ export default function PlanoCuarto({ room, onCerrar }) {
   /* Un modo a la vez. Es la diferencia entre acomodar y pelearse: con mover y
      girar vivos al mismo tiempo, arrastrar una pieza la giraba de pasada. */
   const [modoGizmo, setModoGizmo] = useState('mover')
+
+  /* El taller de estilo: la misma sala, modelada con el sistema nuevo. Vive
+     aparte del editor porque son dos trabajos distintos —aquí se calibra el
+     lenguaje visual, allá se acomoda el levantamiento— y mezclarlos hacía que
+     cada cambio de estilo pareciera un cambio del plano. */
+  const [taller, setTaller] = useState(false)
   const [simulando, setSimulando] = useState(false)
   /* El simulador vive aquí y no en el store: es estado de la demostración,
      no del levantamiento. Que el cliente deje una luz apagada probando no
@@ -287,6 +297,16 @@ export default function PlanoCuarto({ room, onCerrar }) {
   const seleccionado = plano.items.find((i) => i.id === seleccion)
   const enMuros = seleccion === ID_MUROS
 
+  if (taller)
+    return (
+      <Suspense fallback={<div className="fixed inset-0 z-50 bg-ink" />}>
+      <Taller3D
+        cuarto={{ nombre: room.nombre, ancho: plano.ancho, largo: plano.largo, alto: plano.alto }}
+        onCerrar={() => setTaller(false)}
+      />
+      </Suspense>
+    )
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-ink">
       {/* ── barra ── */}
@@ -350,6 +370,9 @@ export default function PlanoCuarto({ room, onCerrar }) {
           ))}
           <Chip activo={simulando} onClick={() => setSimulando((v) => !v)}>
             Simular
+          </Chip>
+          <Chip activo={taller} onClick={() => setTaller(true)}>
+            Estilo 3D
           </Chip>
           <button
             onClick={onCerrar}
