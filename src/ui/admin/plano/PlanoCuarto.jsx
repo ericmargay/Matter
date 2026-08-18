@@ -102,7 +102,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
   /* El simulador vive aquí y no en el store: es estado de la demostración,
      no del levantamiento. Que el cliente deje una luz apagada probando no
      tiene por qué viajarle a Carpio ni quedar en el historial. */
-  const { sim, comps, disparar, dispararPorPieza } = useSimulacion(plano)
+  const { sim, comps, disparar, dispararPorPieza, bloqueo, liberar } = useSimulacion(plano)
   const [uniendo, setUniendo] = useState(null)
 
   // el fondo no debe desplazarse detrás del editor
@@ -461,7 +461,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
               colocando={!!colocando}
               sim={sim}
               modo={modo}
-              onAccionar={dispararPorPieza}
+              onAccionar={bloqueo ? undefined : dispararPorPieza}
               conRegla={conRegla}
               onMedida={medir}
               midiendo={midiendo}
@@ -596,6 +596,8 @@ export default function PlanoCuarto({ room, onCerrar }) {
             comps={comps}
             items={plano.items}
             onDisparar={disparar}
+            bloqueo={bloqueo}
+            onLiberar={liberar}
             onGuardar={(cs, que) => guardar({ comportamientos: cs }, que)}
           />
         </aside>
@@ -1008,7 +1010,7 @@ function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuita
  * ve correr en el plano. No es adorno: es lo que se va a programar en la
  * puesta en marcha, y lo que el cliente ya vio y aprobó.
  */
-function Comportamientos({ comps, items, onGuardar, onDisparar }) {
+function Comportamientos({ comps, items, onGuardar, onDisparar, bloqueo, onLiberar }) {
   const [abierto, setAbierto] = useState(null)
 
   const puntos = items.filter((i) => i.clase === 'punto' && i.tipo === 'apagador')
@@ -1055,6 +1057,24 @@ function Comportamientos({ comps, items, onGuardar, onDisparar }) {
         </button>
       }
     >
+      {/* Con la casa bloqueada nada responde, y hay que decir por qué: un
+          sistema que deja de obedecer sin explicarse se siente descompuesto. */}
+      {bloqueo && (
+        <div className="mb-2 rounded-lg border border-rose-500/50 bg-rose-500/10 px-2.5 py-2">
+          <p className="text-[11.5px] text-rose-300">Casa bloqueada · {bloqueo.nombre}</p>
+          <p className="mt-0.5 text-[10.5px] leading-snug text-cream-2">
+            Ninguna automatización va a mover nada hasta que alguien lo libere. Cada relevador que abre o cierra
+            hace chispa, y con gas acumulado eso es lo que hay que evitar.
+          </p>
+          <button
+            onClick={onLiberar}
+            className="mt-1.5 rounded border border-rose-400 px-2 py-0.5 text-[10.5px] text-rose-200 hover:bg-rose-500/20"
+          >
+            Ya revisé — liberar la casa
+          </button>
+        </div>
+      )}
+
       {comps.length === 0 && (
         <p className="text-[11px] leading-relaxed text-cream-3">
           Nada automatizado todavía. Esto es lo que el cliente sí entiende del levantamiento — y lo que se

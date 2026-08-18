@@ -83,6 +83,17 @@ export const ACCIONES = {
      llave lo hace una persona con la mano. */
   avisar: { label: 'Avisar al teléfono', sinObjetivo: true },
   alarma: { label: 'Sonar la alarma', sinObjetivo: true },
+  /* El seguro. Después de una fuga, la casa se queda quieta: ninguna
+     automatización vuelve a mover un relevador hasta que una persona lo
+     libere. Cada contacto que abre o cierra hace chispa, y en una casa con
+     gas acumulado el sensor de presencia del pasillo prendiendo una luz es
+     tan peligroso como el extractor. Es de las cosas que solo se le ocurren a
+     alguien que ya pensó en qué pasa DESPUÉS de la alarma. */
+  bloquear: {
+    label: 'Bloquear las automatizaciones',
+    sinObjetivo: true,
+    ayuda: 'Nada vuelve a moverse solo hasta que alguien lo libere a mano o desde el teléfono.',
+  },
   encender: { label: 'Encender' },
   apagar: { label: 'Apagar' },
   alternar: { label: 'Alternar', ayuda: 'Si está prendido apaga, y al revés. Es como se porta un apagador.' },
@@ -93,7 +104,7 @@ export const ACCIONES = {
 
 /** Qué acciones acepta cada cosa. Ofrecer “atenuar” a un enchufe es mentir. */
 export function accionesDe(device) {
-  if (!device) return ['avisar', 'alarma', 'alternar', 'encender', 'apagar']
+  if (!device) return ['avisar', 'alarma', 'bloquear', 'alternar', 'encender', 'apagar']
   if (device.cat === 'cortinas') return ['abrir', 'alternar']
   if (device.luz) return ['alternar', 'encender', 'apagar', 'atenuar', 'tono']
   return ['alternar', 'encender', 'apagar']
@@ -121,7 +132,7 @@ const SEGUNDOS_POR_CAT = {
 }
 
 export function duracionDe(device, accion) {
-  if (accion === 'avisar' || accion === 'alarma') return 0.2
+  if (accion === 'avisar' || accion === 'alarma' || accion === 'bloquear') return 0.2
   if (accion === 'tono') return 0.9
   const s = SEGUNDOS_POR_CAT[device?.cat]
   if (s != null) return s
@@ -211,6 +222,12 @@ export function useSimulacion(plano) {
   const anim = useRef(new Map())
   const raf = useRef(0)
 
+  /* `bloqueo` no es parte de `sim` porque no es el estado de una pieza: es el
+     estado de la CASA. Guarda qué comportamiento lo puso, para poder decir en
+     pantalla por qué nada responde — un bloqueo silencioso se siente a
+     descompostura. */
+  const [bloqueo, setBloqueo] = useState(null)
+
   // piezas nuevas o borradas: el estado sigue a los items sin perder lo puesto
   useEffect(() => {
     const s = {}
@@ -259,7 +276,7 @@ export function useSimulacion(plano) {
       const de = estado.current[objetivo] ?? inicial(it)
       const destino = { de, t0: performance.now(), dur: duracionDe(dev, accion) }
 
-      if (accion === 'avisar' || accion === 'alarma') return
+      if (accion === 'avisar' || accion === 'alarma' || accion === 'bloquear') return
       if (accion === 'encender') destino.nivel = 1
       else if (accion === 'apagar') destino.nivel = 0
       else if (accion === 'atenuar') destino.nivel = Math.max(0, Math.min(1, (valor ?? 0) / 100))
@@ -280,10 +297,19 @@ export function useSimulacion(plano) {
     (compId) => {
       const c = comps.find((x) => x.id === compId)
       if (!c) return
+
+      const bloquea = c.entonces.some((a) => a.accion === 'bloquear')
+
+      /* Con la casa bloqueada no corre nada — ni siquiera el comportamiento
+         que la bloqueó, para que probarlo dos veces no reinicie el reloj. Lo
+         único que la saca es una mano: `liberar()`. */
+      if (bloqueo && !bloquea) return
+
       for (const a of c.entonces) mandar(a.objetivo, a.accion, a.valor)
+      if (bloquea) setBloqueo({ comp: c.id, nombre: c.nombre || frasear(c, items).cuando, desde: Date.now() })
       correr()
     },
-    [comps, mandar, correr],
+    [comps, mandar, correr, bloqueo, items],
   )
 
   /** Dispara lo que cuelgue de una pieza del plano — tocar el apagador. */
@@ -294,5 +320,10 @@ export function useSimulacion(plano) {
     [comps, disparar],
   )
 
-  return { sim, comps, disparar, dispararPorPieza }
+  /** Lo que hace una persona: reconocer la alarma y devolver la casa a modo
+   *  normal. En la instalación real es un botón en la app o el interruptor
+   *  físico de la sirena. */
+  const liberar = useCallback(() => setBloqueo(null), [])
+
+  return { sim, comps, disparar, dispararPorPieza, bloqueo, liberar }
 }
