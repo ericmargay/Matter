@@ -1,6 +1,7 @@
 import * as P from '../../../scene/props'
 import * as F from '../../../scene/fixtures'
 import * as X from './props'
+import * as N from './muebles'
 
 /**
  * Qué se puede poner en un cuarto, según qué cuarto sea.
@@ -19,6 +20,16 @@ import * as X from './props'
 const A = (label, Comp, w, d, alto = 0.8, props = {}) => ({ label, Comp, w, d, alto, props })
 
 /**
+ * Pieza ya modelada con el sistema de diseño nuevo.
+ *
+ * `Nuevo` gana sobre `Comp` cuando existe. Se hace así para migrar mueble por
+ * mueble sin romper el editor: lo que ya está en el lenguaje nuevo se ve con
+ * el lenguaje nuevo, y lo que falta sigue dibujándose como antes hasta que le
+ * toque. Un cambio de golpe habría dejado media casa sin muebles.
+ */
+const AN = (label, Nuevo, w, d, alto = 0.8, props = {}) => ({ label, Comp: Nuevo, Nuevo, w, d, alto, props })
+
+/**
  * Portafoco: el mueble no da luz, sostiene un foco.
  *
  * Marcarlo importa porque es la venta más fácil del catálogo. Al cliente no
@@ -30,14 +41,14 @@ const L = (label, Comp, w, d, alto, props = {}) => ({ label, Comp, w, d, alto, p
 
 export const MUEBLES = {
   /* ── sala y estar ── */
-  sofa: A('Sofá', P.Sofa, 2.6, 0.95, 0.8),
-  mesaCentro: A('Mesa de centro', P.CoffeeTable, 1.1, 0.6, 0.4),
-  mueble_tv: A('Mueble de TV', P.MediaUnit, 2.0, 0.45, 0.5),
-  tv: A('Pantalla', P.Tv, 1.7, 0.1, 1.1),
-  tapete: A('Tapete', P.Rug, 3, 2, 0.02),
+  sofa: AN('Sofá', N.Sofa, 2.4, 0.95, 0.8, { w: 2.4, d: 0.95 }),
+  mesaCentro: AN('Mesa de centro', N.MesaCentro, 1.1, 0.62, 0.45, { w: 1.1, d: 0.62 }),
+  mueble_tv: AN('Mueble de TV', N.MuebleTv, 1.9, 0.42, 0.5, { w: 1.9, d: 0.42 }),
+  tv: AN('Pantalla', N.Pantalla, 1.5, 0.06, 0.9, { w: 1.5 }),
+  tapete: AN('Tapete', N.Tapete, 2.6, 1.8, 0.03, { w: 2.6, d: 1.8 }),
   librero: A('Librero', P.Shelf, 1.6, 0.35, 1.8),
-  planta: A('Planta', P.Plant, 0.5, 0.5, 1.0),
-  bocina: A('Bocina', P.Speaker, 0.25, 0.25, 0.4),
+  planta: AN('Planta', N.Planta, 0.42, 0.42, 1.1, { alto: 1.05 }),
+  bocina: AN('Bocina', N.Bocina, 0.16, 0.16, 0.3, { alto: 0.28 }),
 
   /* ── recámara ── */
   cama: A('Cama', P.Bed, 1.9, 2.1, 0.6),
@@ -72,12 +83,12 @@ export const MUEBLES = {
      maceta del rincón y el gato dormido son lo que lo vuelven la casa de
      alguien — y es lo que hace que el cliente sonría cuando lo ve. */
   mesaRedonda: A('Mesa redonda', X.MesaRedonda, 1.1, 1.1, 0.75),
-  mesaLateral: A('Mesa lateral', X.MesaLateral, 0.5, 0.5, 0.55),
+  mesaLateral: AN('Mesa lateral', N.MesaLateral, 0.46, 0.46, 0.56, { d: 0.44, alto: 0.52 }),
   mesaTrabajo: A('Mesa de trabajo', X.MesaTrabajo, 1.4, 0.6, 0.74),
-  libreroLleno: A('Librero con libros', X.LibreroLleno, 1.1, 0.3, 1.7),
-  cuadroSolo: A('Cuadro', X.Cuadro, 0.55, 0.05, 0.75),
+  libreroLleno: AN('Librero con libros', N.Librero, 1.1, 0.32, 1.7, { w: 1.05, alto: 1.6 }),
+  cuadroSolo: AN('Cuadro', N.Cuadro, 0.58, 0.06, 0.78, { w: 0.55, h: 0.72 }),
   muroCuadros: A('Muro de cuadros', X.MuroCuadros, 1.2, 0.05, 1.1),
-  plantaAlta: A('Planta alta', X.PlantaAlta, 0.4, 0.4, 1.35),
+  plantaAlta: AN('Planta alta', N.Planta, 0.45, 0.45, 1.35, { alto: 1.3 }),
   macetaChica: A('Maceta', X.MacetaChica, 0.2, 0.2, 0.35),
   gato: A('Gato dormido', X.GatoDormido, 0.4, 0.5, 0.25),
   perro: A('Perro dormido', X.PerroDormido, 0.5, 0.7, 0.35),
@@ -90,8 +101,8 @@ export const MUEBLES = {
      justo donde va la instalación —la lavadora que se va a medir, el boiler
      que decide si hay gas, la lámpara de pie que va a llevar el foco. */
   sillon: A('Sillón', X.Sillon, 0.95, 0.9, 0.8),
-  puf: A('Puf', X.Puf, 0.62, 0.62, 0.4),
-  lamparaPie: L('Lámpara de pie', X.LamparaPie, 0.35, 0.35, 1.75),
+  puf: AN('Puf', N.Puf, 0.6, 0.6, 0.4, { d: 0.6 }),
+  lamparaPie: { ...AN('Lámpara de pie', N.LamparaPie, 0.36, 0.36, 1.7, { alto: 1.62 }), portafoco: true },
   chimenea: A('Chimenea', X.Chimenea, 1.7, 0.45, 1.2),
   relojPared: A('Reloj de pared', X.RelojPared, 0.34, 0.05, 0.34),
   revistero: A('Revistero', X.Revistero, 0.42, 0.3, 0.45),
@@ -123,8 +134,8 @@ export const MUEBLES = {
   macetaGrande: A('Maceta grande', X.MacetaGrande, 0.55, 0.55, 1.3),
 
   /* ── arte ── */
-  cuadroArte: A('Cuadro de arte', X.CuadroArte, 0.66, 0.05, 0.86),
-  cuadroGrande: A('Cuadro grande', X.CuadroGrande, 1.36, 0.05, 0.96),
+  cuadroArte: AN('Cuadro de arte', N.Cuadro, 0.66, 0.06, 0.86, { w: 0.62, h: 0.8, tono: 'acento' }),
+  cuadroGrande: AN('Cuadro grande', N.Cuadro, 1.36, 0.06, 0.96, { w: 1.3, h: 0.9, tono: 'apoyo' }),
   triptico: A('Tríptico', X.TripticoArte, 1.5, 0.05, 0.68),
   cuadroPiso: A('Cuadro recargado', X.CuadroPiso, 0.86, 0.3, 1.1),
 

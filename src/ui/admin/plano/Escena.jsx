@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, RoundedBox, Text, TransformControls } from '@react-three/drei'
+import { OrbitControls, Text, TransformControls } from '@react-three/drei'
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
@@ -8,6 +8,10 @@ import * as THREE from 'three'
 import { DEVICE_BY_ID } from '../../../content/catalog'
 
 import { MUEBLES } from './catalogo'
+import Conexiones from './Conexiones'
+import Cuarto3D from './Cuarto3D'
+import Rig from './Rig'
+import { fondoDe, useEstilo, paletaDe } from './estilo'
 import { exposicionDe, kelvinAColor } from './luz'
 
 /**
@@ -30,98 +34,25 @@ import { exposicionDe, kelvinAColor } from './luz'
 /* Un material por color: se cachean para no crear uno nuevo en cada cuadro.
    BackSide es el truco de casa de muñecas — la cara hacia la cámara no se
    dibuja y el cuarto se ve por dentro sin esconder muros a mano. */
-const murosCache = new Map()
-const matMuroDe = (color) => {
-  if (!murosCache.has(color)) {
-    murosCache.set(
-      color,
-      // roughness 1 y metalness 0: mate puro. El brillo especular es lo
-      // primero que delata el render "de programa" y lo que aleja el plano
-      // del dibujo isométrico que queremos.
-      new THREE.MeshStandardMaterial({ color, roughness: 1, metalness: 0, side: THREE.BackSide }),
-    )
-  }
-  return murosCache.get(color)
-}
+/* El cascarón y la puesta de luz viven en el sistema de diseño (`Cuarto3D`
+   y `Rig`): el editor los usa tal cual para que lo que se acomoda aquí se vea
+   exactamente como se va a ver en la propuesta. Tener dos versiones del mismo
+   cuarto —una para trabajar y otra para enseñar— era garantía de que se
+   separaran. */
 
-const matPiso = new THREE.MeshStandardMaterial({ color: '#a86a35', roughness: 1, metalness: 0 })
-
-/* ── cascarón ─────────────────────────────────────────────────── */
-
-/**
- * El cuarto como caja de juguete, con muros de grosor de verdad.
- *
- * Antes era una sola caja dibujada por dentro (`BackSide`). Barato y cerraba
- * siempre, pero tenía un defecto que se notaba justo donde importa: el muro no
- * tenía canto. El campo "grosor" existía y no cambiaba nada visible, porque lo
- * único que hacía era agrandar la caja. En un levantamiento el grosor del muro
- * es un dato —decide si la caja del apagador da para el módulo detrás— así que
- * tiene que verse.
- *
- * Ahora son cuatro losas de verdad, cada una de `grosor` metros. Y para que se
- * siga viendo el interior, se esconden las dos que quedan entre la cámara y el
- * cuarto, recalculado en cada cuadro: así se puede girar libremente sin que
- * ninguna tape, y donde el muro se corta se ve su espesor.
- */
-const HUNDIDO = 0.2
-
-function Muro({ ancho, alto, grosor, color, pos, rot, normal }) {
-  const ref = useRef()
+/** Avisa a qué cuadrante mira la cámara, para esconder los muros correctos. */
+function SeguirCamara({ onMover }) {
   const { camera } = useThree()
-
+  const ultimo = useRef([1, 1])
   useFrame(() => {
-    if (!ref.current) return
-    // se esconde el muro que quedaría entre la cámara y el cuarto
-    ref.current.visible = normal[0] * camera.position.x + normal[1] * camera.position.z <= 0
+    const x = Math.sign(camera.position.x) || 1
+    const z = Math.sign(camera.position.z) || 1
+    if (x !== ultimo.current[0] || z !== ultimo.current[1]) {
+      ultimo.current = [x, z]
+      onMover(x, z)
+    }
   })
-
-  const radio = Math.min(grosor * 0.45, 0.06)
-  return (
-    <RoundedBox
-      ref={ref}
-      args={[ancho, alto + HUNDIDO, grosor]}
-      radius={radio}
-      smoothness={3}
-      steps={1}
-      position={[pos[0], (alto - HUNDIDO) / 2, pos[1]]}
-      rotation={[0, rot, 0]}
-      material={matMuroDe(color)}
-      castShadow
-      receiveShadow
-    />
-  )
-}
-
-function Cuarto({ ancho, largo, alto, color = '#3f4a63', grosor = 0.12 }) {
-  const t = Math.max(0.04, grosor)
-  const muros = [
-    { ancho: ancho + t * 2, pos: [0, -(largo + t) / 2], rot: 0, normal: [0, -1] },
-    { ancho: ancho + t * 2, pos: [0, (largo + t) / 2], rot: 0, normal: [0, 1] },
-    { ancho: largo + t * 2, pos: [-(ancho + t) / 2, 0], rot: Math.PI / 2, normal: [-1, 0] },
-    { ancho: largo + t * 2, pos: [(ancho + t) / 2, 0], rot: Math.PI / 2, normal: [1, 0] },
-  ]
-
-  return (
-    <group>
-      {/* el piso llega hasta el centro del muro para que no se vea junta */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow material={matPiso}>
-        <planeGeometry args={[ancho + t, largo + t]} />
-      </mesh>
-
-      {muros.map((m, i) => (
-        <Muro key={i} {...m} alto={alto} grosor={t} color={color} />
-      ))}
-
-      {/* La retícula se escala a la planta en vez de ser cuadrada: antes usaba
-          el lado mayor y se desbordaba por el lado corto, y las líneas
-          sobrantes se leían como si el piso siguiera más allá del muro. */}
-      <gridHelper
-        args={[1, Math.round(Math.max(ancho, largo) * 2), '#7a5334', '#8a5f3c']}
-        scale={[ancho, 1, largo]}
-        position={[0, 0.002, 0]}
-      />
-    </group>
-  )
+  return null
 }
 
 /* ── contorno ─────────────────────────────────────────────────── */
@@ -221,7 +152,14 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima }) {
         onTomar(item.id)
       }}
     >
-      <Comp position={[0, 0, 0]} rotation={[0, 0, 0]} {...def.props} />
+      {/* Las piezas del sistema nuevo se dibujan sin `position`/`rotation`:
+          ya vienen colocadas por el grupo de arriba. Las viejas siguen
+          pidiéndolos hasta que les toque migrar. */}
+      {def.Nuevo ? (
+        <Comp {...def.props} />
+      ) : (
+        <Comp position={[0, 0, 0]} rotation={[0, 0, 0]} {...def.props} />
+      )}
       {/* huella: es lo que se puede tomar con el puntero, y de paso la
           selección. Invisible pero presente para el raycaster. */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={seleccionado}>
@@ -615,7 +553,7 @@ function Tramo({ tramo }) {
 const FLECHA = 0.2 // largo del cono de la punta
 const HUECO = 0.95 // el claro que se le deja a la cifra en medio de la línea
 
-function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar }) {
+function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar, apoyo = '#3b3244' }) {
   const arrastrando = useRef(false)
 
   const esX = eje === 'x'
@@ -626,7 +564,9 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar }) {
   const fuera = (esX ? largo : ancho) / 2 + 0.55
   const pos = esX ? [0, 0.02, fuera] : [-fuera, 0.02, 0]
   const rot = esX ? [0, 0, 0] : [0, Math.PI / 2, 0]
-  const color = activa ? '#4d9fff' : '#8896ac'
+  /* Sobre paleta pastel un gris claro desaparece. La cota se pinta con el
+     tono de apoyo del cuarto, que siempre es el más oscuro de la paleta. */
+  const color = activa ? '#2563eb' : apoyo
   const opacidad = otraActiva ? 0.2 : 1
 
   const mat = (extra = {}) => (
@@ -808,61 +748,6 @@ function Gizmo({ item, modo, onParchar, onFin }) {
 /* ── el sol y el cielo ────────────────────────────────────────── */
 
 /**
- * La luz que NO viene de las piezas.
- *
- * Hasta aquí el plano se iluminaba solo con los lúmenes del catálogo, y eso
- * tenía un defecto de fondo: de día un cuarto real no se ve por sus focos, se
- * ve por la ventana. Por eso "día" salía plano y "noche" salía a cueva.
- *
- * Este sol es ficticio a propósito. El número de lux del recuadro sigue
- * saliendo del cálculo fotométrico de siempre —esa es la parte que se le
- * cotiza al cliente— pero lo que se ve en pantalla ya es una puesta de luz
- * dirigida: sol cálido de un lado, cielo frío de relleno. Es la diferencia
- * entre un render correcto y un render que se entiende.
- */
-function Rig({ modo, ancho, largo, alto }) {
-  const dia = modo === 'dia'
-  const lejos = Math.max(ancho, largo)
-
-  return (
-    <>
-      {/* El cielo tiñe de azul lo que el sol no toca. Es lo que hace que una
-          sombra se vea fría en vez de gris sucia. */}
-      <hemisphereLight
-        args={dia ? ['#cfe0f5', '#9a6b42', 1.5] : ['#2a3550', '#120f0c', 0.2]}
-        position={[0, alto, 0]}
-      />
-      {/* El relleno de noche va corto a propósito. Subirlo aplana el cuarto y
-          las lámparas dejan de mandar — y si de noche no manda la lámpara, el
-          modo noche no está respondiendo nada. */}
-      <ambientLight intensity={dia ? 0.55 : 0.12} />
-
-      {dia && (
-        /* El sol entra por la izquierda, NO por donde mira la cámara. Puesto
-           del lado del observador las sombras caen detrás de cada mueble y no
-           se ve una sola: el plano parecía no tener sombras cuando en realidad
-           las tenía todas escondidas. */
-        <directionalLight
-          position={[-lejos * 0.95, alto * 2.4, lejos * 1.05]}
-          intensity={3.1}
-          color="#ffd7a3"
-          castShadow
-          shadow-mapSize={[1024, 1024]}
-          shadow-bias={-0.0012}
-          shadow-normalBias={0.02}
-          shadow-camera-left={-lejos}
-          shadow-camera-right={lejos}
-          shadow-camera-top={lejos}
-          shadow-camera-bottom={-lejos}
-          shadow-camera-near={0.1}
-          shadow-camera-far={lejos * 6}
-        />
-      )}
-    </>
-  )
-}
-
-/**
  * Lo que entra por una ventana.
  *
  * La ventana no es un hueco de verdad —el muro es una sola caja— así que la
@@ -1011,6 +896,12 @@ export default function Escena({
   const { ancho, largo, alto } = plano
   const [arrastrando, setArrastrando] = useState(null)
   const [encima, setEncima] = useState(null)
+  const [cam, setCam] = useState([1, 1])
+  const camX = cam[0]
+  const camZ = cam[1]
+  const paletaId = useEstilo((e) => e.paleta)
+  const pal = paletaDe(paletaId)
+  const fondo = fondoDe(paletaId)
   const orbita = useRef()
 
   /* En modo medida la cámara se queda quieta. Era el estorbo principal:
@@ -1090,18 +981,19 @@ export default function Escena({
       onPointerMissed={() => !midiendo && onSeleccionar(null)}
       onPointerUp={soltar}
     >
-      <color attach="background" args={['#080b12']} />
+      {/* el fondo toma el muro de la paleta: es lo que hace que el cuarto se
+          vea como un diorama y no como una maqueta flotando en el vacío */}
+      <color attach="background" args={[fondo]} />
+      <SeguirCamara onMover={(x, z) => setCam([x, z])} />
 
-      <Rig modo={modo} ancho={ancho} largo={largo} alto={alto} />
-      {/* Sombras suaves de verdad. Cuestan un poco de GPU y son de lo que más
-          aporta al look de maqueta: el canto duro de una sombra dura es lo que
-          hace que un render se vea barato. */}
+      <Rig ancho={ancho} largo={largo} alto={alto} />
 
       {ventanas.map((v) => (
         <LuzVentana key={v.id} item={v} ancho={ancho} largo={largo} alto={alto} dia={modo === 'dia'} />
       ))}
 
-      <Cuarto ancho={ancho} largo={largo} alto={alto} color={plano.muroColor} grosor={plano.muroGrosor} />
+      <Cuarto3D ancho={ancho} largo={largo} alto={alto} camaraX={camX} camaraZ={camZ} />
+      <Conexiones plano={plano} alto={alto} />
 
       <Suelo
         ancho={ancho}
@@ -1165,8 +1057,8 @@ export default function Escena({
           justo en el borde donde uno quiere soltar la pieza */}
       {onMedida && !colocando && (
         <>
-          <Cota eje="x" ancho={ancho} largo={largo} onMedir={onMedida} midiendo={midiendo} onEntrar={onMidiendo} />
-          <Cota eje="z" ancho={ancho} largo={largo} onMedir={onMedida} midiendo={midiendo} onEntrar={onMidiendo} />
+          <Cota eje="x" ancho={ancho} largo={largo} onMedir={onMedida} midiendo={midiendo} onEntrar={onMidiendo} apoyo={pal.apoyo} />
+          <Cota eje="z" ancho={ancho} largo={largo} onMedir={onMedida} midiendo={midiendo} onEntrar={onMidiendo} apoyo={pal.apoyo} />
         </>
       )}
 

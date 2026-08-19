@@ -127,6 +127,20 @@ export const useEstilo = create((set) => ({
 
 export const paletaDe = (id) => PALETAS[id] ?? PALETAS.coral
 
+/**
+ * El fondo del lienzo.
+ *
+ * Un tono más profundo que el muro, nunca el mismo: con el fondo idéntico al
+ * muro el cuarto se funde con el vacío y deja de leerse como un diorama
+ * puesto sobre algo. En las referencias siempre hay esa separación.
+ */
+export function fondoDe(id) {
+  const c = new THREE.Color(paletaDe(id).muro)
+  const hsl = {}
+  c.getHSL(hsl)
+  return c.setHSL(hsl.h, hsl.s * 0.82, Math.max(0.12, hsl.l * 0.62)).getStyle()
+}
+
 /* ── color ────────────────────────────────────────────────────── */
 
 const cache = new Map()
