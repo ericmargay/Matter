@@ -1,5 +1,6 @@
-import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import * as THREE from 'three'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, TransformControls } from '@react-three/drei'
 
 import { DEVICE_BY_ID } from '../../../content/catalog'
@@ -8,7 +9,7 @@ import { ANIMACIONES, animacionesDe } from './animacion'
 import { RUTAS, SALIDAS, cableVacio } from './cables'
 import Animar from './animacion.jsx'
 import { Cuerpo } from './Escena'
-import { paletaDe, useEstilo } from './estilo'
+import { fondoDe, paletaDe, useEstilo } from './estilo'
 import { parametrosDe, valoresDe } from './parametros'
 import PiezaPropia from './PiezaPropia'
 import { FORMAS, ROLES, TONOS, hornear, medidaDePieza, parteVacia } from './piezas'
@@ -31,7 +32,7 @@ import Rig from './Rig'
  * mismo modelo pueden acabar distintas, que es lo que pasa en una casa real.
  */
 
-export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], red }) {
+export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], red, pose, visible = true }) {
   const def = item.clase === 'mueble' ? MUEBLES[item.tipo] : null
   const dev = item.clase === 'equipo' ? DEVICE_BY_ID[item.deviceId] : null
   const e = useEstilo()
@@ -110,7 +111,10 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-ink">
+    <div
+      className="fixed inset-0 z-[60] flex flex-col bg-ink transition-opacity duration-300 ease-out"
+      style={{ opacity: visible ? 1 : 0 }}
+    >
       <header className="flex items-center gap-3 border-b border-line px-4 py-2.5">
         <div className="min-w-0">
           <p className="text-[10px] tracking-[0.14em] text-cream-3 uppercase">Taller de pieza</p>
@@ -141,10 +145,17 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
           <Canvas
             shadows
             dpr={[1, 1.75]}
-            camera={{ position: [lejos * 0.72, lejos * 0.55, lejos * 0.9], fov: 40 }}
+            /* Arranca EXACTAMENTE donde quedó la cámara del cuarto —misma
+               distancia, misma dirección, mismo campo— para que la pieza no se
+               mueva ni un pixel al cruzar. Luego se acomoda sola a la pose de
+               trabajo, que es un movimiento y no un salto. */
+            camera={{ position: pose?.pos ?? [lejos * 0.72, lejos * 0.55, lejos * 0.9], fov: 42 }}
             gl={{ antialias: true }}
           >
-            <color attach="background" args={[pal.muroFrio]} />
+            {/* El mismo fondo que el cuarto: con otro color, la disolvencia se
+                nota como un cambio de pantalla en vez de como el cuarto
+                desvaneciéndose. */}
+            <color attach="background" args={[fondoDe(e.paleta)]} />
             <Rig ancho={tam * 3} largo={tam * 3} alto={tam * 2.6} />
             <Mesa color={pal.piso} r={tam * 2.2 + 0.6} />
             <Suspense fallback={null}>
@@ -180,7 +191,15 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
                 />
               )}
             </Suspense>
-            <OrbitControls makeDefault target={[0, mira, 0]} minDistance={tam * 0.5} maxDistance={tam * 8 + 3} />
+            <OrbitControls
+              makeDefault
+              target={[0, pose?.mira ?? mira, 0]}
+              minDistance={tam * 0.5}
+              maxDistance={tam * 8 + 3}
+            />
+            {/* De la pose heredada a la de trabajo. Solo la primera vez: después
+                manda quien esté girando la pieza con el ratón. */}
+            {pose && <AcomodarCamara pos={[lejos * 0.72, lejos * 0.55, lejos * 0.9]} mira={mira} />}
           </Canvas>
 
           {pieza && parteSel ? (
@@ -278,6 +297,44 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
 }
 
 const COLOR_LUZ = { r: 1, g: 0.92, b: 0.82, getHSL: () => ({ h: 0.1, s: 0.3, l: 0.9 }) }
+
+/**
+ * Lleva la cámara de la pose heredada del cuarto a la de trabajo.
+ *
+ * Es lo que convierte el cruce en un movimiento: se entra viendo la pieza
+ * exactamente como se veía en el cuarto y, mientras el cuarto se desvanece
+ * detrás, la cámara se acomoda al tres cuartos con el que se trabaja. Se rinde
+ * en cuanto alguien toca el ratón — nada peor que una cámara que se pelea con
+ * la mano.
+ */
+function AcomodarCamara({ pos, mira }) {
+  const { camera, controls } = useThree()
+  const meta = useMemo(() => new THREE.Vector3(...pos), [pos])
+  const foco = useMemo(() => new THREE.Vector3(0, mira, 0), [mira])
+  const activo = useRef(true)
+
+  useEffect(() => {
+    if (!controls) return
+    const rendirse = () => {
+      activo.current = false
+    }
+    controls.addEventListener('start', rendirse)
+    return () => controls.removeEventListener('start', rendirse)
+  }, [controls])
+
+  useFrame((_, dt) => {
+    if (!activo.current) return
+    const k = 1 - Math.pow(0.06, dt)
+    camera.position.lerp(meta, k)
+    if (controls) {
+      controls.target.lerp(foco, k)
+      controls.update()
+    }
+    if (camera.position.distanceTo(meta) < 0.01) activo.current = false
+  })
+
+  return null
+}
 
 /**
  * El gizmo de UNA parte.

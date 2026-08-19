@@ -177,7 +177,16 @@ export default function PlanoCuarto({ room, onCerrar }) {
   const [uniendo, setUniendo] = useState(null)
   /* Qué pieza está en el taller. Es un modo aparte, no un panel: el cuarto
      desaparece para que se vea lo que se está cambiando. */
+  /* La entrada al taller es un movimiento, no un corte. Primero la cámara del
+     cuarto vuela hasta la pieza; cuando llega, el taller se monta con la
+     cámara EN LA MISMA pose y aparece encima con una disolvencia. Como la
+     pieza está en el mismo sitio y del mismo tamaño en las dos escenas, lo que
+     se ve es el cuarto desvaneciéndose alrededor de algo que no se movió. */
   const [enTaller, setEnTaller] = useState(null)
+  const [enfoque, setEnfoque] = useState(null)
+  const [poseTaller, setPoseTaller] = useState(null)
+  const [poseAntes, setPoseAntes] = useState(null)
+  const [visible, setVisible] = useState(false)
   const [altaDevice, setAltaDevice] = useState(false)
 
   // el fondo no debe desplazarse detrás del editor
@@ -631,6 +640,24 @@ export default function PlanoCuarto({ room, onCerrar }) {
               modoGizmo={modoGizmo}
               onParchar={parchar}
               onFinGizmo={() => guardar({ items: plano.items }, `Acomodó una pieza en ${room.nombre}`)}
+              enfoque={enfoque}
+              onEnfocado={(m) => {
+                /* El vuelo de VUELTA también avisa cuando llega, y ahí no hay
+                   pieza que enfocar ni dirección que heredar: sin esta guarda,
+                   cerrar el taller reventaba al aterrizar. */
+                if (!enfoque || enfoque.volver || enTaller || !m.dir) return
+                /* La pose se guarda RELATIVA a la pieza: en el taller la pieza
+                   está en el origen, así que la cámara tiene que ir a la misma
+                   distancia y en la misma dirección, no a las mismas
+                   coordenadas del cuarto. */
+                setPoseTaller({
+                  pos: [m.dir.x * enfoque.dist, enfoque.mira + m.dir.y * enfoque.dist, m.dir.z * enfoque.dist],
+                  mira: enfoque.mira,
+                })
+                setPoseAntes(m.desde)
+                setEnTaller(enfoque.id)
+                requestAnimationFrame(() => setVisible(true))
+              }}
             />
 
           {altaDevice && (
@@ -650,8 +677,21 @@ export default function PlanoCuarto({ room, onCerrar }) {
             item={plano.items.find((i) => i.id === enTaller)}
             puntos={plano.items.filter((i) => i.clase === 'punto' && i.tipo === 'enchufe')}
             red={plano.red}
+            pose={poseTaller}
+            visible={visible}
             onGuardar={(patch, que) => parchar(enTaller, patch, que)}
-            onCerrar={() => setEnTaller(null)}
+            onCerrar={() => {
+              /* Al revés: primero se desvanece el taller y solo entonces se
+                 desmonta y se suelta la cámara del cuarto. Desmontarlo de
+                 golpe devolvería el cuarto de un corte. */
+              setVisible(false)
+              setTimeout(() => {
+                setEnTaller(null)
+                setPoseTaller(null)
+                // y de regreso al encuadre que se dejó, no a uno cualquiera
+                setEnfoque(poseAntes ? { volver: poseAntes } : null)
+              }, 320)
+            }}
           />
         </Suspense>
       )}
@@ -802,7 +842,34 @@ export default function PlanoCuarto({ room, onCerrar }) {
               items={plano.items}
               sim={sim}
               onSeleccionar={seleccionar}
-              onTaller={setEnTaller}
+              onTaller={(id) => {
+                const it = plano.items.find((x) => x.id === id)
+                if (!it) return
+                const def = MUEBLES[it.tipo]
+                const va = def?.variantes?.find((v) => v.id === it.variante)
+                const props = { ...def?.props, ...(va?.props ?? {}), ...(it.ajustes ?? {}) }
+                const tam = Math.max(
+                  props.w ?? it.huella?.w ?? def?.w ?? 0.3,
+                  props.d ?? it.huella?.d ?? def?.d ?? 0.3,
+                  props.alto ?? props.h ?? it.huella?.alto ?? def?.alto ?? 0.3,
+                  0.25,
+                )
+                /* La misma cuenta de encuadre que usa el taller. Si aquí y allá
+                   no fuera igual, la pieza cambiaría de tamaño al cruzar. */
+                setEnfoque({
+                  x: it.x,
+                  y: it.y ?? 0,
+                  z: it.z,
+                  dist: tam * 1.9 + 0.5,
+                  mira: Math.min(tam * 0.45, 1.1),
+                  /* Medio panel del taller, en fracción del ancho de pantalla.
+                     Es lo que hay que correr la mira para que la pieza quede
+                     donde va a quedar del otro lado. */
+                  corrimiento: 165 / Math.max(1, window.innerWidth) / 2,
+                  tam,
+                  id,
+                })
+              }}
               onQuitarTramo={(tid) => guardar({ tramos: plano.tramos.filter((t) => t.id !== tid) }, 'Quitó una línea eléctrica')}
             />
           ) : (

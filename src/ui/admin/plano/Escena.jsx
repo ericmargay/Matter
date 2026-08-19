@@ -47,6 +47,91 @@ import { exposicionDe, kelvinAColor } from './luz'
    separaran. */
 
 /** Avisa a qué cuadrante mira la cámara, para esconder los muros correctos. */
+/**
+ * Vuela la cámara hacia una pieza, sin girar alrededor de ella.
+ *
+ * Se acerca por el eje por el que ya se está mirando, no por uno "bonito"
+ * calculado aparte: girar y acercar a la vez desorienta —se pierde de vista
+ * qué se estaba mirando— mientras que acercarse en línea recta se lee como
+ * inclinarse sobre la mesa.
+ *
+ * Cuando llega, avisa. Es la señal para cruzar al taller: si el taller
+ * apareciera antes, la pieza saltaría de tamaño y de sitio, que es justo lo
+ * que hace que una transición se sienta a corte y no a movimiento.
+ */
+function VolarA({ enfoque, onListo }) {
+  const { camera, controls } = useThree()
+  const meta = useRef(null)
+  const aviso = useRef(false)
+
+  useEffect(() => {
+    if (!enfoque) {
+      meta.current = null
+      aviso.current = false
+      return
+    }
+    /* Volver: la pose exacta de antes de entrar. Se guarda al salir hacia la
+       pieza y se restituye al cerrar, porque nadie que entra a corregir una
+       cama quiere volver a un encuadre distinto del que dejó. */
+    if (enfoque.volver) {
+      meta.current = {
+        pos: new THREE.Vector3(...enfoque.volver.pos),
+        mira: new THREE.Vector3(...enfoque.volver.mira),
+        dir: null,
+      }
+      aviso.current = false
+      return
+    }
+    const centro = new THREE.Vector3(enfoque.x, enfoque.y, enfoque.z)
+    const dir = new THREE.Vector3().subVectors(camera.position, controls?.target ?? ORIGEN).normalize()
+    const mira = centro.clone().setY(enfoque.y + enfoque.mira)
+
+    /* El taller tiene un panel de controles a la derecha, así que su lienzo es
+       más angosto que el del cuarto y su centro está más a la izquierda. Sin
+       compensarlo, la pieza da un brinco lateral justo al cruzar —lo único que
+       delataba que son dos escenas y no una—. Se corre la mira lo que mide
+       medio panel, traducido a metros a esa distancia. */
+    if (enfoque.corrimiento) {
+      const alto = 2 * Math.tan(((camera.fov ?? 42) * Math.PI) / 360) * enfoque.dist
+      const derecha = new THREE.Vector3().crossVectors(dir, ARRIBA).normalize()
+      mira.addScaledVector(derecha, alto * camera.aspect * enfoque.corrimiento)
+    }
+
+    meta.current = {
+      pos: centro.clone().addScaledVector(dir, enfoque.dist).add(new THREE.Vector3().subVectors(mira, centro.clone().setY(enfoque.y + enfoque.mira))),
+      mira,
+      dir,
+      desde: {
+        pos: camera.position.toArray(),
+        mira: (controls?.target ?? ORIGEN).toArray(),
+      },
+    }
+    aviso.current = false
+  }, [enfoque, camera, controls])
+
+  useFrame((_, dt) => {
+    const m = meta.current
+    if (!m) return
+    /* Suavizado exponencial, no lineal: arranca rápido y frena al llegar, que
+       es como se mueve una cámara que alguien empuja con la mano. */
+    const k = 1 - Math.pow(0.0016, dt)
+    camera.position.lerp(m.pos, k)
+    if (controls) {
+      controls.target.lerp(m.mira, k)
+      controls.update()
+    }
+    if (!aviso.current && camera.position.distanceTo(m.pos) < m.pos.length() * 0.02 + 0.05) {
+      aviso.current = true
+      onListo?.(m)
+    }
+  })
+
+  return null
+}
+
+const ORIGEN = new THREE.Vector3()
+const ARRIBA = new THREE.Vector3(0, 1, 0)
+
 function SeguirCamara({ onMover }) {
   const { camera } = useThree()
   const ultimo = useRef([1, 1])
@@ -1550,6 +1635,8 @@ export default function Escena({
   modoGizmo,
   onParchar,
   onFinGizmo,
+  enfoque,
+  onEnfocado,
 }) {
   const { ancho, largo, alto } = plano
   const [arrastrando, setArrastrando] = useState(null)
@@ -1644,6 +1731,7 @@ export default function Escena({
           vea como un diorama y no como una maqueta flotando en el vacío */}
       <color attach="background" args={[fondo]} />
       <SeguirCamara onMover={(x, z) => setCam([x, z])} />
+      <VolarA enfoque={enfoque} onListo={onEnfocado} />
 
       <Rig ancho={ancho} largo={largo} alto={alto} />
 
