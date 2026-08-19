@@ -551,10 +551,15 @@ function Tramo({ tramo }) {
  * centímetros.
  */
 const FLECHA = 0.2 // largo del cono de la punta
+/* Plano fijo a la altura de la cota. Se mide contra ESTO y no contra la caja
+   de agarre: la caja crece conforme se jala, así que el rayo pegaba cada vez
+   en un punto distinto de una geometría en movimiento y la medida temblaba. */
+const PLANO_COTA = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.02)
+const PUNTO = new THREE.Vector3()
 const HUECO = 0.95 // el claro que se le deja a la cifra en medio de la línea
 
 function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar, apoyo = '#3b3244' }) {
-  const arrastrando = useRef(false)
+  const arrastrando = useRef(null)
 
   const esX = eje === 'x'
   const activa = midiendo === eje
@@ -648,19 +653,31 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar, apoyo = '#3b3244
              queda puesto al soltar: ajustar dos metros a ojo casi nunca sale
              al primer tirón. */
           if (!activa) onEntrar(eje)
-          arrastrando.current = true
+          /* Se guarda de dónde arrancó el dedo y cuánto medía el cuarto en ese
+             momento. Así lo que manda es el DESPLAZAMIENTO, no la posición
+             absoluta del rayo: agarrar la cota por cualquier punto de su largo
+             deja de dar un brinco inicial. */
+          if (e.ray.intersectPlane(PLANO_COTA, PUNTO)) {
+            arrastrando.current = { desde: esX ? PUNTO.x : PUNTO.z, medida: largoCota }
+          }
           e.target.setPointerCapture(e.pointerId)
         }}
         onPointerMove={(e) => {
           if (!arrastrando.current) return
           e.stopPropagation()
-          /* Se mide desde el centro del cuarto: el muro de enfrente no se
-             mueve, así que la medida es el doble de lo que se jaló. */
-          const v = esX ? e.point.x : e.point.z
-          onMedir(eje, Math.max(1.2, Math.abs(v) * 2))
+          if (!e.ray.intersectPlane(PLANO_COTA, PUNTO)) return
+          const ahora = esX ? PUNTO.x : PUNTO.z
+          /* El muro de enfrente no se mueve: el cuarto crece al doble de lo
+             que se jaló de este lado. El signo sale de en qué mitad se agarró
+             para que jalar hacia afuera siempre agrande. */
+          const lado = arrastrando.current.desde >= 0 ? 1 : -1
+          const delta = (ahora - arrastrando.current.desde) * lado * 2
+          const cruda = arrastrando.current.medida + delta
+          // a centímetros: sin esto la medida baila en la tercera decimal
+          onMedir(eje, Math.max(1.2, Math.round(cruda * 100) / 100))
         }}
         onPointerUp={(e) => {
-          arrastrando.current = false
+          arrastrando.current = null
           e.target.releasePointerCapture(e.pointerId)
         }}
       >
@@ -688,6 +705,23 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar, apoyo = '#3b3244
  */
 const MODOS_GIZMO = { mover: 'translate', girar: 'rotate', escalar: 'scale' }
 
+/* Los ángulos a los que un mueble de verdad se acomoda. En un cuarto casi
+   todo va paralelo a un muro o a 45° en una esquina; lo demás es el pulso.
+   El imán deja libre el ángulo intermedio y solo jala cuando ya andabas
+   cerca de uno de estos. */
+const IMANES = [0, 45, 90, 135, 180, 225, 270, 315].map((g) => (g * Math.PI) / 180)
+const TOLERANCIA = (7 * Math.PI) / 180
+
+function magnetizar(rad) {
+  const norm = ((rad % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)
+  for (const a of IMANES) {
+    if (Math.abs(norm - a) < TOLERANCIA) return a
+  }
+  // fuera del imán se redondea al grado: sin esto la rotación queda con seis
+  // decimales y el campo del inspector se vuelve ilegible
+  return Math.round((norm * 180) / Math.PI) * (Math.PI / 180)
+}
+
 function Gizmo({ item, modo, onParchar, onFin }) {
   const proxy = useRef()
   const [listo, setListo] = useState(false)
@@ -712,7 +746,7 @@ function Gizmo({ item, modo, onParchar, onFin }) {
         z: Number(o.position.z.toFixed(3)),
       })
     } else if (modo === 'girar') {
-      onParchar(item.id, { rot: Number(o.rotation.y.toFixed(4)) })
+      onParchar(item.id, { rot: Number(magnetizar(o.rotation.y).toFixed(4)) })
     } else {
       // escala uniforme: un mueble estirado en un solo eje se ve roto, y el
       // catálogo no tiene proporciones que valga la pena deformar
@@ -736,7 +770,10 @@ function Gizmo({ item, modo, onParchar, onFin }) {
           showY={modo !== 'mover'}
           showZ={modo !== 'girar'}
           translationSnap={0.05}
-          rotationSnap={Math.PI / 72}
+          /* 5° de paso en el control; el imán de arriba remata los ángulos
+             útiles. Con el paso de 2.5° que había antes, el gizmo se sentía
+             continuo y nunca caía en un ángulo redondo. */
+          rotationSnap={Math.PI / 36}
           onObjectChange={aplicar}
           onMouseUp={onFin}
         />

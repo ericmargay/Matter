@@ -9,6 +9,7 @@ import { ESPACIOS } from '../../../content/espacios'
 /* El Style Lab se carga solo cuando se abre: calibrar es una tarea aparte de
    levantar, y su panel no tiene por qué viajar en el bundle del editor. */
 const StyleLab = lazy(() => import('./StyleLab'))
+const Ambientaciones = lazy(() => import('./Ambientaciones'))
 import { ALTURA_POR_FORMA, diagnosticoLux, luxDelCuarto, parametrosIniciales } from './luz'
 import {
   ACCIONES,
@@ -108,7 +109,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
   /* El simulador vive aquí y no en el store: es estado de la demostración,
      no del levantamiento. Que el cliente deje una luz apagada probando no
      tiene por qué viajarle a Carpio ni quedar en el historial. */
-  const { sim, comps, disparar, dispararPorPieza, bloqueo, liberar } = useSimulacion(plano)
+  const { sim, comps, disparar, dispararPorPieza, correr, bloqueo, liberar } = useSimulacion(plano)
   const [uniendo, setUniendo] = useState(null)
 
   // el fondo no debe desplazarse detrás del editor
@@ -604,6 +605,10 @@ export default function PlanoCuarto({ room, onCerrar }) {
               </p>
             </Grupo>
           )}
+
+          <Suspense fallback={null}>
+            <Ambientaciones items={plano.items} onCorrer={correr} bloqueo={bloqueo} />
+          </Suspense>
 
           <Automatizaciones nombre={room.nombre} />
 

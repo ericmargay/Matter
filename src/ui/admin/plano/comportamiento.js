@@ -238,7 +238,7 @@ export function useSimulacion(plano) {
 
   useEffect(() => () => cancelAnimationFrame(raf.current), [])
 
-  const correr = useCallback(() => {
+  const correrAnim = useCallback(() => {
     cancelAnimationFrame(raf.current)
 
     const paso = () => {
@@ -274,7 +274,16 @@ export function useSimulacion(plano) {
       if (!it) return
       const dev = DEVICE_BY_ID[it.deviceId]
       const de = estado.current[objetivo] ?? inicial(it)
-      const destino = { de, t0: performance.now(), dur: duracionDe(dev, accion) }
+
+      /* Se FUSIONA con lo que ya estuviera en vuelo para esta pieza, no se
+         reemplaza. Una ambientación manda dos cosas al mismo foco —atenuar y
+         cambiar el tono— y como el mapa va por objetivo, la segunda borraba a
+         la primera: el foco cambiaba de color y nunca bajaba de intensidad.
+         La duración se queda con la más larga para que las dos terminen. */
+      const previo = anim.current.get(objetivo)
+      const destino = previo
+        ? { ...previo, dur: Math.max(previo.dur, duracionDe(dev, accion)) }
+        : { de, t0: performance.now(), dur: duracionDe(dev, accion) }
 
       if (accion === 'avisar' || accion === 'alarma' || accion === 'bloquear') return
       if (accion === 'encender') destino.nivel = 1
@@ -307,9 +316,25 @@ export function useSimulacion(plano) {
 
       for (const a of c.entonces) mandar(a.objetivo, a.accion, a.valor)
       if (bloquea) setBloqueo({ comp: c.id, nombre: c.nombre || frasear(c, items).cuando, desde: Date.now() })
-      correr()
+      correrAnim()
     },
-    [comps, mandar, correr, bloqueo, items],
+    [comps, mandar, correrAnim, bloqueo, items],
+  )
+
+  /**
+   * Corre una lista de acciones sin comportamiento detrás.
+   *
+   * Es lo que usan las ambientaciones: no vienen de un disparador del plano,
+   * vienen de que alguien las pidió por voz o las tocó en un panel. El
+   * bloqueo de seguridad aplica igual — si hubo fuga, tampoco corren.
+   */
+  const correr = useCallback(
+    (acciones = []) => {
+      if (bloqueo) return
+      for (const a of acciones) mandar(a.objetivo, a.accion, a.valor)
+      correrAnim()
+    },
+    [mandar, correrAnim, bloqueo],
   )
 
   /** Dispara lo que cuelgue de una pieza del plano — tocar el apagador. */
@@ -325,5 +350,5 @@ export function useSimulacion(plano) {
    *  físico de la sirena. */
   const liberar = useCallback(() => setBloqueo(null), [])
 
-  return { sim, comps, disparar, dispararPorPieza, bloqueo, liberar }
+  return { sim, comps, disparar, dispararPorPieza, correr, bloqueo, liberar }
 }

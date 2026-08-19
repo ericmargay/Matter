@@ -1,0 +1,107 @@
+import { DEVICE_BY_ID } from '../../../content/catalog'
+
+/**
+ * Las ambientaciones de un espacio.
+ *
+ * No son una lista fija: se calculan con lo que de verdad quedó levantado. Si
+ * el cuarto no tiene cortina, "modo película" no baja ninguna cortina — y si
+ * no tiene nada atenuable, la escena ni se ofrece. Proponerle al cliente una
+ * escena que su casa no puede hacer es la manera más rápida de perder su
+ * confianza en la demostración.
+ *
+ * Cada una trae su frase de voz porque así es como se van a usar: nadie abre
+ * la app para poner modo película. Y trae lo que el asistente contesta, que
+ * es lo que se enseña en la junta.
+ */
+
+const luces = (items) => items.filter((i) => i.clase === 'equipo' && i.params)
+const deCat = (items, cat) => items.filter((i) => DEVICE_BY_ID[i.deviceId]?.cat === cat)
+
+/** Acciones sobre un grupo, con el mismo formato que ya entiende el simulador. */
+const nivel = (lista, pct) => lista.map((i) => ({ objetivo: i.id, accion: 'atenuar', valor: pct }))
+const tono = (lista, k) => lista.map((i) => ({ objetivo: i.id, accion: 'tono', valor: k }))
+const abrir = (lista, pct) => lista.map((i) => ({ objetivo: i.id, accion: 'abrir', valor: pct }))
+const apagar = (lista) => lista.map((i) => ({ objetivo: i.id, accion: 'apagar', valor: null }))
+
+/**
+ * @param items  las piezas del plano
+ * @returns [{ id, nombre, porque, voz, dice, entonces }]
+ */
+export function escenasDe(items = []) {
+  const L = luces(items)
+  const cortinas = deCat(items, 'cortinas')
+  const pantallas = deCat(items, 'pantallas')
+  const audio = deCat(items, 'av')
+  const out = []
+
+  if (L.length === 0 && cortinas.length === 0) return out
+
+  if (L.length > 0) {
+    out.push({
+      id: 'brillante',
+      nombre: 'Todo encendido',
+      porque: 'Para limpiar, buscar algo o cuando llega gente.',
+      voz: 'Oye Siri, prende la sala',
+      dice: 'Listo, encendí todo.',
+      entonces: [...nivel(L, 100), ...tono(L, 4000), ...abrir(cortinas, 100)],
+    })
+
+    out.push({
+      id: 'estar',
+      nombre: 'Estar',
+      porque: 'El día a día: luz suficiente para platicar sin sentirse en un consultorio.',
+      voz: 'Oye Siri, luz de sala',
+      dice: 'Va, luz de estar.',
+      entonces: [...nivel(L, 65), ...tono(L, 3000)],
+    })
+  }
+
+  if (L.length > 0 && (pantallas.length > 0 || audio.length > 0)) {
+    out.push({
+      id: 'pelicula',
+      nombre: 'Modo película',
+      porque: 'La que más se usa de todas las que se programan.',
+      voz: 'Oye Siri, modo película',
+      dice: 'Bajando luces y cerrando cortinas.',
+      entonces: [
+        ...nivel(L, 15),
+        ...tono(L, 2200),
+        ...abrir(cortinas, 0),
+        ...pantallas.map((i) => ({ objetivo: i.id, accion: 'encender', valor: null })),
+      ],
+    })
+  }
+
+  if (L.length > 0) {
+    out.push({
+      id: 'lectura',
+      nombre: 'Leer',
+      porque: 'Luz alta y neutra donde se lee, baja en el resto.',
+      voz: 'Oye Siri, quiero leer',
+      dice: 'Luz de lectura.',
+      entonces: [...nivel(L, 85), ...tono(L, 4500)],
+    })
+
+    out.push({
+      id: 'noche',
+      nombre: 'Buenas noches',
+      porque: 'Apaga todo y deja la casa lista para dormir.',
+      voz: 'Oye Siri, buenas noches',
+      dice: 'Buenas noches. Apagué la sala.',
+      entonces: [...apagar(L), ...abrir(cortinas, 0), ...apagar(pantallas)],
+    })
+  }
+
+  if (cortinas.length > 0) {
+    out.push({
+      id: 'amanecer',
+      nombre: 'Abrir el día',
+      porque: 'Las cortinas suben y entra luz de verdad. Tarda lo que tarda el motor.',
+      voz: 'Oye Siri, abre las cortinas',
+      dice: 'Abriendo cortinas.',
+      entonces: [...abrir(cortinas, 100), ...nivel(L, 0)],
+    })
+  }
+
+  return out
+}
