@@ -729,6 +729,50 @@ export function LamparaEscritorio({ position, rotation }) {
   )
 }
 
+/**
+ * Monitor curvo ultrapanorámico, del que va sobre el escritorio.
+ *
+ * La curva no es un adorno: es lo único que distingue un monitor curvo de
+ * uno plano visto de tres cuartos, que es como se ve todo en este plano. Se
+ * hace con un segmento de cilindro de radio 1.5 m —el 1500R de las fichas
+ * técnicas— y el eje del cilindro puesto DELANTE de la pantalla, del lado de
+ * quien mira, que es lo que la deja cóncava y no jorobada.
+ *
+ * Se dibuja desde su base, no desde su centro: así se coloca sobre la mesa
+ * dándole la altura del escritorio y se apoya, en vez de atravesarla.
+ */
+export function MonitorCurvo({ position, rotation, ancho = 0.8, alto = 0.34 }) {
+  const R = 1.5
+  const arco = ancho / R
+  const y = 0.16 + alto / 2 // sobre el cuello
+
+  return (
+    <group position={position} rotation={rotation}>
+      {/* base y cuello */}
+      <mesh position={[0, 0.012, 0.02]} castShadow>
+        <cylinderGeometry args={[0.13, 0.14, 0.024, 24]} />
+        <meshStandardMaterial color="#26262b" roughness={0.4} metalness={0.6} />
+      </mesh>
+      <mesh position={[0, 0.09, 0]} castShadow>
+        <boxGeometry args={[0.06, 0.16, 0.035]} />
+        <meshStandardMaterial color="#26262b" roughness={0.4} metalness={0.6} />
+      </mesh>
+
+      {/* el casco: un poco más grande y un poco más atrás que la pantalla */}
+      <mesh position={[0, y, R]} castShadow>
+        <cylinderGeometry args={[R + 0.012, R + 0.012, alto + 0.016, 48, 1, true, Math.PI - arco / 2, arco]} />
+        <meshStandardMaterial color="#141417" roughness={0.55} side={2} />
+      </mesh>
+
+      {/* la pantalla, encendida */}
+      <mesh position={[0, y, R]}>
+        <cylinderGeometry args={[R, R, alto - 0.012, 48, 1, true, Math.PI - arco / 2 + 0.008, arco - 0.016]} />
+        <meshStandardMaterial color="#05070c" emissive="#4a6fa8" emissiveIntensity={1.1} roughness={1} side={2} />
+      </mesh>
+    </group>
+  )
+}
+
 /** De buró: la del comando "buenas noches". */
 export function LamparaBuro({ position, rotation }) {
   return (

@@ -40,17 +40,23 @@ const RECETAS = {
     { tipo: 'cama', x: 0, z: -l / 2 + 1.3, rot: 0 },
     { tipo: 'buro', x: -1.25, z: -l / 2 + 0.5, rot: 0 },
     { tipo: 'buro', x: 1.25, z: -l / 2 + 0.5, rot: 0 },
-    ...(a > 3.4 ? [{ tipo: 'closet', x: -a / 2 + 1.1, z: l / 2 - 0.35, rot: 0 }] : []),
+    ...(a > 3.4 ? [{ tipo: 'closet', x: -a / 2 + 0.4, z: -l / 2 + 0.95, rot: Math.PI / 2 }] : []),
     ...(l > 4.2 ? [{ tipo: 'tapete', x: 0, z: l / 2 - 1.4, rot: 0 }] : []),
     /* Escritorio y lámparas. No es decoración: son los portalámparas de la
        recámara, y sin ellos los focos que el cliente ya tiene metidos en una
        lámpara de piso terminan pegados al plafón, que es donde no están.
        La de escritorio va ENCIMA del escritorio, con su `y`: en el suelo, al
        lado de la mesa, se veía como un objeto tirado. */
-    ...(a > 3.6 ? [{ tipo: 'escritorio', x: -a / 2 + 0.4, z: 0.2, rot: Math.PI / 2 }] : []),
-    ...(a > 3.6 ? [{ tipo: 'lamparaEscritorio', x: -a / 2 + 0.42, y: 0.75, z: -0.25, rot: Math.PI / 2 }] : []),
+    /* El escritorio va en el extremo SUR del muro oeste, delante del clóset.
+       Es cuestión de desde dónde se mira: la cámara entra por el sur-este, así
+       que lo que se ponga al sur queda en primer plano y lo que se ponga al
+       norte queda detrás. Con el clóset delante, el escritorio y los paneles
+       no se veían. */
+    ...(a > 3.6 ? [{ tipo: 'escritorio', x: -a / 2 + 0.4, z: l / 2 - 0.85, rot: Math.PI / 2 }] : []),
+    ...(a > 3.6 ? [{ tipo: 'monitorCurvo', x: -a / 2 + 0.5, y: 0.75, z: l / 2 - 0.72, rot: Math.PI / 2 }] : []),
+    ...(a > 3.6 ? [{ tipo: 'lamparaEscritorio', x: -a / 2 + 0.4, y: 0.75, z: l / 2 - 1.3, rot: Math.PI / 2 }] : []),
     ...(a > 3 ? [{ tipo: 'lamparaPie', x: a / 2 - 0.45, z: l / 2 - 0.45, rot: 0 }] : []),
-    ...(a > 3.8 ? [{ tipo: 'lamparaTripode', x: -a / 2 + 0.5, z: -l / 2 + 0.5, rot: 0 }] : []),
+    ...(a > 3.8 ? [{ tipo: 'lamparaTripode', x: a / 2 - 0.5, z: -l / 2 + 0.5, rot: 0 }] : []),
   ],
 
   bano: (a, l) => [
@@ -84,7 +90,7 @@ const RECETAS = {
 
   estudio: (a, l) => [
     { tipo: 'escritorio', x: 0, z: -l / 2 + 0.5, rot: 0 },
-    { tipo: 'monitor', x: 0, z: -l / 2 + 0.45, rot: 0 },
+    { tipo: 'monitor', x: 0, y: 0.75, z: -l / 2 + 0.45, rot: 0 },
     { tipo: 'silla', x: 0, z: -l / 2 + 1.3, rot: 0 },
     ...(a > 3.6 ? [{ tipo: 'librero', x: a / 2 - 0.3, z: 0.4, rot: -Math.PI / 2 }] : []),
   ],
@@ -296,7 +302,8 @@ export function disponerCuarto({ plano, tipo, equipo }) {
        la cámara sí muestra —el este queda recortado— y estos paneles se
        compran justamente para verse. Girados un cuarto de vuelta para quedar
        contra la pared, a 1.65 m, que es altura de cuadro. */
-    items.push(nuevoEquipo(d, -a / 2 + MURO, 1.65, sobreMuro(paneles.length, l - 1.4, i), Math.PI / 2, conMontaje('muro')))
+    const z = tipo === 'recamara' ? l / 2 - 0.85 : sobreMuro(paneles.length, l - 1.4, i)
+    items.push(nuevoEquipo(d, -a / 2 + MURO, 1.65, z + i * 0.8, Math.PI / 2, conMontaje('muro')))
   })
 
   // techo: todas las luminarias del cuarto entran a la misma retícula, para

@@ -184,6 +184,88 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima }) {
  * cuarto de cuatro metros— pero la SILUETA sí se distingue, y es lo que
  * permite leer el plano sin leyenda.
  */
+/**
+ * Paneles triangulares, con su secuencia.
+ *
+ * Nadie compra estos paneles para dejarlos en blanco fijo. Lo que se compra es
+ * la secuencia: una onda que recorre la figura y va cambiando de tono pieza
+ * por pieza. Pintarlos todos del mismo color y quietos era enseñar el
+ * empaque, no el producto — y en la junta con el cliente es justo eso lo que
+ * hay que poder enseñar sin prometer nada de palabra.
+ *
+ * El tono de cada pieza sale del color del aparato, no de una paleta inventada
+ * aparte: se abre un abanico alrededor de ese matiz y se corre con el tiempo.
+ * Así la temperatura que se eligió en el inspector se sigue leyendo, y la
+ * ambientación de "cálido para ver una película" no se vuelve un arcoíris.
+ *
+ * El material es uno por pieza —tienen que ser colores distintos— pero son
+ * nueve; se crean una vez y se sueltan al desmontar.
+ */
+const ABANICO = 0.42 // qué tanto se abren los tonos alrededor del color base
+const VUELTA = 0.045 // vueltas por segundo del corrimiento de tono
+const ONDA = 1.5 // qué tan rápido recorre el brillo la figura
+
+function Paneles({ disposicion, prendido, color, brillo }) {
+  const piezas = useMemo(
+    () => posicionesDe(DISPOSICION_BY_ID[disposicion] ?? DISPOSICIONES[0]),
+    [disposicion],
+  )
+
+  const materiales = useMemo(
+    () =>
+      piezas.map(
+        () => new THREE.MeshStandardMaterial({ color: '#f2ece3', emissive: '#000000', roughness: 0.5 }),
+      ),
+    [piezas],
+  )
+  useEffect(() => () => materiales.forEach((m) => m.dispose()), [materiales])
+
+  const hsl = useRef({ h: 0, s: 0, l: 0 })
+  const base = useMemo(() => new THREE.Color(), [])
+
+  useFrame((st) => {
+    base.set(color || '#ffffff').getHSL(hsl.current)
+    const t = st.clock.elapsedTime
+    const n = Math.max(1, materiales.length)
+
+    materiales.forEach((m, i) => {
+      if (!prendido || brillo <= 0) {
+        m.color.set('#f2ece3')
+        m.emissiveIntensity = 0
+        return
+      }
+      /* La onda recorre la figura en el orden en que están puestas las piezas,
+         que es fila por fila: se ve subir por el muro y no parpadear al azar. */
+      const fase = (i / n) * Math.PI * 2
+      const pulso = 0.55 + 0.45 * Math.sin(t * ONDA - fase)
+      const tono = (hsl.current.h + (i / n - 0.5) * ABANICO + t * VUELTA + 1) % 1
+      /* El difuso también se tiñe, y oscuro. Con el difuso blanco de siempre,
+         la luz del cuarto rebotaba sobre él y se comía el emisivo: las nueve
+         piezas volvían a verse blancas por más color que se les pusiera. Un
+         panel encendido es su propia luz, no una superficie iluminada.
+         Y el emisivo, a media luz: con el AGX y el bloom, subir la intensidad
+         desatura en vez de brillar más. */
+      m.color.setHSL(tono, 0.55, 0.1)
+      m.emissive.setHSL(tono, 0.85, 0.42)
+      m.emissiveIntensity = 1.7 * pulso * (brillo / 100)
+    })
+  })
+
+  return (
+    <group>
+      {piezas.map((t, i) => (
+        <mesh
+          key={i}
+          geometry={trianguloPanel(LADO, t.arriba)}
+          material={materiales[i]}
+          position={[t.x, t.y, 0]}
+          castShadow
+        />
+      ))}
+    </group>
+  )
+}
+
 function Cuerpo({ device, params, encendido, color, apertura }) {
   const cat = device?.cat
   const forma = params?.forma
@@ -207,21 +289,8 @@ function Cuerpo({ device, params, encendido, color, apertura }) {
       </mesh>
     )
   }
-  if (forma === 'panel') {
-    /* Los paneles no son una pieza: son nueve triángulos con la composición
-       que se haya escogido en el muro. Dibujarlos como un disco perdía justo
-       lo que el cliente compra, que es la figura. */
-    const disp = DISPOSICION_BY_ID[params?.disposicion] ?? DISPOSICIONES[0]
-    return (
-      <group>
-        {posicionesDe(disp).map((t, i) => (
-          <mesh key={i} geometry={trianguloPanel(LADO, t.arriba)} position={[t.x, t.y, 0]} castShadow>
-            {mat}
-          </mesh>
-        ))}
-      </group>
-    )
-  }
+  if (forma === 'panel')
+    return <Paneles disposicion={params?.disposicion} prendido={prendido} color={color} brillo={params?.brillo ?? 100} />
   if (params) {
     /* Un foco no es una esfera flotando: es un foco EN algo, y ese algo cambia
        lo que se ve. En el plafón se ve la roseta y el bulbo colgando; dentro

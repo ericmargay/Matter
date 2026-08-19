@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 
 import { CATEGORIES, DEVICE_BY_ID } from '../../../content/catalog'
 import { uid, planoVacio } from '../../../sync/eventos'
@@ -82,6 +82,63 @@ function Medida({ label, value, onChange, step = 0.1, min = 0.5 }) {
 
 /* ── editor ───────────────────────────────────────────────────── */
 
+/**
+ * Deshacer y rehacer sobre el plano del cuarto.
+ *
+ * Se puede hacer barato porque cada cambio ya escribe el plano ENTERO: la
+ * historia es una pila de fotos, no una lista de operaciones que haya que
+ * invertir. Deshacer es volver a guardar una foto vieja, y por eso también
+ * viaja a los demás socios y queda en el historial como cualquier otro cambio
+ * — que es lo correcto: si Carpio deshace algo, del otro lado tiene que
+ * desaparecer.
+ *
+ * Lo que sí hace falta pensar es el agrupado. Arrastrar una pieza dispara
+ * decenas de guardados por segundo; sin agrupar, Ctrl+Z devolvería un
+ * milímetro. Dos cambios seguidos con el mismo motivo y a menos de segundo y
+ * medio cuentan como uno solo, así que un arrastre completo se deshace de un
+ * golpe.
+ */
+const PASOS = 60
+const JUNTOS = 1500
+
+function useHistoria(plano, aplicar) {
+  const pasado = useRef([])
+  const futuro = useRef([])
+  const ultimo = useRef({ que: null, t: 0 })
+  const ahora = useRef(plano)
+  const [, redibujar] = useReducer((n) => n + 1, 0)
+
+  ahora.current = plano
+
+  const anotar = (antes, que) => {
+    const t = Date.now()
+    const seguido = que != null && que === ultimo.current.que && t - ultimo.current.t < JUNTOS
+    ultimo.current = { que, t }
+    if (seguido) return // mismo gesto: ya quedó guardada la foto de antes
+    pasado.current.push({ plano: antes, que })
+    if (pasado.current.length > PASOS) pasado.current.shift()
+    futuro.current = []
+    redibujar()
+  }
+
+  const saltar = (de, a, prefijo) => {
+    const paso = de.current.pop()
+    if (!paso) return
+    a.current.push({ plano: ahora.current, que: paso.que })
+    aplicar(paso.plano, `${prefijo} ${(paso.que ?? 'un cambio').toLowerCase()}`)
+    ultimo.current = { que: null, t: 0 }
+    redibujar()
+  }
+
+  return {
+    anotar,
+    deshacer: () => saltar(pasado, futuro, 'Deshizo:'),
+    rehacer: () => saltar(futuro, pasado, 'Rehízo:'),
+    queDeshace: pasado.current.at(-1)?.que ?? null,
+    queRehace: futuro.current.at(-1)?.que ?? null,
+  }
+}
+
 export default function PlanoCuarto({ room, onCerrar }) {
   const setPlano = useSurvey((s) => s.setPlano)
 
@@ -133,6 +190,22 @@ export default function PlanoCuarto({ room, onCerrar }) {
         else onCerrar()
       }
       if (midiendo || escribiendo) return
+
+      /* Ctrl+Z / ⌘Z. Va después de descartar los campos de texto a propósito:
+         escribiendo, deshacer tiene que deshacer LO QUE SE ESCRIBE, no el
+         plano. Con Shift, o con Ctrl+Y, rehace. */
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault()
+        if (e.shiftKey) historia.rehacer()
+        else historia.deshacer()
+        return
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault()
+        historia.rehacer()
+        return
+      }
+
       if ((e.key === 'Delete' || e.key === 'Backspace') && seleccion) {
         e.preventDefault()
         if (seleccion === ID_MUROS) return // los muros no se borran
@@ -150,7 +223,12 @@ export default function PlanoCuarto({ room, onCerrar }) {
     }
   })
 
-  const guardar = (patch, que) => setPlano(room.id, { ...plano, ...patch }, que)
+  const historia = useHistoria(plano, (viejo, que) => setPlano(room.id, viejo, que))
+
+  const guardar = (patch, que) => {
+    historia.anotar(plano, que)
+    setPlano(room.id, { ...plano, ...patch }, que)
+  }
 
   /**
    * Trazar cable: se elige un punto, luego otro, y queda el tramo.
@@ -502,6 +580,29 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onParchar={parchar}
               onFinGizmo={() => guardar({ items: plano.items }, `Acomodó una pieza en ${room.nombre}`)}
             />
+
+          {/* Deshacer, a la vista. El atajo existe, pero un levantador parado
+              en una sala con el teléfono en la otra mano no se acuerda de
+              Ctrl+Z: el botón dice además QUÉ va a deshacer, que es la
+              diferencia entre atreverse a probar algo y no tocarlo. */}
+          <div className="absolute top-3 right-3 flex gap-0.5 rounded-xl border border-line bg-ink/92 p-1 backdrop-blur">
+            <button
+              onClick={historia.deshacer}
+              disabled={!historia.queDeshace}
+              title={historia.queDeshace ? `Deshacer: ${historia.queDeshace} · ⌘Z` : 'Nada que deshacer'}
+              className="rounded-lg px-2.5 py-1 text-[13px] text-cream-2 transition-colors enabled:hover:bg-cream/10 disabled:opacity-25"
+            >
+              ↶
+            </button>
+            <button
+              onClick={historia.rehacer}
+              disabled={!historia.queRehace}
+              title={historia.queRehace ? `Rehacer: ${historia.queRehace} · ⇧⌘Z` : 'Nada que rehacer'}
+              className="rounded-lg px-2.5 py-1 text-[13px] text-cream-2 transition-colors enabled:hover:bg-cream/10 disabled:opacity-25"
+            >
+              ↷
+            </button>
+          </div>
 
           {seleccion && !midiendo && (
             <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-0.5 rounded-xl border border-line bg-ink/92 p-1 backdrop-blur">

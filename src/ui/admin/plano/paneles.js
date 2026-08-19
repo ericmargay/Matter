@@ -56,7 +56,14 @@ export function trianguloPanel(lado = LADO, arriba = true, grosor = GROSOR) {
   }
   s.closePath()
 
-  const g = new THREE.ExtrudeGeometry(s, { depth: grosor, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 1 })
+  /* Bisel chiquito. Con 4 mm, dos piezas vecinas se comían la arista
+     compartida y en cada vértice quedaba una púa: la figura se veía picada en
+     vez de continua. 1.2 mm alcanza para que la luz agarre el canto —que es
+     para lo que está— sin morderse con la pieza de al lado. */
+  const g = new THREE.ExtrudeGeometry(s, { depth: grosor, bevelEnabled: true, bevelThickness: 0.0012, bevelSize: 0.0012, bevelSegments: 1 })
+  /* Deja el origen en el centro de la caja, no en el baricentro. Es la
+     referencia que usa `posicionesDe`, y tienen que ser la misma o las piezas
+     salen corridas un sexto de altura —que es exactamente como se veían. */
   g.center()
   cache.set(clave, g)
   return g
@@ -116,11 +123,16 @@ export function posicionesDe(disposicion, lado = LADO) {
 
   const crudas = celdas.map(({ f, i }) => {
     const arriba = i % 2 === 0
-    /* El centro de una celda: cada paso dentro de la fila avanza medio lado, y
-       la punta arriba o abajo desplaza el centro un sexto de la altura, que es
-       la diferencia entre el baricentro de un triángulo y el del invertido. */
-    const x = (i - (f + 0.5)) * (lado / 2) + lado / 2
-    const y = -f * h + (arriba ? -h / 2 + h / 3 : -h / 2 + (h * 2) / 3) - h / 6
+    /* Con el origen de cada pieza en el centro de su caja, la cuenta es la
+       misma para las dos orientaciones y sale sola: la fila `f` ocupa de
+       −(f+1)·h a −f·h, así que su centro está en −(f+0.5)·h, y dentro de la
+       fila cada paso avanza medio lado. El desplazamiento de media pieza por
+       fila es lo que hace que las figuras crezcan en triángulo.
+       Antes esta cuenta era del baricentro y la geometría venía centrada por
+       caja: dos sistemas distintos, y las piezas quedaban corridas h/3 entre
+       sí. Se veían unidas de lejos y despegadas de cerca. */
+    const x = (i - f) * (lado / 2)
+    const y = -(f + 0.5) * h
     return { x, y, arriba }
   })
 
