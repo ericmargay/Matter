@@ -64,7 +64,13 @@ export const MUEBLES = {
   mesaCentro: AN('Mesa de centro', N.MesaCentro, 1.1, 0.62, 0.45, { w: 1.1, d: 0.62 }),
   mueble_tv: AN('Mueble de TV', N.MuebleTv, 1.9, 0.42, 0.5, { w: 1.9, d: 0.42 }),
   tv: AN('Pantalla', N.Pantalla, 1.5, 0.06, 0.9, { w: 1.5 }),
-  tapete: AN('Tapete', N.Tapete, 2.6, 1.8, 0.03, { w: 2.6, d: 1.8 }),
+  tapete: { ...(AN('Tapete', N.Tapete, 2.6, 1.8, 0.03, { w: 2.6, d: 1.8 })), variantes: [
+    V('cenefa', 'Con cenefa', 'Marco de un tono y campo de otro. El más común.', { v: 'cenefa' }),
+    V('liso', 'Liso', 'Un solo tono. Deja que hablen los muebles.', { v: 'liso' }),
+    V('rayas', 'A rayas', 'Bandas a lo ancho. Alarga visualmente el cuarto.', { v: 'rayas' }),
+    V('redondo', 'Redondo', 'Para debajo de una mesa redonda o al pie de la cama.', { v: 'redondo' }),
+    V('corredor', 'Corredor', 'Angosto y largo, al costado de la cama o en un pasillo.', { v: 'corredor' }),
+  ] },
   librero: A('Librero', P.Shelf, 1.6, 0.35, 1.8),
   planta: AN('Planta', N.Planta, 0.42, 0.42, 1.1, { alto: 1.05 }),
   bocina: AN('Bocina', N.Bocina, 0.16, 0.16, 0.3, { alto: 0.28 }),
@@ -164,7 +170,13 @@ export const MUEBLES = {
   microondas: A('Microondas', X.Microondas, 0.52, 0.38, 0.3),
   lavavajillas: A('Lavavajillas', X.Lavavajillas, 0.6, 0.6, 0.85),
 
-  comoda: AN('Cómoda', N.Comoda, 1.1, 0.45, 0.82, { w: 1.1, alto: 0.82, d: 0.45 }),
+  comoda: { ...(AN('Cómoda', N.Comoda, 1.1, 0.45, 0.82, { w: 1.1, alto: 0.82, d: 0.45 })), variantes: [
+    V('tres', 'Tres cajones', 'La de recámara. 82 cm de alto, buena superficie encima.', { v: 'tres' }),
+    V('cuatro', 'Cuatro cajones', 'Más guardado en el mismo ancho. Cajones más bajos.', { v: 'cuatro' }),
+    V('seis', 'Seis cajones', 'Dos columnas de tres. Para ropa de dos personas.', { v: 'seis' }),
+    V('dosPuertas', 'Dos puertas', 'Abatible en vez de cajones. Ahí cabe el módem sin que se vea.', { v: 'dosPuertas' }),
+    V('patasAltas', 'Patas altas', 'Cuerpo levantado 26 cm. Se ve más ligera y se limpia debajo.', { v: 'patasAltas' }),
+  ] },
   espejoPie: A('Espejo de pie', X.EspejoPie, 0.55, 0.3, 1.65),
   bancaPie: A('Banca de pie de cama', X.BancaPie, 1.2, 0.4, 0.5),
   cuna: A('Cuna', X.Cuna, 1.3, 0.7, 0.75),
@@ -194,8 +206,13 @@ export const MUEBLES = {
   lamparaEsfera: L('Colgante esfera', X.LamparaEsfera, 0.32, 0.32, 1.2),
   lamparaTripode: L('Lámpara trípode', X.LamparaTripode, 0.5, 0.5, 1.5),
   lamparaEscritorio: L('Lámpara de escritorio', X.LamparaEscritorio, 0.45, 0.2, 0.62),
-  lamparaBuro: { ...AN('Lámpara de buró', N.LamparaBuro, 0.3, 0.3, 0.44, { alto: 0.42 }), portafoco: true },
-
+  lamparaBuro: { ...({ ...AN('Lámpara de buró', N.LamparaBuro, 0.3, 0.3, 0.44, { alto: 0.42 }), portafoco: true }), variantes: [
+    V('cono', 'Pantalla cónica', 'La de siempre. Luz al libro y al buró, no al techo.', { v: 'cono' }),
+    V('globo', 'Globo', 'Esfera opalina. Ambienta el cuarto entero; para leer se queda corta.', { v: 'globo' }),
+    V('hongo', 'Hongo', 'Cerrada arriba, toda la luz abajo. La mejor para leer en cama.', { v: 'hongo' }),
+    V('tubo', 'Tubo', 'Cilindro alto y angosto. Ocupa poco en un buró chico.', { v: 'tubo' }),
+    V('articulada', 'Articulada', 'Brazo que se acomoda. Se apunta al libro sin despertar a quien duerme al lado.', { v: 'articulada' }),
+  ] },
   /* ── envolvente ── */
   ventana: A('Ventana', P.WindowUnit, 1.4, 0.1, 1.5),
   persiana: A('Persiana', P.Blinds, 1.4, 0.1, 1.5),

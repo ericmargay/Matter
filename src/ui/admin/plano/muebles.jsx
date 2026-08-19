@@ -151,12 +151,54 @@ export function MuebleTv({ w = 1.9, d = 0.42 }) {
 /* ── tapete ──────────────────────────────────────────────────────
    Placa con un borde de otro tono: sin ese borde un tapete se lee como una
    mancha en el piso, y con él se lee como una pieza puesta encima. */
-export function Tapete({ w = 2.6, d = 1.8 }) {
-  const { pal, mat, plc } = useTaller()
+/** El tapete, en cinco. Más que decoración: es lo que decide si el cuarto
+ *  suena a sala o a bodega, y en un cuarto con bocinas eso se oye. */
+export function Tapete({ w = 2.6, d = 1.8, v = 'cenefa' }) {
+  const { pal, mat, plc, cil } = useTaller()
+  const fondo = mat(pal.secundario, 'tela')
+  const campo = mat(pal.neutro, 'tela')
+
+  if (v === 'redondo') {
+    const r = Math.min(w, d) / 2
+    return (
+      <group>
+        <P g={cil(r, r, 0.02, 40)} m={fondo} position={[0, 0.011, 0]} sombra={false} />
+        <P g={cil(r - 0.14, r - 0.14, 0.022, 40)} m={campo} position={[0, 0.014, 0]} sombra={false} />
+      </group>
+    )
+  }
+
+  if (v === 'liso')
+    return <P g={plc(w, d, 0.02)} m={campo} position={[0, 0.011, 0]} sombra={false} />
+
+  if (v === 'corredor')
+    return (
+      <group>
+        <P g={plc(w, d * 0.42, 0.02)} m={fondo} position={[0, 0.011, 0]} sombra={false} />
+        <P g={plc(w - 0.16, d * 0.42 - 0.16, 0.022)} m={campo} position={[0, 0.014, 0]} sombra={false} />
+      </group>
+    )
+
+  if (v === 'rayas')
+    return (
+      <group>
+        <P g={plc(w, d, 0.02)} m={campo} position={[0, 0.011, 0]} sombra={false} />
+        {[-2, -1, 0, 1, 2].map((i) => (
+          <P
+            key={i}
+            g={plc(w * 0.9, d * 0.08, 0.022)}
+            m={fondo}
+            position={[0, 0.014, i * d * 0.17]}
+            sombra={false}
+          />
+        ))}
+      </group>
+    )
+
   return (
     <group>
-      <P g={plc(w, d, 0.02)} m={mat(pal.secundario, 'tela')} position={[0, 0.011, 0]} sombra={false} />
-      <P g={plc(w - 0.22, d - 0.22, 0.022)} m={mat(pal.neutro, 'tela')} position={[0, 0.014, 0]} sombra={false} />
+      <P g={plc(w, d, 0.02)} m={fondo} position={[0, 0.011, 0]} sombra={false} />
+      <P g={plc(w - 0.22, d - 0.22, 0.022)} m={campo} position={[0, 0.014, 0]} sombra={false} />
     </group>
   )
 }
@@ -616,24 +658,60 @@ export function Closet({ w = 1.8, alto = 2.15, d = 0.6, v = 'dosPuertas' }) {
   )
 }
 
-export function Comoda({ w = 1.1, alto = 0.82, d = 0.45 }) {
+/** La cómoda, en cinco. Cambia cuántos cajones y qué tan alta: la de seis es
+ *  cajonera de recámara, la de tres se usa como mueble de tele. */
+export function Comoda({ w = 1.1, alto = 0.82, d = 0.45, v = 'tres' }) {
   const { pal, mat, cja, cap } = useTaller()
   const cuerpo = mat(pal.apoyo, 'madera')
+  const frente = mat(pal.secundario, 'madera')
+  const tirador = mat(pal.acento, 'metal')
+
+  const filas = { tres: 3, cuatro: 4, seis: 3, dosPuertas: 0, patasAltas: 3 }[v] ?? 3
+  const columnas = v === 'seis' ? 2 : 1
+  const patasAltas = v === 'patasAltas'
+  const y0 = patasAltas ? 0.26 : 0.02
+  const hCuerpo = alto - (patasAltas ? 0.28 : 0.1)
+
   return (
     <group>
-      <P g={cja(w, alto - 0.1, d)} m={cuerpo} position={[0, alto / 2 + 0.02, 0]} />
-      {[0, 1, 2].map((i) => (
-        <P
-          key={i}
-          g={cja(w - 0.09, (alto - 0.2) / 3 - 0.02, 0.02)}
-          m={mat(pal.secundario, 'madera')}
-          position={[0, 0.2 + i * ((alto - 0.18) / 3), d / 2 - 0.011]}
-          sombra={false}
-        />
-      ))}
+      <P g={cja(w, hCuerpo, d)} m={cuerpo} position={[0, y0 + hCuerpo / 2, 0]} />
+
+      {/* dos puertas en vez de cajones: es la misma caja con otra cara */}
+      {v === 'dosPuertas'
+        ? [-1, 1].map((sg) => (
+            <P
+              key={sg}
+              g={cja(w / 2 - 0.05, hCuerpo - 0.08, 0.02)}
+              m={frente}
+              position={[(sg * w) / 4, y0 + hCuerpo / 2, d / 2 - 0.01]}
+              sombra={false}
+            />
+          ))
+        : Array.from({ length: filas * columnas }, (_, k) => {
+            const f = Math.floor(k / columnas)
+            const c = k % columnas
+            const anchoF = (w - 0.09) / columnas - (columnas > 1 ? 0.03 : 0)
+            const x = columnas === 1 ? 0 : -w / 2 + (w / columnas) * (c + 0.5)
+            const hF = (hCuerpo - 0.1) / filas - 0.02
+            const y = y0 + 0.08 + f * ((hCuerpo - 0.08) / filas) + hF / 2
+            return (
+              <group key={k}>
+                <P g={cja(anchoF, hF, 0.02)} m={frente} position={[x, y, d / 2 - 0.011]} sombra={false} />
+                <P g={cja(0.14, 0.018, 0.018)} m={tirador} position={[x, y, d / 2 + 0.004]} sombra={false} />
+              </group>
+            )
+          })}
+
       {[-1, 1].map((x) =>
         [-1, 1].map((z) => (
-          <P key={`${x}${z}`} g={cap(0.024, 0.08)} m={mat(pal.apoyo, 'metal')} position={[(x * (w - 0.14)) / 2, 0.05, (z * (d - 0.12)) / 2]} sombra={false} />
+          <P
+            key={`${x}${z}`}
+            g={cap(patasAltas ? 0.02 : 0.024, patasAltas ? 0.26 : 0.08)}
+            m={mat(pal.apoyo, patasAltas ? 'madera' : 'metal')}
+            position={[(x * (w - 0.14)) / 2, patasAltas ? 0.14 : 0.05, (z * (d - 0.12)) / 2]}
+            rotation={patasAltas ? [z * 0.08, 0, -x * 0.08] : undefined}
+            sombra={false}
+          />
         )),
       )}
     </group>
@@ -641,13 +719,48 @@ export function Comoda({ w = 1.1, alto = 0.82, d = 0.45 }) {
 }
 
 /** La del buró, que es la del comando "buenas noches". */
-export function LamparaBuro({ alto = 0.42 }) {
-  const { pal, mat, cil } = useTaller()
+/** La de buró, en cinco. Es la lámpara que más se automatiza de la casa
+ *  —"buenas noches" apaga esta— y la pantalla decide si lee o si ambienta. */
+export function LamparaBuro({ alto = 0.42, v = 'cono' }) {
+  const { pal, mat, cil, cap, esf } = useTaller()
+  const metal = mat(pal.acento, 'metal')
+  const tela = mat(pal.neutro, 'ceramica')
+
+  if (v === 'articulada')
+    return (
+      <group>
+        <P g={cil(0.1, 0.12, 0.025, 18)} m={metal} position={[0, 0.012, 0]} />
+        <P g={cap(0.014, 0.34)} m={metal} position={[0, 0.2, 0]} rotation={[0, 0, 0.2]} />
+        <P g={cap(0.014, 0.26)} m={metal} position={[0.14, 0.4, 0]} rotation={[0, 0, -1.0]} />
+        <P g={cil(0.05, 0.09, 0.11, 16)} m={tela} position={[0.26, 0.42, 0]} rotation={[0, 0, -0.7]} />
+      </group>
+    )
+
+  if (v === 'hongo')
+    return (
+      <group>
+        <P g={cil(0.11, 0.13, 0.03, 20)} m={mat(pal.dominante, 'ceramica')} position={[0, 0.015, 0]} />
+        <P g={cil(0.05, 0.07, alto * 0.5)} m={mat(pal.dominante, 'ceramica')} position={[0, alto * 0.3, 0]} />
+        {/* la media esfera es lo que hace al hongo: cierra por arriba y toda
+            la luz sale hacia abajo, sobre el libro */}
+        <P g={esf(0.15, 18)} m={tela} position={[0, alto - 0.03, 0]} scale={[1, 0.62, 1]} />
+      </group>
+    )
+
+  const pantalla =
+    v === 'globo' ? (
+      <P g={esf(0.12)} m={tela} position={[0, alto - 0.02, 0]} />
+    ) : v === 'tubo' ? (
+      <P g={cil(0.055, 0.055, 0.3, 18)} m={tela} position={[0, alto - 0.02, 0]} />
+    ) : (
+      <P g={cil(0.1, 0.14, 0.17, 20)} m={tela} position={[0, alto - 0.05, 0]} />
+    )
+
   return (
     <group>
-      <P g={cil(0.09, 0.11, 0.03, 18)} m={mat(pal.acento, 'metal')} position={[0, 0.015, 0]} />
-      <P g={cil(0.022, 0.022, alto * 0.5)} m={mat(pal.acento, 'metal')} position={[0, alto * 0.28, 0]} />
-      <P g={cil(0.1, 0.14, 0.17, 20)} m={mat(pal.neutro, 'ceramica')} position={[0, alto - 0.05, 0]} />
+      <P g={cil(0.09, 0.11, 0.03, 18)} m={metal} position={[0, 0.015, 0]} />
+      <P g={cil(0.022, 0.022, alto * 0.5)} m={metal} position={[0, alto * 0.28, 0]} />
+      {pantalla}
     </group>
   )
 }
