@@ -198,3 +198,21 @@ export function materialDe(color, { rol = 'mate', rugosidad, metalico, saturacio
 
 /** Se llama cuando el Style Lab cambia algo que invalida los materiales. */
 export const limpiarMateriales = () => cache.clear()
+
+/**
+ * Dos colores, mezclados.
+ *
+ * Los acabados no traen color propio a propósito: salen de la paleta del
+ * cuarto, mezclada. Así el mármol de una casa coral y el de una casa menta
+ * son distintos y los dos siguen perteneciendo a su casa, en vez de meter un
+ * gris de catálogo que no combina con nada.
+ */
+export function mezclar(a, b, t = 0.5) {
+  if (!b || t <= 0) return a
+  if (t >= 1) return b
+  const n = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
+  const [r1, g1, b1] = n(a)
+  const [r2, g2, b2] = n(b)
+  const m = (x, y) => Math.round(x + (y - x) * t)
+  return `#${[m(r1, r2), m(g1, g2), m(b1, b2)].map((v) => v.toString(16).padStart(2, '0')).join('')}`
+}

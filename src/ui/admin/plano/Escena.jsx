@@ -1509,6 +1509,8 @@ export default function Escena({
         camaraX={camX}
         camaraZ={camZ}
         onTocar={midiendo || colocando ? undefined : () => onSeleccionar(ID_MUROS)}
+        piso={plano.piso}
+        muro={plano.muroAcabado}
       />
       <Conexiones plano={plano} alto={alto} />
 

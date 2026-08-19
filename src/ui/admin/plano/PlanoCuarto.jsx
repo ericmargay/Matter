@@ -4,6 +4,7 @@ import { CATEGORIES, DEVICE_BY_ID } from '../../../content/catalog'
 import { uid, planoVacio } from '../../../sync/eventos'
 import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, ID_MUROS, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
+import { MUROS_ACABADO, PISOS } from './acabados'
 import { ESPACIOS } from '../../../content/espacios'
 import { DISPOSICIONES } from './paneles'
 
@@ -902,11 +903,60 @@ const MUROS_TIPICOS = [
   [0.2, 'Muro de carga', 'De sobra para cualquier módulo.'],
 ]
 
+/**
+ * Un acabado por fila, con su nombre y por qué elegirlo.
+ *
+ * El "por qué" no es relleno: el piso y el muro son las dos superficies más
+ * grandes del cuarto, y quien decide es el cliente, no nosotros. Ver "loseta
+ * de 60 × 60, lo de baño y cocina" al lado de "tabla de 30 cm, se ve más
+ * nueva" es lo que le permite decidir sin que le expliquen cada una.
+ */
+function Acabados({ titulo, opciones, valor, onElegir }) {
+  const actual = valor ?? opciones[0].id
+  return (
+    <>
+      <p className="mt-3 text-[10px] tracking-[0.12em] text-cream-3 uppercase">{titulo}</p>
+      <div className="mt-1 space-y-1">
+        {opciones.map((o) => {
+          const on = o.id === actual
+          return (
+            <button
+              key={o.id}
+              onClick={() => onElegir(o.id)}
+              className={`block w-full rounded px-1.5 py-1 text-left transition-colors ${
+                on ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+              }`}
+            >
+              <span className="block text-[11px]">{o.label}</span>
+              <span className={`block text-[10px] leading-snug ${on ? 'text-ink/70' : 'text-cream-3'}`}>
+                {o.porque}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </>
+  )
+}
+
 function InspectorMuros({ plano, onGuardar }) {
   const grosor = plano.muroGrosor ?? 0.12
   return (
     <Grupo titulo="Muros y piso">
-      <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Grosor</p>
+      <Acabados
+        titulo="Piso"
+        opciones={PISOS}
+        valor={plano.piso}
+        onElegir={(id) => onGuardar({ piso: id }, 'Cambió el acabado del piso')}
+      />
+      <Acabados
+        titulo="Acabado de muro"
+        opciones={MUROS_ACABADO}
+        valor={plano.muroAcabado}
+        onElegir={(id) => onGuardar({ muroAcabado: id }, 'Cambió el acabado de los muros')}
+      />
+
+      <p className="mt-3 text-[10px] tracking-[0.12em] text-cream-3 uppercase">Grosor</p>
       <div className="mt-1 space-y-1">
         {MUROS_TIPICOS.map(([v, label, ayuda]) => (
           <button

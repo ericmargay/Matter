@@ -1,4 +1,6 @@
-import { useEstilo, materialDe, paletaDe } from './estilo'
+import { AcabadoMuro, AcabadoPiso } from './acabados.jsx'
+import { pisoDe } from './acabados'
+import { mezclar, useEstilo, materialDe, paletaDe } from './estilo'
 import { caja } from './geo'
 import { GROSOR_MURO, MUROS, muroSeVe } from './muros'
 
@@ -13,7 +15,7 @@ import { GROSOR_MURO, MUROS, muroSeVe } from './muros'
  * Los dos muros que quedan entre la cámara y el cuarto se esconden solos, así
  * que se puede girar libremente sin perder la vista de casa de muñecas.
  */
-export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1, onTocar }) {
+export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1, onTocar, piso, muro }) {
   const e = useEstilo()
   const pal = paletaDe(e.paleta)
   const t = GROSOR_MURO
@@ -22,6 +24,14 @@ export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1,
   const mat = (color, rol) =>
     materialDe(color, { rol, rugosidad: e.rugosidad, metalico: e.metalico, saturacion: e.saturacion })
   const cja = (w, h, d) => caja(w, h, d, e.bisel, e.tono)
+
+  /* El color del acabado sale de la paleta del cuarto, mezclada, no de un gris
+     de catálogo: así el mármol de una casa coral y el de una casa menta son
+     distintos y los dos siguen perteneciendo a su casa. */
+  const acPiso = pisoDe(piso)
+  const tin = acPiso.tinte ?? { base: 'piso', rol: 'madera' }
+  const colorPiso = mezclar(pal[tin.base] ?? pal.piso, pal[tin.hacia] ?? null, tin.mezcla ?? 0)
+  const colorVeta = mezclar(colorPiso, pal.neutro, tin.veta ?? 0)
 
   /* El orden y las normales viven en `muros.js` porque no son solo de aquí:
      lo que cuelga de cada muro tiene que esconderse con él, y las dos cosas
@@ -53,6 +63,17 @@ export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1,
         }
       />
 
+      {/* el acabado encima del firme: duela, loseta, mármol o concreto */}
+      <AcabadoPiso
+        ancho={ancho + t * 2}
+        largo={largo + t * 2}
+        id={piso}
+        material={mat(colorPiso, tin.rol ?? 'madera')}
+        materialAlterno={mat(colorVeta, tin.rol ?? 'madera')}
+        bisel={e.bisel}
+        tono={e.tono}
+      />
+
       {muros.map((m) => {
         // se esconde el que taparía la vista
         const visible = muroSeVe(m.n, camaraX, camaraZ)
@@ -68,8 +89,8 @@ export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1,
             receiveShadow
             onPointerDown={
               visible && onTocar
-                ? (e) => {
-                    e.stopPropagation()
+                ? (ev) => {
+                    ev.stopPropagation()
                     onTocar()
                   }
                 : undefined
@@ -77,6 +98,32 @@ export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1,
           />
         )
       })}
+
+      {/* lambrín, medio muro, panelado o tabique: solo en los que se ven */}
+      {muros
+        .filter((m) => muroSeVe(m.n, camaraX, camaraZ))
+        .map((m) => (
+          <group
+            key={`ac-${m.id}`}
+            position={[m.pos[0], 0, m.pos[1]]}
+            rotation={[0, m.rot, 0]}
+            /* La cara interior de cada muro mira hacia el centro del cuarto.
+               Los del norte y el oeste miran al revés que los del sur y el
+               este, y por eso media vuelta más en dos de ellos. */
+            scale={[1, 1, m.id === 'sur' || m.id === 'este' ? -1 : 1]}
+          >
+            <AcabadoMuro
+              ancho={m.w}
+              alto={alto}
+              grosor={t}
+              id={muro}
+              material={mat(pal.neutro, 'mate')}
+              materialApoyo={mat(m.n[0] !== 0 ? pal.apoyo : pal.dominante, 'mate')}
+              bisel={e.bisel}
+              tono={e.tono}
+            />
+          </group>
+        ))}
     </group>
   )
 }
