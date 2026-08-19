@@ -377,7 +377,15 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = t
   useSombras(g)
   const def = MUEBLES[item.tipo]
   if (!def) return null
-  const { Comp, w, d } = def
+  const { Comp } = def
+  /* La versión elegida se mezcla encima de las props de base. Es un objeto
+     plano a propósito: así una variante puede cambiar solo la silueta (`v`) o
+     también la medida (`w`, `largo`) sin que el renderizador sepa de cuál se
+     trata. */
+  const variante = def.variantes?.find((x) => x.id === item.variante)
+  const props = { ...def.props, ...(variante?.props ?? {}) }
+  const w = variante?.props?.w ?? def.w
+  const d = variante?.props?.d ?? def.d
 
   return (
     <group
@@ -408,9 +416,9 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = t
           ya vienen colocadas por el grupo de arriba. Las viejas siguen
           pidiéndolos hasta que les toque migrar. */}
       {def.Nuevo ? (
-        <Comp {...def.props} />
+        <Comp {...props} />
       ) : (
-        <Comp position={[0, 0, 0]} rotation={[0, 0, 0]} {...def.props} />
+        <Comp position={[0, 0, 0]} rotation={[0, 0, 0]} {...props} />
       )}
       {/* huella: es lo que se puede tomar con el puntero, y de paso la
           selección. Invisible pero presente para el raycaster. */}

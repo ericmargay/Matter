@@ -262,13 +262,43 @@ export function Librero({ w = 1.05, alto = 1.6, niveles = 4 }) {
 }
 
 /* ── lámpara de piso ── */
-export function LamparaPie({ alto = 1.6 }) {
-  const { pal, mat, cil, cap } = useTaller()
+/** La lámpara de pie, en cinco pantallas. La pantalla decide a dónde va la
+ *  luz —abajo, arriba o a todas partes— y por eso no es un cambio de adorno. */
+export function LamparaPie({ alto = 1.6, v = 'cono' }) {
+  const { pal, mat, cil, cap, esf } = useTaller()
+  const metal = mat(pal.apoyo, 'metal')
+  const tela = mat(pal.neutro, 'ceramica')
+
+  if (v === 'arco')
+    return (
+      <group>
+        <P g={cil(0.24, 0.26, 0.05)} m={metal} position={[0, 0.025, 0]} />
+        <P g={cap(0.022, alto * 0.95)} m={metal} position={[0, alto / 2, 0]} rotation={[0, 0, 0.22]} />
+        <P g={cap(0.022, 0.75)} m={metal} position={[-0.36, alto * 0.98, 0]} rotation={[0, 0, 1.35]} />
+        <P g={cil(0.13, 0.15, 0.16, 20)} m={tela} position={[-0.7, alto * 0.9, 0]} />
+      </group>
+    )
+
+  const pantalla =
+    v === 'globo' ? (
+      <P g={esf(0.17)} m={tela} position={[0, alto, 0]} />
+    ) : v === 'tambor' ? (
+      <P g={cil(0.2, 0.2, 0.26, 22)} m={tela} position={[0, alto - 0.06, 0]} />
+    ) : v === 'papel' ? (
+      /* Farol de papel: alto y angosto, casi cilíndrico, con la luz repartida
+         de arriba abajo en vez de en un cono. */
+      <P g={cil(0.15, 0.13, 0.5, 20)} m={tela} position={[0, alto - 0.18, 0]} />
+    ) : v === 'invertido' ? (
+      <P g={cil(0.21, 0.11, 0.24, 20)} m={tela} position={[0, alto - 0.05, 0]} />
+    ) : (
+      <P g={cil(0.13, 0.2, 0.24, 20)} m={tela} position={[0, alto - 0.05, 0]} />
+    )
+
   return (
     <group>
-      <P g={cil(0.17, 0.19, 0.03)} m={mat(pal.apoyo, 'metal')} position={[0, 0.015, 0]} />
-      <P g={cap(0.018, alto - 0.3)} m={mat(pal.apoyo, 'metal')} position={[0, alto / 2, 0]} />
-      <P g={cil(0.13, 0.2, 0.24, 20)} m={mat(pal.neutro, 'ceramica')} position={[0, alto - 0.05, 0]} />
+      <P g={cil(0.17, 0.19, 0.03)} m={metal} position={[0, 0.015, 0]} />
+      <P g={cap(0.018, alto - 0.3)} m={metal} position={[0, alto / 2, 0]} />
+      {pantalla}
     </group>
   )
 }
@@ -338,45 +368,178 @@ export function MesaLateral({ d = 0.44, alto = 0.52 }) {
    volumen grande y plano, así que lo único que separa una cama de una caja es
    la proporción del colchón contra la base y el grosor de las almohadas. */
 
-export function Cama({ w = 1.6, largo = 2.0, conDosel = false }) {
+/**
+ * La cama, en cinco.
+ *
+ * No es capricho: la cabecera es lo primero que se ve al entrar a una
+ * recámara y es donde el cliente tiene opinión. Una plataforma baja y una
+ * capitonada alta no cuestan lo mismo ni piden la misma luz —una lámpara de
+ * buró que funcionaba con la primera queda tapada por la segunda— así que
+ * poder cambiarla aquí decide cosas que no son decorativas.
+ *
+ * `v` cambia la SILUETA, no el color. Lo que se distingue en un plano
+ * isométrico es el contorno, y el color ya lo pone la paleta del cuarto.
+ */
+export function Cama({ w = 1.6, largo = 2.0, v = 'plataforma' }) {
   const { pal, mat, cja, cap } = useTaller()
   const base = mat(pal.apoyo, 'madera')
   const colchon = mat(pal.neutro, 'tela')
   const ropa = mat(pal.dominante, 'tela')
   const almohada = mat(pal.secundario, 'tela')
 
+  const individual = v === 'individual'
+  const W = individual ? 1.0 : w
+  const L = individual ? 1.9 : largo
+  const baja = v === 'baja'
+  const altoBase = baja ? 0.14 : 0.24
+  const yColchon = baja ? 0.26 : 0.38
+  const conDosel = v === 'dosel'
+
+  /* Altura de cabecera por tipo. En "baja" no hay: es la cama sobre tarima,
+     y su gracia es justamente que no tiene respaldo. */
+  const hCab = { plataforma: 0.78, capitonada: 1.15, dosel: 0.62, individual: 0.6, baja: 0 }[v] ?? 0.78
+
   return (
     <group>
       {/* base, un poco más chica que el colchón: así el colchón vuela y se
-          lee como colchón en vez de como tapa */}
-      <P g={cja(w - 0.06, 0.24, largo - 0.06)} m={base} position={[0, 0.16, 0]} />
-      <P g={cja(w, 0.22, largo)} m={colchon} position={[0, 0.38, 0]} />
+          lee como colchón en vez de como tapa. En la baja es al revés —la
+          tarima sobresale— que es lo que la distingue de lejos. */}
+      <P
+        g={cja(baja ? W + 0.24 : W - 0.06, altoBase, baja ? L + 0.24 : L - 0.06)}
+        m={base}
+        position={[0, altoBase / 2 + 0.02, 0]}
+      />
+      <P g={cja(W, 0.22, L)} m={colchon} position={[0, yColchon, 0]} />
 
       {/* la ropa de cama cubre de los pies hasta media cama */}
-      <P g={cja(w + 0.03, 0.09, largo * 0.62)} m={ropa} position={[0, 0.49, largo * 0.17]} />
+      <P g={cja(W + 0.03, 0.09, L * 0.62)} m={ropa} position={[0, yColchon + 0.11, L * 0.17]} />
 
       {/* cabecera */}
-      <P g={cja(w + 0.1, 0.78, 0.09)} m={base} position={[0, 0.55, -largo / 2 - 0.02]} />
+      {hCab > 0 && v !== 'capitonada' && (
+        <P g={cja(W + 0.1, hCab, 0.09)} m={base} position={[0, yColchon + hCab / 2 - 0.22, -L / 2 - 0.02]} />
+      )}
 
-      {/* dos almohadas gordas */}
-      {[-1, 1].map((s) => (
+      {/* capitonada: tres paneles con junta. Es lo que se ve de una cabecera
+          acolchada a esta distancia — el botón no llega, el corte sí. */}
+      {v === 'capitonada' && (
+        <>
+          <P g={cja(W + 0.14, hCab, 0.11)} m={base} position={[0, yColchon + hCab / 2 - 0.22, -L / 2 - 0.03]} />
+          {[-1, 0, 1].map((i) => (
+            <P
+              key={i}
+              g={cja(W / 3.4, hCab - 0.16, 0.03)}
+              m={mat(pal.secundario, 'tela')}
+              position={[(i * W) / 3.1, yColchon + hCab / 2 - 0.22, -L / 2 + 0.03]}
+              sombra={false}
+            />
+          ))}
+        </>
+      )}
+
+      {/* almohadas: dos, salvo en la individual */}
+      {(individual ? [0] : [-1, 1]).map((sg) => (
         <P
-          key={s}
-          g={cja(w * 0.42, 0.13, 0.3)}
+          key={sg}
+          g={cja(individual ? W * 0.7 : W * 0.42, 0.13, 0.3)}
           m={almohada}
-          position={[(s * w) / 4.4, 0.55, -largo / 2 + 0.24]}
+          position={[(sg * W) / 4.4, yColchon + 0.17, -L / 2 + 0.24]}
           rotation={[-0.12, 0, 0]}
         />
       ))}
 
-      {conDosel &&
+      {/* dosel: cuatro postes y los travesaños de arriba. Sin los travesaños
+          parecen cuatro palos y no un dosel. */}
+      {conDosel && (
+        <>
+          {[-1, 1].map((x) =>
+            [-1, 1].map((z) => (
+              <P
+                key={`${x}${z}`}
+                g={cap(0.03, 1.9)}
+                m={base}
+                position={[(x * W) / 2, 0.98, (z * L) / 2]}
+                sombra={false}
+              />
+            )),
+          )}
+          {[-1, 1].map((z) => (
+            <P key={`tz${z}`} g={cja(W, 0.045, 0.045)} m={base} position={[0, 1.93, (z * L) / 2]} sombra={false} />
+          ))}
+          {[-1, 1].map((x) => (
+            <P key={`tx${x}`} g={cja(0.045, 0.045, L)} m={base} position={[(x * W) / 2, 1.93, 0]} sombra={false} />
+          ))}
+        </>
+      )}
+    </group>
+  )
+}
+
+/** El buró, en cinco. El redondo y el flotante cambian por completo lo que
+ *  cabe encima —y ahí es donde va el Echo o la lámpara de lectura. */
+export function Buro({ w = 0.46, alto = 0.52, v = 'cajones' }) {
+  const { pal, mat, cja, cil, cap } = useTaller()
+  const cuerpo = mat(pal.apoyo, 'madera')
+  const frente = mat(pal.secundario, 'madera')
+  const tirador = mat(pal.acento, 'metal')
+
+  if (v === 'redondo')
+    return (
+      <group>
+        <P g={cil(w / 2, w / 2 - 0.03, alto - 0.06)} m={cuerpo} position={[0, (alto - 0.06) / 2 + 0.06, 0]} />
+        <P g={cil(w / 2 + 0.02, w / 2 + 0.02, 0.025)} m={frente} position={[0, alto - 0.02, 0]} />
+        <P g={cil(0.09, 0.11, 0.06)} m={mat(pal.apoyo, 'metal')} position={[0, 0.03, 0]} />
+      </group>
+    )
+
+  /* Flotante: sin patas, colgado del muro. Se dibuja levantado porque es como
+     se instala, y porque el hueco de abajo es justo lo que se compra. */
+  const flotante = v === 'flotante'
+  const patasAltas = v === 'patasAltas'
+  const y0 = flotante ? 0.3 : patasAltas ? 0.22 : 0.02
+  const hCuerpo = alto - (flotante ? 0.16 : patasAltas ? 0.2 : 0.1)
+
+  return (
+    <group>
+      <P g={cja(w, hCuerpo, 0.4)} m={cuerpo} position={[0, y0 + hCuerpo / 2, 0]} />
+
+      {/* frentes: dos cajones, o uno y un hueco abierto */}
+      {(v === 'repisa' ? [1] : [0, 1]).map((i) => (
+        <P
+          key={i}
+          g={cja(w - 0.07, hCuerpo / 2 - 0.04, 0.02)}
+          m={frente}
+          position={[0, y0 + hCuerpo * (i === 0 ? 0.27 : 0.73), 0.201]}
+          sombra={false}
+        />
+      ))}
+      {(v === 'repisa' ? [1] : [0, 1]).map((i) => (
+        <P
+          key={`t${i}`}
+          g={cja(0.12, 0.018, 0.018)}
+          m={tirador}
+          position={[0, y0 + hCuerpo * (i === 0 ? 0.27 : 0.73), 0.215]}
+          sombra={false}
+        />
+      ))}
+      {/* la repisa deja el hueco de abajo a la vista */}
+      {v === 'repisa' && (
+        <P
+          g={cja(w - 0.05, 0.02, 0.36)}
+          m={frente}
+          position={[0, y0 + hCuerpo * 0.42, 0]}
+          sombra={false}
+        />
+      )}
+
+      {!flotante &&
         [-1, 1].map((x) =>
           [-1, 1].map((z) => (
             <P
-              key={`${x}${z}`}
-              g={cap(0.03, 1.7)}
-              m={base}
-              position={[(x * w) / 2, 1.0, (z * largo) / 2]}
+              key={`p${x}${z}`}
+              g={cap(patasAltas ? 0.018 : 0.022, patasAltas ? 0.22 : 0.08)}
+              m={mat(pal.apoyo, patasAltas ? 'madera' : 'metal')}
+              position={[(x * (w - 0.1)) / 2, patasAltas ? 0.12 : 0.05, (z * 0.3) / 2]}
+              rotation={patasAltas ? [z * 0.08, 0, -x * 0.08] : undefined}
               sombra={false}
             />
           )),
@@ -385,71 +548,70 @@ export function Cama({ w = 1.6, largo = 2.0, conDosel = false }) {
   )
 }
 
-export function Buro({ w = 0.46, alto = 0.52 }) {
-  const { pal, mat, cja, cap } = useTaller()
-  const cuerpo = mat(pal.apoyo, 'madera')
-  return (
-    <group>
-      <P g={cja(w, alto - 0.1, 0.4)} m={cuerpo} position={[0, alto / 2 + 0.02, 0]} />
-      {/* dos cajones hundidos: la diferencia de profundidad es todo el mueble */}
-      {[0, 1].map((i) => (
-        <P
-          key={i}
-          g={cja(w - 0.07, (alto - 0.18) / 2 - 0.02, 0.02)}
-          m={mat(pal.secundario, 'madera')}
-          position={[0, alto * 0.32 + i * (alto - 0.2) * 0.46, 0.201]}
-          sombra={false}
-        />
-      ))}
-      {[0, 1].map((i) => (
-        <P
-          key={`t${i}`}
-          g={cja(0.12, 0.018, 0.018)}
-          m={mat(pal.acento, 'metal')}
-          position={[0, alto * 0.32 + i * (alto - 0.2) * 0.46, 0.215]}
-          sombra={false}
-        />
-      ))}
-      {[-1, 1].map((x) =>
-        [-1, 1].map((z) => (
-          <P
-            key={`p${x}${z}`}
-            g={cap(0.022, 0.08)}
-            m={mat(pal.apoyo, 'metal')}
-            position={[(x * (w - 0.1)) / 2, 0.05, (z * 0.3) / 2]}
-            sombra={false}
-          />
-        )),
-      )}
-    </group>
-  )
-}
-
-export function Closet({ w = 1.8, alto = 2.15, d = 0.6 }) {
+/** El clóset, en cinco. El abierto y el de espejo cambian la luz del cuarto,
+ *  no solo su cara: uno se traga la luz y el otro la devuelve. */
+export function Closet({ w = 1.8, alto = 2.15, d = 0.6, v = 'dosPuertas' }) {
   const { pal, mat, cja } = useTaller()
   const cuerpo = mat(pal.apoyo, 'madera')
   const puerta = mat(pal.secundario, 'madera')
+  const jalador = mat(pal.acento, 'metal')
+
+  const hojas = v === 'tresPuertas' ? 3 : 2
+
   return (
     <group>
       <P g={cja(w, alto, d)} m={cuerpo} position={[0, alto / 2, 0]} />
-      {[-1, 1].map((s) => (
-        <P
-          key={s}
-          g={cja(w / 2 - 0.05, alto - 0.12, 0.025)}
-          m={puerta}
-          position={[(s * w) / 4, alto / 2, d / 2 - 0.012]}
-          sombra={false}
-        />
-      ))}
-      {[-1, 1].map((s) => (
-        <P
-          key={`j${s}`}
-          g={cja(0.02, 0.22, 0.02)}
-          m={mat(pal.acento, 'metal')}
-          position={[s * 0.06, alto / 2, d / 2 + 0.012]}
-          sombra={false}
-        />
-      ))}
+
+      {/* abierto: entrepaños y un tubo, sin puertas. Es el vestidor de armar */}
+      {v === 'abierto' ? (
+        <>
+          {[0.35, 0.72, 1.5].map((f) => (
+            <P
+              key={f}
+              g={cja(w - 0.08, 0.025, d - 0.06)}
+              m={puerta}
+              position={[0, alto * (f / 2.15), 0.01]}
+              sombra={false}
+            />
+          ))}
+          <P
+            g={cja(w - 0.16, 0.028, 0.028)}
+            m={jalador}
+            position={[0, alto * 0.62, 0.02]}
+            sombra={false}
+          />
+        </>
+      ) : (
+        <>
+          {Array.from({ length: hojas }, (_, i) => {
+            const paso = w / hojas
+            const x = -w / 2 + paso * (i + 0.5)
+            /* Corredizas: las hojas se traslapan y una queda por delante de la
+               otra. Es lo que se ve, y además es la razón de que solo se pueda
+               abrir la mitad del clóset a la vez. */
+            const z = v === 'corredizas' ? d / 2 - 0.012 + (i % 2) * 0.028 : d / 2 - 0.012
+            return (
+              <P
+                key={i}
+                g={cja(paso - (v === 'corredizas' ? 0.0 : 0.05), alto - 0.12, 0.025)}
+                m={v === 'conEspejo' && i === hojas - 1 ? mat(pal.neutro, 'vidrio') : puerta}
+                position={[x, alto / 2, z]}
+                sombra={false}
+              />
+            )
+          })}
+          {v !== 'corredizas' &&
+            Array.from({ length: hojas }, (_, i) => (
+              <P
+                key={`j${i}`}
+                g={cja(0.02, 0.22, 0.02)}
+                m={jalador}
+                position={[-w / 2 + (w / hojas) * (i + 0.5) + 0.06, alto / 2, d / 2 + 0.012]}
+                sombra={false}
+              />
+            ))}
+        </>
+      )}
     </group>
   )
 }

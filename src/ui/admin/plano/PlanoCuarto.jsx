@@ -1086,6 +1086,37 @@ function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuita
         </div>
       )}
 
+      {/* Las versiones de este mueble. Va arriba de todo lo demás porque es lo
+          primero que se decide: qué cama, no dónde va la cama. */}
+      {item.clase === 'mueble' && MUEBLES[item.tipo]?.variantes?.length > 0 && (
+        <div className="mt-2">
+          <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">
+            Versión · {MUEBLES[item.tipo].variantes.length}
+          </p>
+          <div className="mt-1 space-y-1">
+            {MUEBLES[item.tipo].variantes.map((va, i) => {
+              const on = (item.variante ?? MUEBLES[item.tipo].variantes[0].id) === va.id
+              return (
+                <button
+                  key={va.id}
+                  onClick={() => onParchar(item.id, { variante: va.id }, `Cambió a ${va.label.toLowerCase()}`)}
+                  className={`block w-full rounded px-1.5 py-1 text-left transition-colors ${
+                    on ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+                  }`}
+                >
+                  <span className="block text-[11px]">
+                    {i + 1}. {va.label}
+                  </span>
+                  <span className={`block text-[10px] leading-snug ${on ? 'text-ink/70' : 'text-cream-3'}`}>
+                    {va.porque}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {item.clase === 'mueble' && MUEBLES[item.tipo]?.portafoco && (
         <div className="mt-2 rounded-lg border border-ember/30 bg-ember/[0.06] px-2 py-2">
           <p className="text-[10px] tracking-[0.12em] text-ember uppercase">Aquí va un foco inteligente</p>

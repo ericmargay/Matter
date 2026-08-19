@@ -22,6 +22,20 @@ import * as N from './muebles'
    piso selecciona el espacio igual que tocar un mueble selecciona el mueble. */
 export const ID_MUROS = '__muros'
 
+/**
+ * Las versiones de un mismo mueble.
+ *
+ * Cinco camas no son cinco colores: son cinco siluetas, y la silueta es lo
+ * único que se distingue en un plano isométrico. Además casi ninguna es
+ * decorativa —una cabecera capitonada tapa la lámpara de buró que sí
+ * funcionaba con una plataforma, un clóset de espejo devuelve la luz que uno
+ * abierto se traga— así que elegir aquí decide cosas de la instalación.
+ *
+ * `V(id, label, porque, props)` — `props` va al componente y puede además
+ * cambiar la huella (`w`, `d`, `alto`) cuando la versión es de otro tamaño.
+ */
+const V = (id, label, porque, props = {}) => ({ id, label, porque, props })
+
 const A = (label, Comp, w, d, alto = 0.8, props = {}) => ({ label, Comp, w, d, alto, props })
 
 /**
@@ -56,10 +70,27 @@ export const MUEBLES = {
   bocina: AN('Bocina', N.Bocina, 0.16, 0.16, 0.3, { alto: 0.28 }),
 
   /* ── recámara ── */
-  cama: AN('Cama', N.Cama, 1.62, 2.05, 0.95, { w: 1.6, largo: 2.0 }),
-  buro: AN('Buró', N.Buro, 0.46, 0.4, 0.54, { w: 0.46, alto: 0.52 }),
-  closet: AN('Clóset', N.Closet, 1.8, 0.6, 2.15, { w: 1.8, alto: 2.15, d: 0.6 }),
-
+  cama: { ...(AN('Cama', N.Cama, 1.62, 2.05, 0.95, { w: 1.6, largo: 2.0 })), variantes: [
+    V('plataforma', 'Plataforma', 'Base baja y cabecera de tabla. La más común y la que menos estorba.', { v: 'plataforma' }),
+    V('capitonada', 'Capitonada', 'Cabecera alta y acolchada. OJO: tapa la lámpara de buró que funcionaba con una plataforma.', { v: 'capitonada' }),
+    V('dosel', 'Con dosel', 'Cuatro postes y travesaños. Pide 2.4 m de altura libre y se pelea con la luz de plafón.', { v: 'dosel' }),
+    V('individual', 'Individual', 'Una plaza, 1.00 × 1.90. Para recámara secundaria o cuarto de servicio.', { v: 'individual', w: 1.0, largo: 1.9 }),
+    V('baja', 'Baja sobre tarima', 'Sin cabecera y con la tarima sobresaliendo. Deja el muro libre para paneles o un cuadro.', { v: 'baja' }),
+  ] },
+  buro: { ...(AN('Buró', N.Buro, 0.46, 0.4, 0.54, { w: 0.46, alto: 0.52 })), variantes: [
+    V('cajones', 'Dos cajones', 'El de siempre. Superficie completa para lámpara y despertador.', { v: 'cajones' }),
+    V('repisa', 'Cajón y repisa', 'Un cajón arriba y hueco abierto abajo. Ahí caben libros y el cargador.', { v: 'repisa' }),
+    V('patasAltas', 'Patas altas', 'Cuerpo chico sobre patas de madera. Se ve más ligero y se limpia debajo.', { v: 'patasAltas' }),
+    V('redondo', 'Velador redondo', 'Cilíndrico, sin esquinas. Cabe en un pasillo angosto entre cama y muro.', { v: 'redondo' }),
+    V('flotante', 'Flotante', 'Colgado del muro, sin patas. Hay que resolver el contacto ANTES de colgarlo.', { v: 'flotante' }),
+  ] },
+  closet: { ...(AN('Clóset', N.Closet, 1.8, 0.6, 2.15, { w: 1.8, alto: 2.15, d: 0.6 })), variantes: [
+    V('dosPuertas', 'Dos puertas', 'Abatibles. Necesita 60 cm libres al frente para abrir.', { v: 'dosPuertas' }),
+    V('corredizas', 'Corredizas', 'No necesita espacio al frente, pero solo se abre la mitad a la vez.', { v: 'corredizas' }),
+    V('tresPuertas', 'Tres puertas', 'Para muro largo. Más hojas, hojas más angostas.', { v: 'tresPuertas' }),
+    V('abierto', 'Abierto', 'Entrepaños y tubo a la vista. Se traga la luz del cuarto: pide una tira dentro.', { v: 'abierto' }),
+    V('conEspejo', 'Con espejo', 'Una hoja espejeada. Devuelve luz y hace ver el cuarto al doble.', { v: 'conEspejo' }),
+  ] },
   /* ── comedor ──
      La isla de cocina hace de mesa: mismas proporciones y misma altura, y
      ahorra modelar una pieza que se vería igual. */
@@ -80,7 +111,13 @@ export const MUEBLES = {
   /* ── estudio ── */
   escritorio: A('Escritorio', P.Desk, 1.8, 0.7, 0.75),
   monitor: A('Monitor', P.Monitor, 1.05, 0.2, 0.5),
-  monitorCurvo: A('Monitor curvo', X.MonitorCurvo, 0.82, 0.28, 0.52),
+  monitorCurvo: { ...(A('Monitor curvo', X.MonitorCurvo, 0.82, 0.28, 0.52)), variantes: [
+    V('ultra34', 'Ultrapanorámico 34\u2033', '80 cm de ancho, curvatura 1500R. El más usado para trabajar.', { v: 'ultra34' }),
+    V('plano27', 'Plano 27\u2033', 'Recto, 60 cm. Cabe en cualquier escritorio y es el más barato.', { v: 'plano27' }),
+    V('curvo32', 'Curvo 32\u2033', 'Más alto y con más curva. Para ver y para jugar.', { v: 'curvo32' }),
+    V('doble27', 'Doble 27\u2033', 'Dos pantallas en ángulo. Ocupa 1.25 m y pide dos contactos.', { v: 'doble27' }),
+    V('ultra49', 'Ultrapanorámico 49\u2033', '1.19 m de ancho. No cabe en un escritorio de 1.20: hay que medir antes.', { v: 'ultra49' }),
+  ] },
   silla: A('Silla', P.OfficeChair, 0.6, 0.6, 1.0),
   rack: A('Rack', P.Rack, 0.6, 0.6, 1.2),
 
@@ -108,7 +145,13 @@ export const MUEBLES = {
      que decide si hay gas, la lámpara de pie que va a llevar el foco. */
   sillon: A('Sillón', X.Sillon, 0.95, 0.9, 0.8),
   puf: AN('Puf', N.Puf, 0.6, 0.6, 0.4, { d: 0.6 }),
-  lamparaPie: { ...AN('Lámpara de pie', N.LamparaPie, 0.36, 0.36, 1.7, { alto: 1.62 }), portafoco: true },
+  lamparaPie: { ...({ ...AN('Lámpara de pie', N.LamparaPie, 0.36, 0.36, 1.7, { alto: 1.62 }), portafoco: true }), variantes: [
+    V('cono', 'Pantalla cónica', 'La de siempre. Manda la luz al piso y deja el techo oscuro.', { v: 'cono' }),
+    V('tambor', 'Tambor', 'Recta y ancha. Reparte parejo arriba y abajo.', { v: 'tambor' }),
+    V('globo', 'Globo', 'Esfera opalina. Ilumina en todas direcciones, es la que más ambienta.', { v: 'globo' }),
+    V('papel', 'Farol de papel', 'Alta y angosta. Luz suave repartida a lo largo, casi sin sombra dura.', { v: 'papel' }),
+    V('arco', 'De arco', 'El brazo cruza sobre el sillón o la cama. Ilumina donde se lee sin poner nada al lado.', { v: 'arco' }),
+  ] },
   chimenea: A('Chimenea', X.Chimenea, 1.7, 0.45, 1.2),
   relojPared: A('Reloj de pared', X.RelojPared, 0.34, 0.05, 0.34),
   revistero: A('Revistero', X.Revistero, 0.42, 0.3, 0.45),

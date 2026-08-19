@@ -745,33 +745,83 @@ export function LamparaEscritorio({ position, rotation }) {
  * Se dibuja desde su base, no desde su centro: así se coloca sobre la mesa
  * dándole la altura del escritorio y se apoya, en vez de atravesarla.
  */
-export function MonitorCurvo({ position, rotation, ancho = 0.8, alto = 0.34 }) {
-  const R = 1.5
-  const arco = ancho / R
+/* Cinco monitores de verdad, con su medida. No es cosmética: un 49 pulgadas
+   no cabe en el mismo escritorio que un 27, y el doble monitor pide dos veces
+   el contacto. Lo que se dibuja aquí es lo que después hay que enchufar. */
+const MONITORES = {
+  ultra34: { ancho: 0.8, alto: 0.34, R: 1.5, n: 1 },
+  plano27: { ancho: 0.6, alto: 0.34, R: 0, n: 1 },
+  curvo32: { ancho: 0.7, alto: 0.4, R: 1.0, n: 1 },
+  doble27: { ancho: 0.6, alto: 0.34, R: 0, n: 2 },
+  ultra49: { ancho: 1.19, alto: 0.34, R: 1.0, n: 1 },
+}
+
+export function MonitorCurvo({ position, rotation, v = 'ultra34' }) {
+  const M = MONITORES[v] ?? MONITORES.ultra34
+  if (M.n === 2) {
+    /* Dos monitores no son uno el doble de ancho: van abiertos en ángulo hacia
+       quien se sienta, y así es como estorban o no en la mesa. */
+    return (
+      <group position={position} rotation={rotation}>
+        {[-1, 1].map((s) => (
+          <group key={s} position={[s * (M.ancho / 2 + 0.01), 0, s === -1 ? 0.05 : 0.05]} rotation={[0, -s * 0.28, 0]}>
+            <UnMonitor ancho={M.ancho} alto={M.alto} R={M.R} conBase={s === -1} />
+          </group>
+        ))}
+        <mesh position={[0, 0.012, 0.02]} castShadow>
+          <cylinderGeometry args={[0.14, 0.15, 0.024, 24]} />
+          <meshStandardMaterial color="#26262b" roughness={0.4} metalness={0.6} />
+        </mesh>
+      </group>
+    )
+  }
+  return (
+    <group position={position} rotation={rotation}>
+      <UnMonitor ancho={M.ancho} alto={M.alto} R={M.R} conBase />
+    </group>
+  )
+}
+
+function UnMonitor({ ancho = 0.8, alto = 0.34, R = 1.5, conBase = true }) {
+  const arco = R > 0 ? ancho / R : 0
   const y = 0.16 + alto / 2 // sobre el cuello
 
   return (
-    <group position={position} rotation={rotation}>
+    <group>
       {/* base y cuello */}
-      <mesh position={[0, 0.012, 0.02]} castShadow>
-        <cylinderGeometry args={[0.13, 0.14, 0.024, 24]} />
-        <meshStandardMaterial color="#26262b" roughness={0.4} metalness={0.6} />
-      </mesh>
+      {conBase && (
+        <mesh position={[0, 0.012, 0.02]} castShadow>
+          <cylinderGeometry args={[0.13, 0.14, 0.024, 24]} />
+          <meshStandardMaterial color="#26262b" roughness={0.4} metalness={0.6} />
+        </mesh>
+      )}
       <mesh position={[0, 0.09, 0]} castShadow>
         <boxGeometry args={[0.06, 0.16, 0.035]} />
         <meshStandardMaterial color="#26262b" roughness={0.4} metalness={0.6} />
       </mesh>
 
-      {/* el casco: un poco más grande y un poco más atrás que la pantalla */}
-      <mesh position={[0, y, R]} castShadow>
-        <cylinderGeometry args={[R + 0.012, R + 0.012, alto + 0.016, 48, 1, true, Math.PI - arco / 2, arco]} />
-        <meshStandardMaterial color="#141417" roughness={0.55} side={2} />
-      </mesh>
-
-      {/* la pantalla, con algo puesto */}
-      <PantallaCurva R={R} arco={arco} alto={alto - 0.012} y={y} />
+      {/* Plano o curvo. El plano no es un curvo de radio enorme: se dibuja con
+          una caja, que es más barata y además se ve recta de verdad. */}
+      {R === 0 ? (
+        <>
+          <mesh position={[0, y, 0]} castShadow>
+            <boxGeometry args={[ancho + 0.02, alto + 0.016, 0.022]} />
+            <meshStandardMaterial color="#141417" roughness={0.55} />
+          </mesh>
+          <PantallaPlana ancho={ancho - 0.012} alto={alto - 0.012} y={y} />
+        </>
+      ) : (
+        <>
+          <mesh position={[0, y, R]} castShadow>
+            <cylinderGeometry args={[R + 0.012, R + 0.012, alto + 0.016, 48, 1, true, Math.PI - arco / 2, arco]} />
+            <meshStandardMaterial color="#141417" roughness={0.55} side={2} />
+          </mesh>
+          <PantallaCurva R={R} arco={arco} alto={alto - 0.012} y={y} />
+        </>
+      )}
     </group>
   )
+
 }
 
 /**
@@ -789,7 +839,41 @@ export function MonitorCurvo({ position, rotation, ancho = 0.8, alto = 0.34 }) {
  */
 const FRANJAS = 14
 
+/** La misma pantalla, pero recta. Comparte las franjas para que un monitor
+ *  plano y uno curvo se vean igual de encendidos. */
+function PantallaPlana({ ancho, alto, y }) {
+  const materiales = useFranjas()
+  return (
+    <group position={[0, y, 0.012]}>
+      {materiales.map((m, i) => (
+        <mesh key={i} material={m} position={[-ancho / 2 + (ancho / FRANJAS) * (i + 0.5), 0, 0]}>
+          <planeGeometry args={[ancho / FRANJAS + 0.001, alto]} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 function PantallaCurva({ R, arco, alto, y }) {
+  const materiales = useFranjas()
+  const paso = arco / FRANJAS
+  const inicio = Math.PI - arco / 2
+
+  return (
+    <group position={[0, y, R]}>
+      {materiales.map((m, i) => (
+        <mesh key={i} material={m}>
+          {/* un pelo de traslape entre franjas: sin él se ve la costura */}
+          <cylinderGeometry args={[R, R, alto, 4, 1, true, inicio + i * paso - 0.002, paso + 0.004]} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+/** Las franjas encendidas, con su onda. Las comparten la pantalla curva y la
+ *  plana: es la misma pantalla, cambia el soporte. */
+function useFranjas() {
   const materiales = useMemo(
     () =>
       Array.from(
@@ -799,9 +883,6 @@ function PantallaCurva({ R, arco, alto, y }) {
     [],
   )
   useEffect(() => () => materiales.forEach((m) => m.dispose()), [materiales])
-
-  const paso = arco / FRANJAS
-  const inicio = Math.PI - arco / 2
 
   useFrame((st) => {
     const t = st.clock.elapsedTime
@@ -814,16 +895,7 @@ function PantallaCurva({ R, arco, alto, y }) {
     })
   })
 
-  return (
-    <group position={[0, y, R]}>
-      {materiales.map((m, i) => (
-        <mesh key={i} material={m}>
-          {/* un pelo de traslape entre franjas: sin él se ve la costura */}
-          <cylinderGeometry args={[R, R, alto, 4, 1, true, inicio + i * paso - 0.002, paso + 0.004]} />
-        </mesh>
-      ))}
-    </group>
-  )
+  return materiales
 }
 
 /** De buró: la del comando "buenas noches". */
