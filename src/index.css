@@ -257,6 +257,7 @@ canvas {
 
 @media (prefers-reduced-motion: reduce) {
   .orb-siri, .orb-dot, .orb-ring, .orb-pulse { animation: none !important; }
+  .glifo-orbe, .glifo-anillo, .glifo-puntos, .glifo-on { animation: none !important; }
 }
 
 /* ── hotspots del 3D ────────────────────────────────────────── */
@@ -466,6 +467,58 @@ canvas {
     asistente-entra 0.4s var(--ease-out-expo) both,
     marco-gira 1.1s linear infinite;
 }
+
+/* ── los asistentes ──
+   Tres glifos, uno por asistente. No son logos: son la lectura de cada uno
+   —Siri gira, Alexa enciende un aro, Google son cuatro puntos— con los
+   colores de la casa. Van en el botón que corre una ambientación, para que se
+   vea A QUIÉN se le está pidiendo. */
+.glifo-orbe,
+.glifo-anillo,
+.glifo-puntos {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  border-radius: 999px;
+}
+
+.glifo-orbe {
+  background:
+    radial-gradient(circle at 32% 30%, #fff 0%, transparent 44%),
+    conic-gradient(from var(--angulo), var(--color-thread), #c084fc, var(--color-ember), var(--color-thread));
+  animation: marco-gira 6s linear infinite;
+}
+.glifo-orbe.glifo-on {
+  animation: marco-gira 1.6s linear infinite;
+  box-shadow: 0 0 10px color-mix(in srgb, #c084fc 65%, transparent);
+}
+
+.glifo-anillo {
+  border: 2.5px solid color-mix(in srgb, var(--color-ember) 70%, transparent);
+  background: transparent;
+}
+.glifo-anillo.glifo-on {
+  border-color: var(--color-ember);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-ember) 75%, transparent),
+    inset 0 0 6px color-mix(in srgb, var(--color-ember) 45%, transparent);
+  animation: anillo-late 1.2s ease-in-out infinite;
+}
+@keyframes anillo-late {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.glifo-puntos i {
+  position: absolute;
+  width: 34%;
+  height: 34%;
+  border-radius: 999px;
+}
+.glifo-puntos i:nth-child(1) { top: 0; left: 33%; background: #6aa2ff; }
+.glifo-puntos i:nth-child(2) { right: 0; top: 33%; background: #ff6b5e; }
+.glifo-puntos i:nth-child(3) { bottom: 0; left: 33%; background: #ffc63d; }
+.glifo-puntos i:nth-child(4) { left: 0; top: 33%; background: #4ade80; }
+.glifo-puntos.glifo-on { animation: marco-gira 1.8s linear infinite; }
 
 /* ── el orbe ──
    Tres capas de degradado girando a distinta velocidad. No intenta ser el

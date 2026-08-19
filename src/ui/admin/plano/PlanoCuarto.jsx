@@ -732,7 +732,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
           )}
 
           <Suspense fallback={null}>
-            <Ambientaciones items={plano.items} onCorrer={correr} bloqueo={bloqueo} />
+            <Ambientaciones items={plano.items} onCorrer={correr} bloqueo={bloqueo} espacio={room.nombre} />
           </Suspense>
 
           <Automatizaciones nombre={room.nombre} />

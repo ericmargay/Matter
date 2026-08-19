@@ -14,6 +14,17 @@ import { DEVICE_BY_ID } from '../../../content/catalog'
  * es lo que se enseña en la junta.
  */
 
+/* "prende habitación" no lo dice nadie. La lista es corta a propósito: son
+   los espacios masculinos que salen en un levantamiento, y el resto cae en
+   "la", que es lo que acierta la mayoría de las veces. */
+const MASCULINOS = /^(ba[ñn]o|estudio|comedor|recibidor|patio|garaje|cuarto|pasillo|despacho|taller|jard[ií]n|balc[oó]n|desayunador|vest[ií]bulo|closet|cl[oó]set|s[oó]tano)\b/i
+
+function conArticulo(nombre) {
+  const n = (nombre || 'sala').trim()
+  if (!n) return 'la sala'
+  return `${MASCULINOS.test(n) ? 'el' : 'la'} ${n.toLowerCase()}`
+}
+
 const luces = (items) => items.filter((i) => i.clase === 'equipo' && i.params)
 const deCat = (items, cat) => items.filter((i) => DEVICE_BY_ID[i.deviceId]?.cat === cat)
 
@@ -27,7 +38,11 @@ const apagar = (lista) => lista.map((i) => ({ objetivo: i.id, accion: 'apagar', 
  * @param items  las piezas del plano
  * @returns [{ id, nombre, porque, voz, dice, entonces }]
  */
-export function escenasDe(items = []) {
+export function escenasDe(items = [], espacio = 'la sala') {
+  /* El nombre del espacio entra en la frase porque así se dice en la casa:
+     nadie dice "prende la sala" parado en su recámara. Con el nombre fijo, la
+     demostración enseñaba un comando que el cliente no va a usar nunca. */
+  const donde = conArticulo(espacio)
   const L = luces(items)
   const cortinas = deCat(items, 'cortinas')
   const pantallas = deCat(items, 'pantallas')
@@ -41,7 +56,7 @@ export function escenasDe(items = []) {
       id: 'brillante',
       nombre: 'Todo encendido',
       porque: 'Para limpiar, buscar algo o cuando llega gente.',
-      voz: 'Oye Siri, prende la sala',
+      voz: `Oye Siri, prende ${donde}`,
       dice: 'Listo, encendí todo.',
       entonces: [...nivel(L, 100), ...tono(L, 4000), ...abrir(cortinas, 100)],
     })
@@ -50,7 +65,7 @@ export function escenasDe(items = []) {
       id: 'estar',
       nombre: 'Estar',
       porque: 'El día a día: luz suficiente para platicar sin sentirse en un consultorio.',
-      voz: 'Oye Siri, luz de sala',
+      voz: `Oye Siri, luz de ${donde}`,
       dice: 'Va, luz de estar.',
       entonces: [...nivel(L, 65), ...tono(L, 3000)],
     })
