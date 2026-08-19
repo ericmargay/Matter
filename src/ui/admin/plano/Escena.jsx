@@ -9,6 +9,8 @@ import { DEVICE_BY_ID } from '../../../content/catalog'
 
 import { ID_MUROS, MUEBLES } from './catalogo'
 import { GROSOR_MURO, piezaSeVe } from './muros'
+import { Cable } from './cables.jsx'
+import { puntoSalida } from './cables'
 import Conexiones from './Conexiones'
 import { DISPOSICION_BY_ID, DISPOSICIONES, LADO, posicionesDe, trianguloPanel } from './paneles'
 import Cuarto3D from './Cuarto3D'
@@ -262,6 +264,53 @@ function Seleccion({ item, modo, onParchar, onFin }) {
           tamano={Math.min(0.9, Math.max(0.38, 0.34 + mayor * 0.45))}
         />
       )}
+    </>
+  )
+}
+
+/**
+ * Los cables de alimentación del cuarto.
+ *
+ * Solo los de las piezas a las que se les dio cable en el taller: dibujar el
+ * cable de cada cosa enchufada de una casa sería una maraña que no dice nada.
+ * Los que están puestos son los que alguien decidió que importan —la lámpara
+ * que no alcanza, la tele que hay que ranurar— y ésos sí hay que ver.
+ *
+ * El contacto se elige a mano o se toma el más cercano, que es lo que va a
+ * pasar en la obra si nadie decide otra cosa.
+ */
+function Cables({ items }) {
+  const enchufes = useMemo(
+    () => items.filter((i) => i.clase === 'punto' && (i.tipo === 'enchufe' || i.tipo === 'salida')),
+    [items],
+  )
+  const conCable = useMemo(() => items.filter((i) => i.cable), [items])
+  if (conCable.length === 0 || enchufes.length === 0) return null
+
+  return (
+    <>
+      {conCable.map((it) => {
+        const destino =
+          enchufes.find((e) => e.id === it.cable.enchufe) ??
+          enchufes.reduce((a, b) =>
+            Math.hypot(b.x - it.x, b.z - it.z) < Math.hypot(a.x - it.x, a.z - it.z) ? b : a,
+          )
+        const desde = puntoSalida(it, null, it.cable.salida)
+        const hasta = new THREE.Vector3(destino.x, destino.y ?? 0.4, destino.z)
+        /* Si el cable no da, se dibuja en rojo. Es la conversación que hay que
+           tener en el plano y no con el aparato ya montado en el muro. */
+        const alcanza = it.cable.largo >= desde.distanceTo(hasta) * 1.05
+        return (
+          <Cable
+            key={it.id}
+            desde={desde}
+            hasta={hasta}
+            largo={it.cable.largo}
+            ruta={it.cable.ruta}
+            alcanza={alcanza}
+          />
+        )
+      })}
     </>
   )
 }
@@ -1701,6 +1750,9 @@ export default function Escena({
           ruido y además se pelearían con el arrastre */}
       {/* el contorno de lo que está bajo el puntero, y el de lo seleccionado */}
       <Realce item={(encima && encima !== seleccion && plano.items.find((i) => i.id === encima)) || null} />
+
+      {/* Los cables de alimentación, de cada aparato a su contacto. */}
+      <Cables items={plano.items} />
       {/* El hover se suelta en cuanto su pieza deja de existir: si no, se
           queda apuntando a un fantasma hasta que el puntero se mueva. */}
       <SoltarFantasma id={encima} items={plano.items} onSoltar={() => setEncima(null)} />

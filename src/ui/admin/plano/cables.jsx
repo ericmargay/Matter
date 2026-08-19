@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
@@ -49,42 +49,62 @@ export function Cable({ desde, hasta, largo = 1.8, ruta = 'piso', alcanza = true
   const fase = useRef(0)
 
   const base = useMemo(() => trazo(desde.clone(), hasta.clone(), largo, ruta), [desde, hasta, largo, ruta])
-
   const curva = useMemo(() => new THREE.CatmullRomCurve3(base.map((p) => p.clone())), [base])
 
-  /* Movimiento al pasar por encima: el cable se mece un poco, como si lo
-     hubieran rozado. No es adorno — es lo que hace que se lea como un objeto
-     físico y no como una línea de diagrama, y de paso avisa que se puede
-     tocar. Solo los puntos de en medio se mueven: los extremos están
-     enchufados y ésos no se mueven nunca. */
+  /* La geometría la posee ESTE componente, no React.
+     Con `geometry={...}` como prop o como hijo de JSX, React la vuelve a poner
+     en cada render encima de la que acaba de calcular el cuadro anterior —y
+     como esa ya se desechó, el cable desaparecía: se veía el primer cuadro y
+     nada más. Un tubo no se puede deformar en su sitio, así que se rehace, y
+     por eso hay que ser dueño de él. */
+  useEffect(() => {
+    const m = malla.current
+    if (!m) return
+    m.geometry?.dispose()
+    m.geometry = new THREE.TubeGeometry(curva, 28, 0.007, 7, false)
+    return () => m.geometry?.dispose()
+  }, [curva])
+
+  /* Se mece al pasar por encima, como si lo hubieran rozado. No es adorno: es
+     lo que lo hace leer como objeto físico y no como una línea de diagrama, y
+     de paso avisa que se puede tocar. Solo se mueven los puntos de en medio —
+     los dos extremos están enchufados y ésos no se mueven nunca. */
   useFrame((_, dt) => {
-    if (!malla.current) return
-    fase.current += dt * (encima ? 3.2 : 0.7)
-    const amp = (encima ? 0.035 : 0.006) * (ruta === 'piso' ? 1 : 0.4)
+    const m = malla.current
+    if (!m) return
+    fase.current += dt * (encima ? 3.4 : 0.8)
+    const amp = (encima ? 0.03 : 0.005) * (ruta === 'piso' ? 1 : 0.4)
     const ps = curva.points
     for (let i = 1; i < ps.length - 1; i++) {
       const b = base[i]
       const t = fase.current + i * 0.9
       ps[i].set(b.x + Math.sin(t) * amp, b.y + Math.sin(t * 1.7) * amp * 0.6, b.z + Math.cos(t * 1.1) * amp)
     }
-    malla.current.geometry.dispose()
-    malla.current.geometry = new THREE.TubeGeometry(curva, 26, encima ? 0.008 : 0.006, 6, false)
+    const nueva = new THREE.TubeGeometry(curva, 28, encima ? 0.009 : 0.007, 7, false)
+    m.geometry?.dispose()
+    m.geometry = nueva
   })
 
   return (
     <mesh
       ref={malla}
-      onPointerOver={interactivo ? () => setEncima(true) : undefined}
+      castShadow
+      onPointerOver={
+        interactivo
+          ? (e) => {
+              e.stopPropagation()
+              setEncima(true)
+            }
+          : undefined
+      }
       onPointerOut={interactivo ? () => setEncima(false) : undefined}
     >
-      <tubeGeometry args={[curva, 26, 0.006, 6, false]} />
       <meshStandardMaterial
         color={alcanza ? COLOR[ruta] : '#e0533f'}
         roughness={0.75}
         emissive={encima ? '#4d9fff' : '#000000'}
-        emissiveIntensity={encima ? 0.5 : 0}
+        emissiveIntensity={encima ? 0.55 : 0}
       />
     </mesh>
   )
 }
-
