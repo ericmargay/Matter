@@ -12,7 +12,7 @@ import { materialDe, paletaDe, useEstilo } from './estilo'
  * plano se partiría en dos, las cosas "del sistema" y las "hechas a mano", que
  * es justo lo que no se quiere.
  */
-export default function PiezaPropia({ pieza, seleccion, onTomarParte }) {
+export default function PiezaPropia({ pieza, seleccion, onTomarParte, onNodo }) {
   const e = useEstilo()
   const pal = paletaDe(e.paleta)
 
@@ -28,13 +28,14 @@ export default function PiezaPropia({ pieza, seleccion, onTomarParte }) {
           e={e}
           seleccionada={p.id === seleccion}
           onTomar={onTomarParte ? () => onTomarParte(p.id) : undefined}
+          onNodo={onNodo}
         />
       ))}
     </group>
   )
 }
 
-function Parte({ p, pal, e, seleccionada, onTomar }) {
+function Parte({ p, pal, e, seleccionada, onTomar, onNodo }) {
   const geo = useMemo(() => {
     const [a, b, c] = p.med
     if (p.forma === 'cilindro') return cilindro(c / 2, a / 2, b, e.tono, 22)
@@ -56,7 +57,14 @@ function Parte({ p, pal, e, seleccionada, onTomar }) {
   )
 
   return (
-    <group position={p.pos} rotation={p.rot}>
+    /* El grupo se registra hacia arriba para que el gizmo pueda agarrar ESTA
+       parte y no un objeto invisible puesto encima. Es lo que hace que al
+       arrastrar se vea moverse la pieza y no solo el resultado al soltar. */
+    <group
+      ref={(o) => onNodo?.(p.id, o)}
+      position={p.pos}
+      rotation={p.rot}
+    >
       <mesh
         geometry={geo}
         material={mat}

@@ -1,4 +1,4 @@
-import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, TransformControls } from '@react-three/drei'
 
@@ -48,6 +48,12 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
   const [parteSel, setParteSel] = useState(null)
   const [modoParte, setModoParte] = useState('mover')
   const escena = useRef()
+  /* Los grupos de cada parte, para que el gizmo agarre la parte de verdad. */
+  const nodos = useRef(new Map())
+  /* El nodo de la parte elegida, en estado y no solo en la referencia: las
+     referencias se llenan DESPUÉS de pintar, así que leyéndolas en el render
+     el gizmo no aparecía hasta el siguiente cambio. */
+  const [nodoSel, setNodoSel] = useState(null)
   const [seccion, setSeccion] = useState('medidas')
   /* El lienzo NACE en el mismo rectángulo que el del cuarto y de ahí se abre a
      su sitio. Es lo que hace imposible el brinco: en el instante del cruce las
@@ -55,6 +61,10 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
      misma imagen. Compensar el desfase a mano era pelearse con dos layouts que
      cambian; esto no tiene nada que compensar. */
   const [abierto, setAbierto] = useState(!rect)
+
+  useEffect(() => {
+    setNodoSel(parteSel ? (nodos.current.get(parteSel) ?? null) : null)
+  }, [parteSel, pieza])
 
   const valores = useMemo(
     () => (def ? { ...valoresDe({ ...item, ajustes: {} }), ...ajustes } : {}),
@@ -199,7 +209,16 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
                 <group rotation={[0, item.rot ?? 0, 0]}>
                 <Animar tipo={animacion} semilla={item.id?.length ?? 0}>
                   {pieza ? (
-                    <PiezaPropia pieza={pieza} seleccion={parteSel} onTomarParte={setParteSel} />
+                    <PiezaPropia
+                      pieza={pieza}
+                      seleccion={parteSel}
+                      onTomarParte={setParteSel}
+                      onNodo={(id, o) => {
+                        if (o) nodos.current.set(id, o)
+                        else nodos.current.delete(id)
+                        if (id === parteSel) setNodoSel(o ?? null)
+                      }}
+                    />
                   ) : def?.Comp ? (
                     def.Nuevo ? (
                       <def.Comp {...valores} />
@@ -219,6 +238,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
               {pieza && parteSel && (
                 <GizmoParte
                   parte={pieza.partes.find((x) => x.id === parteSel)}
+                  nodo={nodoSel}
                   modo={modoParte}
                   onCambiar={(patch) =>
                     setPieza((z) => ({
@@ -376,50 +396,38 @@ function PrimerCuadro({ onListo }) {
  * cuánto mide, y estas piezas se van a fabricar: lo que dice el panel tiene
  * que ser lo que va al carpintero.
  */
-function GizmoParte({ parte, modo, onCambiar }) {
-  const nodo = useRef()
-  const [listo, setListo] = useState(false)
+function GizmoParte({ parte, nodo, modo, onCambiar }) {
+  if (!parte || !nodo) return null
 
-  useLayoutEffect(() => {
-    const o = nodo.current
-    if (!o || !parte) return
-    o.position.set(...parte.pos)
-    o.rotation.set(...parte.rot)
-    o.scale.set(1, 1, 1)
-    setListo(true)
-  }, [parte])
-
-  if (!parte) return null
-
+  /* El control se engancha a la MALLA de la parte, no a un objeto auxiliar.
+     Con el auxiliar, arrastrar movía algo invisible y la pieza solo saltaba a
+     su nuevo sitio al soltar: se veía el resultado, nunca el movimiento.
+     Enganchado a la parte, la mueve three.js mientras dura el arrastre y solo
+     al soltar se escribe el número. */
   const soltar = () => {
-    const o = nodo.current
-    if (!o) return
     const r3 = (n) => Number(n.toFixed(4))
     if (modo === 'escalar') {
-      const med = parte.med.map((m, i) => Math.max(0.005, r3(m * [o.scale.x, o.scale.y, o.scale.z][i])))
-      o.scale.set(1, 1, 1)
+      /* Estirar cambia la MEDIDA, no deja una escala puesta. Una parte con
+         escala 1.4 miente sobre cuánto mide, y esto se manda a hacer. */
+      const med = parte.med.map((m, i) => Math.max(0.005, r3(m * [nodo.scale.x, nodo.scale.y, nodo.scale.z][i])))
+      nodo.scale.set(1, 1, 1)
       onCambiar({ med })
     } else if (modo === 'girar') {
-      onCambiar({ rot: [r3(o.rotation.x), r3(o.rotation.y), r3(o.rotation.z)] })
+      onCambiar({ rot: [r3(nodo.rotation.x), r3(nodo.rotation.y), r3(nodo.rotation.z)] })
     } else {
-      onCambiar({ pos: [r3(o.position.x), r3(o.position.y), r3(o.position.z)] })
+      onCambiar({ pos: [r3(nodo.position.x), r3(nodo.position.y), r3(nodo.position.z)] })
     }
   }
 
   return (
-    <>
-      <object3D ref={nodo} />
-      {listo && nodo.current && (
-        <TransformControls
-          object={nodo.current}
-          mode={modo === 'girar' ? 'rotate' : modo === 'escalar' ? 'scale' : 'translate'}
-          size={0.7}
-          translationSnap={0.005}
-          rotationSnap={Math.PI / 36}
-          onMouseUp={soltar}
-        />
-      )}
-    </>
+    <TransformControls
+      object={nodo}
+      mode={modo === 'girar' ? 'rotate' : modo === 'escalar' ? 'scale' : 'translate'}
+      size={0.7}
+      translationSnap={0.005}
+      rotationSnap={Math.PI / 36}
+      onMouseUp={soltar}
+    />
   )
 }
 
