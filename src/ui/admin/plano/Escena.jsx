@@ -421,9 +421,12 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = t
      también la medida (`w`, `largo`) sin que el renderizador sepa de cuál se
      trata. */
   const variante = def.variantes?.find((x) => x.id === item.variante)
-  const props = { ...def.props, ...(variante?.props ?? {}) }
-  const w = variante?.props?.w ?? def.w
-  const d = variante?.props?.d ?? def.d
+  /* Base, encima la versión elegida y encima lo ajustado a mano en el taller.
+     El mismo orden que usa el taller para enseñarla: si aquí y allá no fuera
+     igual, el taller mostraría una pieza y el plano dibujaría otra. */
+  const props = { ...def.props, ...(variante?.props ?? {}), ...(item.ajustes ?? {}) }
+  const w = props.w ?? def.w
+  const d = props.d ?? def.d
 
   return (
     <group
@@ -563,7 +566,7 @@ function Paneles({ disposicion, prendido, color, brillo }) {
   )
 }
 
-function Cuerpo({ device, params, encendido, color, apertura }) {
+export function Cuerpo({ device, params, encendido, color, apertura }) {
   const cat = device?.cat
   const forma = params?.forma
   const prendido = params && encendido

@@ -13,6 +13,7 @@ import { DISPOSICIONES } from './paneles'
    levantar, y su panel no tiene por qué viajar en el bundle del editor. */
 const StyleLab = lazy(() => import('./StyleLab'))
 const Ambientaciones = lazy(() => import('./Ambientaciones'))
+const TallerPieza = lazy(() => import('./TallerPieza'))
 import { ALTURA_POR_FORMA, diagnosticoLux, luxDelCuarto, parametrosIniciales } from './luz'
 import {
   ACCIONES,
@@ -171,6 +172,9 @@ export default function PlanoCuarto({ room, onCerrar }) {
      tiene por qué viajarle a Carpio ni quedar en el historial. */
   const { sim, comps, disparar, dispararPorPieza, correr, bloqueo, liberar } = useSimulacion(plano)
   const [uniendo, setUniendo] = useState(null)
+  /* Qué pieza está en el taller. Es un modo aparte, no un panel: el cuarto
+     desaparece para que se vea lo que se está cambiando. */
+  const [enTaller, setEnTaller] = useState(null)
 
   // el fondo no debe desplazarse detrás del editor
   useEffect(() => {
@@ -585,7 +589,19 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onFinGizmo={() => guardar({ items: plano.items }, `Acomodó una pieza en ${room.nombre}`)}
             />
 
-          {/* Deshacer, a la vista. El atajo existe, pero un levantador parado
+          {enTaller && (
+        <Suspense fallback={null}>
+          <TallerPieza
+            item={plano.items.find((i) => i.id === enTaller)}
+            puntos={plano.items.filter((i) => i.clase === 'punto' && i.tipo === 'enchufe')}
+            red={plano.red}
+            onGuardar={(patch, que) => parchar(enTaller, patch, que)}
+            onCerrar={() => setEnTaller(null)}
+          />
+        </Suspense>
+      )}
+
+      {/* Deshacer, a la vista. El atajo existe, pero un levantador parado
               en una sala con el teléfono en la otra mano no se acuerda de
               Ctrl+Z: el botón dice además QUÉ va a deshacer, que es la
               diferencia entre atreverse a probar algo y no tocarlo. */}
@@ -731,6 +747,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
               items={plano.items}
               sim={sim}
               onSeleccionar={seleccionar}
+              onTaller={setEnTaller}
               onQuitarTramo={(tid) => guardar({ tramos: plano.tramos.filter((t) => t.id !== tid) }, 'Quitó una línea eléctrica')}
             />
           ) : (
@@ -1223,6 +1240,7 @@ function Inspector({
   items = [],
   sim,
   onSeleccionar,
+  onTaller,
 }) {
   const dev = item.clase === 'equipo' ? DEVICE_BY_ID[item.deviceId] : null
   const alojados = useMemo(() => dispositivosDe(item, items), [item, items])
@@ -1302,6 +1320,18 @@ function Inspector({
             </button>
           ))}
         </div>
+      )}
+
+      {/* Al taller: la pieza sola, sin cuarto, para poder tocarla.
+          Corregir una proporción o mover por dónde sale un cable dejaba de ser
+          algo que se hace y pasaba a ser algo que se pide. */}
+      {onTaller && (item.clase === 'mueble' || item.clase === 'equipo') && (
+        <button
+          onClick={() => onTaller(item.id)}
+          className="mt-2 w-full rounded-lg border border-cream/25 px-2 py-1.5 text-[11.5px] text-cream-2 transition-colors hover:border-ember hover:text-cream"
+        >
+          Editar partes y funcionalidad →
+        </button>
       )}
 
       {/* Lo que se le puede pedir a ESTE aparato, ahora mismo.
