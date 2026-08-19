@@ -15,9 +15,11 @@ import { useStore } from '../store/store'
 
 /* ─────────────────────────── baño ─────────────────────────── */
 
-export function Toilet({ position, rotation }) {
+/* `w` y `d` porque un WC alargado y uno compacto se llevan 15 cm de
+   diferencia, y en un baño de 1.40 esos 15 cm son la puerta abriendo o no. */
+export function Toilet({ position, rotation, w = 0.38, d = 0.68, alto = 0.78 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.38, alto / 0.78, d / 0.68]}>
       {/* tanque */}
       <RoundedBox args={[0.36, 0.42, 0.18]} radius={0.04} smoothness={2} position={[0, 0.55, -0.19]} castShadow>
         <meshStandardMaterial color="#e6e2da" roughness={0.35} />

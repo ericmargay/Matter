@@ -124,9 +124,9 @@ export function Cuadro({ position, rotation, w = 0.55, h = 0.75, tono = 0 }) {
 }
 
 /** Tres cuadros de tamaños distintos, como se cuelgan de verdad. */
-export function MuroCuadros({ position, rotation }) {
+export function MuroCuadros({ position, rotation, w = 1.2, alto = 1.1, d = 0.05 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 1.2, alto / 1.1, d / 0.05]}>
       <Cuadro position={[-0.45, 0.1, 0]} w={0.5} h={0.66} tono={0} />
       <Cuadro position={[0.1, 0.22, 0]} w={0.38} h={0.48} tono={2} />
       <Cuadro position={[0.12, -0.28, 0]} w={0.38} h={0.3} tono={3} />
@@ -180,9 +180,9 @@ export function MacetaChica({ position, rotation, w = 0.16, alto = 0.16 }) {
    El detalle que hace que el cliente sonría cuando ve su plano. Cuesta seis
    primitivas y es lo que separa un plano técnico de la casa de alguien. */
 
-export function GatoDormido({ position, rotation }) {
+export function GatoDormido({ position, rotation, w = 0.5, alto = 0.18, d = 0.3 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.5, alto / 0.18, d / 0.3]}>
       {/* el cuerpo hecho bola */}
       <mesh position={[0, 0.11, 0]} scale={[1, 0.72, 1.25]} castShadow>
         <sphereGeometry args={[0.16, 14, 10]} />
@@ -208,9 +208,9 @@ export function GatoDormido({ position, rotation }) {
   )
 }
 
-export function PerroDormido({ position, rotation }) {
+export function PerroDormido({ position, rotation, w = 0.7, alto = 0.24, d = 0.4 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.7, alto / 0.24, d / 0.4]}>
       <mesh position={[0, 0.14, 0]} scale={[1, 0.8, 1.5]} castShadow>
         <sphereGeometry args={[0.22, 14, 10]} />
         <meshStandardMaterial color="#8a7256" roughness={0.95} />
@@ -234,9 +234,9 @@ export function PerroDormido({ position, rotation }) {
 }
 
 /** La cama del animal, para que no duerma en el piso pelón. */
-export function CamaMascota({ position, rotation }) {
+export function CamaMascota({ position, rotation, w = 0.7, alto = 0.18, d = 0.7 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.7, alto / 0.18, d / 0.7]}>
       <C p={[0, 0.06, 0]} s={[0.62, 0.12, 0.62]} m={M.fabricLight ?? M.wood} />
       <C p={[0, 0.09, 0]} s={[0.44, 0.06, 0.44]} m={M.fabric ?? M.wood} />
     </group>
@@ -245,9 +245,9 @@ export function CamaMascota({ position, rotation }) {
 
 /* ── sala y estar ──────────────────────────────────────────────── */
 
-export function Sillon({ position, rotation }) {
+export function Sillon({ position, rotation, w = 0.95, alto = 0.85, d = 0.9 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.95, alto / 0.85, d / 0.9]}>
       <B p={[0, 0.2, 0]} s={[0.95, 0.4, 0.9]} m={M.fabric} />
       <B p={[0, 0.46, 0]} s={[0.82, 0.16, 0.78]} m={M.fabricLight} />
       <B p={[0, 0.55, -0.4]} s={[0.95, 0.7, 0.14]} m={M.fabric} />
@@ -284,9 +284,9 @@ export function LamparaPie({ position, rotation }) {
   )
 }
 
-export function Chimenea({ position, rotation }) {
+export function Chimenea({ position, rotation, w = 1.3, alto = 1.1, d = 0.4 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 1.3, alto / 1.1, d / 0.4]}>
       <B p={[0, 0.55, 0]} s={[1.5, 1.1, 0.35]} m={M.ceramic} />
       <B p={[0, 0.42, 0.04]} s={[0.9, 0.55, 0.3]} m={M.black} />
       <B p={[0, 1.14, 0]} s={[1.7, 0.09, 0.45]} m={M.wood} />
@@ -294,9 +294,9 @@ export function Chimenea({ position, rotation }) {
   )
 }
 
-export function RelojPared({ position, rotation }) {
+export function RelojPared({ position, rotation, w = 0.34, alto = 0.34, d = 0.05 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.34, alto / 0.34, d / 0.05]}>
       <C p={[0, 0, 0]} s={[0.34, 0.05, 0.34]} r={[Math.PI / 2, 0, 0]} m={M.woodDark} />
       <C p={[0, 0, 0.03]} s={[0.29, 0.02, 0.29]} r={[Math.PI / 2, 0, 0]} m={M.white} />
       <B p={[0, 0.06, 0.05]} s={[0.02, 0.11, 0.01]} m={M.black} />
@@ -305,9 +305,9 @@ export function RelojPared({ position, rotation }) {
   )
 }
 
-export function Revistero({ position, rotation }) {
+export function Revistero({ position, rotation, w = 0.4, alto = 0.4, d = 0.3 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.4, alto / 0.4, d / 0.3]}>
       <B p={[0, 0.14, 0]} s={[0.42, 0.28, 0.3]} m={M.wood} />
       {[0, 1, 2].map((i) => (
         <B key={i} p={[(i - 1) * 0.07, 0.32, 0]} s={[0.05, 0.24, 0.26]} r={[0.12, 0, 0]} m={M.fabricLight} />
@@ -318,9 +318,9 @@ export function Revistero({ position, rotation }) {
 
 /* ── comedor y cocina ──────────────────────────────────────────── */
 
-export function SillaComedor({ position, rotation }) {
+export function SillaComedor({ position, rotation, w = 0.46, alto = 0.9, d = 0.5 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.46, alto / 0.9, d / 0.5]}>
       <B p={[0, 0.45, 0]} s={[0.44, 0.05, 0.44]} m={M.wood} />
       <B p={[0, 0.72, -0.19]} s={[0.42, 0.5, 0.05]} m={M.wood} />
       {[-1, 1].map((x) =>
@@ -332,9 +332,9 @@ export function SillaComedor({ position, rotation }) {
   )
 }
 
-export function BancoBarra({ position, rotation }) {
+export function BancoBarra({ position, rotation, w = 0.36, alto = 0.65, d = 0.36 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.36, alto / 0.65, d / 0.36]}>
       <C p={[0, 0.66, 0]} s={[0.34, 0.07, 0.34]} m={M.fabric} />
       <C p={[0, 0.33, 0]} s={[0.05, 0.66, 0.05]} m={M.metal} />
       <C p={[0, 0.22, 0]} s={[0.28, 0.03, 0.28]} m={M.metal} />
@@ -465,9 +465,9 @@ export function Comoda({ position, rotation }) {
   )
 }
 
-export function EspejoPie({ position, rotation }) {
+export function EspejoPie({ position, rotation, w = 0.55, alto = 1.65, d = 0.3 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.55, alto / 1.65, d / 0.3]}>
       <B p={[0, 0.85, 0]} s={[0.55, 1.6, 0.05]} m={M.woodDark} />
       <B p={[0, 0.85, 0.03]} s={[0.46, 1.5, 0.01]} m={M.glass} />
       <B p={[0, 0.03, 0.12]} s={[0.4, 0.05, 0.28]} m={M.woodDark} />
@@ -475,9 +475,9 @@ export function EspejoPie({ position, rotation }) {
   )
 }
 
-export function BancaPie({ position, rotation }) {
+export function BancaPie({ position, rotation, w = 1.2, alto = 0.45, d = 0.4 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 1.2, alto / 0.45, d / 0.4]}>
       <B p={[0, 0.42, 0]} s={[1.2, 0.16, 0.4]} m={M.fabricLight} />
       {[-1, 1].map((x) =>
         [-1, 1].map((z) => (
@@ -488,9 +488,9 @@ export function BancaPie({ position, rotation }) {
   )
 }
 
-export function Cuna({ position, rotation }) {
+export function Cuna({ position, rotation, w = 1.3, alto = 0.95, d = 0.7 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 1.3, alto / 0.95, d / 0.7]}>
       <B p={[0, 0.35, 0]} s={[1.25, 0.14, 0.68]} m={M.fabricLight} />
       {[-1, 1].map((z) => (
         <B key={z} p={[0, 0.5, z * 0.33]} s={[1.25, 0.5, 0.04]} m={M.wood} />
@@ -508,19 +508,27 @@ export function Cuna({ position, rotation }) {
    boiler, el lavadero y el tendedero. Sin estas piezas ese espacio se
    levantaba vacío. */
 
-export function Tina({ position, rotation }) {
+export function Tina({ position, rotation, w = 1.7, d = 0.78, exenta = false }) {
   return (
     <group position={position} rotation={rotation}>
-      <B p={[0, 0.28, 0]} s={[1.7, 0.56, 0.78]} m={M.white} />
-      <B p={[0, 0.44, 0]} s={[1.55, 0.3, 0.64]} m={M.ceramic} />
-      <C p={[-0.75, 0.68, 0]} s={[0.05, 0.24, 0.05]} m={M.metalWarm} />
+      <B p={[0, 0.28, 0]} s={[w, 0.56, d]} m={M.white} />
+      <B p={[0, 0.44, 0]} s={[w - 0.15, 0.3, d - 0.14]} m={M.ceramic} />
+      {/* exenta: separada del muro, con patas. Pide toma y desagüe en el PISO,
+          no en la pared, y eso hay que decidirlo antes de colar. */}
+      {exenta &&
+        [-1, 1].map((x) =>
+          [-1, 1].map((z) => (
+            <C key={`${x}${z}`} p={[(x * (w - 0.3)) / 2, 0.05, (z * (d - 0.24)) / 2]} s={[0.06, 0.1, 0.06]} m={M.metalWarm} />
+          )),
+        )}
+      <C p={[-w / 2 + 0.1, 0.68, 0]} s={[0.05, 0.24, 0.05]} m={M.metalWarm} />
     </group>
   )
 }
 
-export function Lavadora({ position, rotation }) {
+export function Lavadora({ position, rotation, w = 0.6, alto = 0.85, d = 0.6 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.6, alto / 0.85, d / 0.6]}>
       <B p={[0, 0.43, 0]} s={[0.64, 0.86, 0.64]} m={M.white} />
       <C p={[0, 0.48, 0.32]} s={[0.34, 0.03, 0.34]} r={[Math.PI / 2, 0, 0]} m={M.metal} />
       <C p={[0, 0.48, 0.34]} s={[0.26, 0.02, 0.26]} r={[Math.PI / 2, 0, 0]} m={M.glass} />
@@ -529,9 +537,9 @@ export function Lavadora({ position, rotation }) {
   )
 }
 
-export function Secadora({ position, rotation }) {
+export function Secadora({ position, rotation, w = 0.6, alto = 0.85, d = 0.6 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.6, alto / 0.85, d / 0.6]}>
       <B p={[0, 0.43, 0]} s={[0.64, 0.86, 0.64]} m={M.ceramic} />
       <C p={[0, 0.45, 0.32]} s={[0.38, 0.03, 0.38]} r={[Math.PI / 2, 0, 0]} m={M.metal} />
       <B p={[0, 0.82, 0.32]} s={[0.5, 0.09, 0.02]} m={M.black} />
@@ -540,9 +548,9 @@ export function Secadora({ position, rotation }) {
 }
 
 /** Boiler de paso. Va en muro y es de lo primero que se pregunta si es de gas. */
-export function Boiler({ position, rotation }) {
+export function Boiler({ position, rotation, w = 0.45, alto = 1.2, d = 0.45 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.45, alto / 1.2, d / 0.45]}>
       <B p={[0, 0, 0]} s={[0.42, 0.66, 0.25]} m={M.ceramic} />
       <C p={[-0.12, -0.42, 0]} s={[0.05, 0.2, 0.05]} m={M.metal} />
       <C p={[0.12, -0.42, 0]} s={[0.05, 0.2, 0.05]} m={M.metal} />
@@ -551,9 +559,9 @@ export function Boiler({ position, rotation }) {
   )
 }
 
-export function Lavadero({ position, rotation }) {
+export function Lavadero({ position, rotation, w = 0.8, alto = 0.9, d = 0.6 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.8, alto / 0.9, d / 0.6]}>
       <B p={[0, 0.42, 0]} s={[0.9, 0.84, 0.6]} m={M.ceramic} />
       <B p={[0, 0.86, 0]} s={[0.94, 0.06, 0.64]} m={M.white} />
       <B p={[-0.2, 0.87, 0]} s={[0.42, 0.06, 0.44]} m={M.ceramic} />
@@ -562,9 +570,9 @@ export function Lavadero({ position, rotation }) {
   )
 }
 
-export function Tendedero({ position, rotation }) {
+export function Tendedero({ position, rotation, w = 1.6, alto = 1.3, d = 0.6 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 1.6, alto / 1.3, d / 0.6]}>
       {[-1, 1].map((x) => (
         <C key={x} p={[x * 0.7, 0.55, 0]} s={[0.04, 1.1, 0.04]} m={M.metal} />
       ))}
@@ -575,9 +583,9 @@ export function Tendedero({ position, rotation }) {
   )
 }
 
-export function Tinaco({ position, rotation }) {
+export function Tinaco({ position, rotation, w = 0.9, alto = 1.1, d = 0.9 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.9, alto / 1.1, d / 0.9]}>
       <C p={[0, 0.5, 0]} s={[0.9, 1.0, 0.9]} m={M.black} />
       <C p={[0, 1.03, 0]} s={[0.4, 0.08, 0.4]} m={M.ceramic} />
     </group>
@@ -586,9 +594,9 @@ export function Tinaco({ position, rotation }) {
 
 /* ── oficina ───────────────────────────────────────────────────── */
 
-export function Archivero({ position, rotation }) {
+export function Archivero({ position, rotation, w = 0.45, alto = 0.72, d = 0.55 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.45, alto / 0.72, d / 0.55]}>
       <B p={[0, 0.34, 0]} s={[0.45, 0.68, 0.55]} m={M.metal} />
       {[0, 1].map((i) => (
         <B key={i} p={[0, 0.18 + i * 0.32, 0.28]} s={[0.36, 0.22, 0.02]} m={M.ceramic} />
@@ -597,18 +605,18 @@ export function Archivero({ position, rotation }) {
   )
 }
 
-export function Pizarron({ position, rotation }) {
+export function Pizarron({ position, rotation, w = 1.6, alto = 1.0, d = 0.05 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 1.6, alto / 1.0, d / 0.05]}>
       <B p={[0, 0, 0]} s={[1.8, 1.05, 0.05]} m={M.woodDark} />
       <B p={[0, 0, 0.03]} s={[1.7, 0.95, 0.01]} m={M.white} />
     </group>
   )
 }
 
-export function SillaVisita({ position, rotation }) {
+export function SillaVisita({ position, rotation, w = 0.5, alto = 0.82, d = 0.55 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.5, alto / 0.82, d / 0.55]}>
       <B p={[0, 0.44, 0]} s={[0.46, 0.07, 0.46]} m={M.fabric} />
       <B p={[0, 0.7, -0.2]} s={[0.44, 0.46, 0.07]} m={M.fabric} />
       {[-1, 1].map((x) => (
@@ -618,9 +626,9 @@ export function SillaVisita({ position, rotation }) {
   )
 }
 
-export function MacetaGrande({ position, rotation }) {
+export function MacetaGrande({ position, rotation, w = 0.5, alto = 0.55, d = 0.5 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.5, alto / 0.55, d / 0.5]}>
       <C p={[0, 0.3, 0]} s={[0.5, 0.6, 0.5]} m={M.ceramic} />
       {Array.from({ length: 7 }, (_, i) => {
         const a = (i / 7) * Math.PI * 2
@@ -673,9 +681,9 @@ export function CuadroGrande({ position, rotation }) {
 }
 
 /** Tres piezas del mismo alto, que es como se cuelga un tríptico. */
-export function TripticoArte({ position, rotation }) {
+export function TripticoArte({ position, rotation, w = 1.5, alto = 0.7, d = 0.05 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 1.5, alto / 0.7, d / 0.05]}>
       {[-1, 0, 1].map((i) => (
         <CuadroArte
           key={i}
@@ -690,9 +698,9 @@ export function TripticoArte({ position, rotation }) {
 }
 
 /** Recargado en el piso contra el muro, como en los estudios. */
-export function CuadroPiso({ position, rotation }) {
+export function CuadroPiso({ position, rotation, w = 0.86, alto = 1.1, d = 0.3 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.86, alto / 1.1, d / 0.3]}>
       <group position={[0, 0.55, 0]} rotation={[-0.14, 0, 0]}>
         <CuadroArte position={[0, 0, 0]} w={0.8} h={1.05} estilo="grafico" />
       </group>
