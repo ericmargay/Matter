@@ -654,7 +654,7 @@ export function CuadroPiso({ position, rotation }) {
    la pena que estén modeladas: para poder señalarlas en el plano y decir
    "aquí van tres focos y ya tienes la sala automatizada". */
 
-export function LamparaArco({ position, rotation }) {
+export function LamparaArco({ position, rotation, alcance = 1.1, altura = 1.35 }) {
   return (
     <group position={position} rotation={rotation}>
       <C p={[0, 0.03, 0]} s={[0.4, 0.06, 0.4]} m={M.metal} />
@@ -663,7 +663,7 @@ export function LamparaArco({ position, rotation }) {
         return (
           <C
             key={i}
-            p={[t * 1.1, 0.4 + Math.sin(t * 1.5) * 1.35, 0]}
+            p={[t * alcance, 0.4 + Math.sin(t * 1.5) * altura, 0]}
             s={[0.035, 0.3, 0.035]}
             r={[0, 0, -t * 0.9]}
             m={M.metal}
@@ -671,7 +671,7 @@ export function LamparaArco({ position, rotation }) {
           />
         )
       })}
-      <mesh position={[1.15, 1.72, 0]} castShadow>
+      <mesh position={[alcance * 1.045, 0.4 + Math.sin(1.5) * altura + 0.36, 0]} castShadow>
         <cylinderGeometry args={[0.19, 0.19, 0.22, 18, 1, true]} />
         <meshStandardMaterial color="#d8c49a" roughness={0.9} side={2} />
       </mesh>
@@ -679,31 +679,85 @@ export function LamparaArco({ position, rotation }) {
   )
 }
 
-export function LamparaColgante({ position, rotation }) {
+/**
+ * El colgante, en diez.
+ *
+ * De todas las luminarias de una casa es la que más decisiones arrastra: la
+ * altura del cable depende de qué hay debajo —sobre una mesa cuelga a 75 cm
+ * del tablero, en un pasillo no puede bajar de 2.10— y la forma de la pantalla
+ * decide si la luz cae en un cono cerrado sobre la mesa o si se reparte por
+ * todo el cuarto. Por eso las diez cambian pantalla Y caída.
+ */
+export function LamparaColgante({ position, rotation, v = 'campana', caida = 1.24 }) {
+  const cable = <C p={[0, caida / 2, 0]} s={[0.012, caida, 0.012]} m={M.metal} shadow={false} />
+  const opaco = <meshStandardMaterial color="#2f2b28" roughness={0.5} metalness={0.4} side={2} />
+  const claro = <meshStandardMaterial color="#e6ddcb" roughness={0.85} side={2} />
+
+  const P = {
+    // cono cerrado: manda la luz abajo, sobre la mesa
+    campana: <cylinderGeometry args={[0.06, 0.24, 0.26, 20, 1, true]} />,
+    // más ancho y más plano: cubre una mesa larga
+    plato: <cylinderGeometry args={[0.05, 0.34, 0.16, 24, 1, true]} />,
+    // cilindro recto: reparte arriba y abajo por igual
+    tambor: <cylinderGeometry args={[0.17, 0.17, 0.24, 22, 1, true]} />,
+    // invertido: casi toda la luz al techo, ambiente y nada de tarea
+    invertido: <cylinderGeometry args={[0.26, 0.1, 0.2, 22, 1, true]} />,
+    // tubo largo: para barra angosta o pasillo
+    tubo: <cylinderGeometry args={[0.07, 0.07, 0.46, 18, 1, true]} />,
+    // jaula: la luz sale por todos lados, deslumbra si va a la altura del ojo
+    jaula: <cylinderGeometry args={[0.14, 0.14, 0.22, 8, 1, true]} />,
+    // domo hondo, el clásico de barra
+    domo: <sphereGeometry args={[0.2, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />,
+  }
+
   return (
     <group position={position} rotation={rotation}>
-      <C p={[0, 0.62, 0]} s={[0.012, 1.24, 0.012]} m={M.metal} shadow={false} />
+      {cable}
       <mesh castShadow>
-        <cylinderGeometry args={[0.06, 0.24, 0.26, 20, 1, true]} />
-        <meshStandardMaterial color="#2f2b28" roughness={0.5} metalness={0.4} side={2} />
+        {P[v] ?? P.campana}
+        {v === 'tambor' || v === 'invertido' || v === 'tubo' ? claro : opaco}
       </mesh>
     </group>
   )
 }
 
-export function LamparaEsfera({ position, rotation }) {
+/** El colgante esférico, en diez tamaños y caídas. La esfera reparte en todas
+ *  direcciones: es la que mejor ambienta y la peor para leer debajo. */
+export function LamparaEsfera({ position, rotation, r = 0.16, caida = 1.0, racimo = 1 }) {
+  const bola = (x = 0, y = 0, rr = r) => (
+    <mesh position={[x, y, 0]} castShadow>
+      <sphereGeometry args={[rr, 20, 14]} />
+      <meshStandardMaterial color="#e6ddcb" roughness={0.85} />
+    </mesh>
+  )
+
+  if (racimo > 1)
+    /* Racimo: tres esferas a distinta altura. Es una sola salida de techo pero
+       tres cuerpos, y eso cambia la caja que hay que dejar arriba. */
+    return (
+      <group position={position} rotation={rotation}>
+        {Array.from({ length: racimo }, (_, i) => {
+          const x = (i - (racimo - 1) / 2) * r * 2.6
+          const y = -i * r * 0.9
+          return (
+            <group key={i}>
+              <C p={[x, y + caida / 2, 0]} s={[0.012, caida, 0.012]} m={M.metal} shadow={false} />
+              {bola(x, y, r * (i === 1 ? 1.15 : 0.9))}
+            </group>
+          )
+        })}
+      </group>
+    )
+
   return (
     <group position={position} rotation={rotation}>
-      <C p={[0, 0.5, 0]} s={[0.012, 1.0, 0.012]} m={M.metal} shadow={false} />
-      <mesh castShadow>
-        <sphereGeometry args={[0.16, 20, 14]} />
-        <meshStandardMaterial color="#e6ddcb" roughness={0.85} />
-      </mesh>
+      <C p={[0, caida / 2, 0]} s={[0.012, caida, 0.012]} m={M.metal} shadow={false} />
+      {bola()}
     </group>
   )
 }
 
-export function LamparaTripode({ position, rotation }) {
+export function LamparaTripode({ position, rotation, alto = 1.25, abre = 0.22, pantalla = 0.24 }) {
   return (
     <group position={position} rotation={rotation}>
       {[0, 1, 2].map((i) => {
@@ -711,15 +765,15 @@ export function LamparaTripode({ position, rotation }) {
         return (
           <C
             key={i}
-            p={[Math.sin(a) * 0.22, 0.6, Math.cos(a) * 0.22]}
-            s={[0.035, 1.25, 0.035]}
+            p={[Math.sin(a) * abre, alto * 0.48, Math.cos(a) * abre]}
+            s={[0.035, alto, 0.035]}
             r={[Math.cos(a) * 0.3, 0, -Math.sin(a) * 0.3]}
             m={M.wood}
           />
         )
       })}
-      <mesh position={[0, 1.36, 0]} castShadow>
-        <cylinderGeometry args={[0.16, 0.24, 0.28, 18, 1, true]} />
+      <mesh position={[0, alto * 1.09, 0]} castShadow>
+        <cylinderGeometry args={[pantalla * 0.67, pantalla, 0.28, 18, 1, true]} />
         <meshStandardMaterial color="#cfc4b1" roughness={0.9} side={2} />
       </mesh>
     </group>
@@ -727,13 +781,19 @@ export function LamparaTripode({ position, rotation }) {
 }
 
 /** De escritorio, articulada. La que casi siempre acaba con el foco de color. */
-export function LamparaEscritorio({ position, rotation }) {
+export function LamparaEscritorio({ position, rotation, brazo = 1, pinza = false }) {
   return (
     <group position={position} rotation={rotation}>
-      <C p={[0, 0.015, 0]} s={[0.2, 0.03, 0.2]} m={M.metal} />
-      <C p={[0, 0.2, 0]} s={[0.025, 0.4, 0.025]} r={[0, 0, 0.18]} m={M.metal} />
-      <C p={[0.16, 0.46, 0]} s={[0.025, 0.36, 0.025]} r={[0, 0, -0.9]} m={M.metal} />
-      <mesh position={[0.31, 0.55, 0]} rotation={[0, 0, -0.7]} castShadow>
+      {/* base de disco o pinza al canto de la mesa: la pinza no ocupa
+          superficie, que en un escritorio de 60 cm es la mitad del problema */}
+      {pinza ? (
+        <C p={[0, 0.04, -0.03]} s={[0.06, 0.12, 0.06]} m={M.metal} />
+      ) : (
+        <C p={[0, 0.015, 0]} s={[0.2, 0.03, 0.2]} m={M.metal} />
+      )}
+      <C p={[0, 0.2 * brazo, 0]} s={[0.025, 0.4 * brazo, 0.025]} r={[0, 0, 0.18]} m={M.metal} />
+      <C p={[0.16 * brazo, 0.46 * brazo, 0]} s={[0.025, 0.36 * brazo, 0.025]} r={[0, 0, -0.9]} m={M.metal} />
+      <mesh position={[0.31 * brazo, 0.55 * brazo, 0]} rotation={[0, 0, -0.7]} castShadow>
         <cylinderGeometry args={[0.05, 0.11, 0.13, 16, 1, true]} />
         <meshStandardMaterial color="#c4623f" roughness={0.6} side={2} />
       </mesh>

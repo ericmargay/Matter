@@ -164,7 +164,7 @@ function Rotulo({ texto, color = '#4d9fff', opacidad = 1, arriba = 0.9, px = PX_
            borde sucio alrededor de cada cifra; el blanco la separa del muro
            sin ensuciarla y de paso la vuelve legible también sobre madera
            oscura. */
-        outlineWidth={0.14}
+        outlineWidth={0.06}
         outlineColor="#ffffff"
       >
         {texto}
