@@ -158,6 +158,49 @@ export function Tapete({ w = 2.6, d = 1.8, v = 'cenefa' }) {
   const fondo = mat(pal.secundario, 'tela')
   const campo = mat(pal.neutro, 'tela')
 
+  /* Taburete y canasta: los dos "burós" que no son muebles de cajones. En una
+     recámara chica son lo que de verdad cabe, y encima de ellos no se apoya lo
+     mismo —un taburete de 30 cm no aguanta una lámpara grande—. */
+  if (v === 'taburete')
+    return (
+      <group>
+        <P g={cil(0.19, 0.17, 0.035, 20)} m={frente} position={[0, alto - 0.02, 0]} />
+        {[0, 1, 2].map((i) => {
+          const a = (i / 3) * Math.PI * 2
+          return (
+            <P
+              key={i}
+              g={cap(0.016, alto)}
+              m={mat(pal.apoyo, 'madera')}
+              position={[Math.cos(a) * 0.11, alto / 2, Math.sin(a) * 0.11]}
+              rotation={[Math.sin(a) * 0.14, 0, -Math.cos(a) * 0.14]}
+              sombra={false}
+            />
+          )
+        })}
+      </group>
+    )
+
+  if (v === 'canasta')
+    return (
+      <group>
+        <P g={cil(w / 2, w / 2 - 0.05, alto - 0.12)} m={frente} position={[0, (alto - 0.12) / 2 + 0.1, 0]} />
+        <P g={cil(w / 2 + 0.015, w / 2 + 0.015, 0.03, 24)} m={cuerpo} position={[0, alto - 0.02, 0]} />
+        {[0, 1, 2, 3].map((i) => {
+          const a = (i / 4) * Math.PI * 2 + 0.4
+          return (
+            <P
+              key={i}
+              g={cap(0.013, 0.14)}
+              m={mat(pal.apoyo, 'metal')}
+              position={[Math.cos(a) * (w / 2 - 0.05), 0.07, Math.sin(a) * (w / 2 - 0.05)]}
+              sombra={false}
+            />
+          )
+        })}
+      </group>
+    )
+
   if (v === 'redondo') {
     const r = Math.min(w, d) / 2
     return (
@@ -321,9 +364,52 @@ export function LamparaPie({ alto = 1.6, v = 'cono' }) {
       </group>
     )
 
+  if (v === 'tripodeAlta')
+    return (
+      <group>
+        {[0, 1, 2].map((i) => {
+          const a = (i / 3) * Math.PI * 2
+          return (
+            <P
+              key={i}
+              g={cap(0.017, alto * 0.95)}
+              m={metal}
+              position={[Math.cos(a) * 0.2, alto * 0.46, Math.sin(a) * 0.2]}
+              rotation={[Math.sin(a) * 0.22, 0, -Math.cos(a) * 0.22]}
+              sombra={false}
+            />
+          )
+        })}
+        <P g={cil(0.15, 0.23, 0.26, 20)} m={tela} position={[0, alto - 0.02, 0]} />
+      </group>
+    )
+
+  if (v === 'columna')
+    /* Columna opalina de piso a pantalla: toda la pieza es la luz. Es la que
+       menos sombra dura hace de las diez. */
+    return (
+      <group>
+        <P g={cil(0.16, 0.18, 0.03)} m={metal} position={[0, 0.015, 0]} />
+        <P g={cil(0.09, 0.09, alto - 0.06, 22)} m={tela} position={[0, alto / 2, 0]} />
+      </group>
+    )
+
   const pantalla =
     v === 'globo' ? (
       <P g={esf(0.17)} m={tela} position={[0, alto, 0]} />
+    ) : v === 'tresLuces' ? (
+      <group position={[0, alto - 0.12, 0]}>
+        {[0, 1, 2].map((i) => {
+          const a = (i / 3) * Math.PI * 2
+          return (
+            <P key={i} g={cil(0.07, 0.1, 0.13, 16)} m={tela} position={[Math.cos(a) * 0.16, 0, Math.sin(a) * 0.16]} />
+          )
+        })}
+      </group>
+    ) : v === 'plato' ? (
+      /* Plato hacia arriba: rebota toda la luz en el techo. La más suave y la
+         que menos deslumbra, y la que peor sirve para leer. */
+      <P g={cil(0.26, 0.1, 0.12, 24)} m={tela} position={[0, alto + 0.02, 0]} />
     ) : v === 'tambor' ? (
       <P g={cil(0.2, 0.2, 0.26, 22)} m={tela} position={[0, alto - 0.06, 0]} />
     ) : v === 'papel' ? (
@@ -430,7 +516,7 @@ export function Cama({ w = 1.6, largo = 2.0, v = 'plataforma' }) {
   const almohada = mat(pal.secundario, 'tela')
 
   const individual = v === 'individual'
-  const W = individual ? 1.0 : w
+  const W = individual ? 1.0 : v === 'king' ? 1.9 : w
   const L = individual ? 1.9 : largo
   const baja = v === 'baja'
   const altoBase = baja ? 0.14 : 0.24
@@ -439,7 +525,10 @@ export function Cama({ w = 1.6, largo = 2.0, v = 'plataforma' }) {
 
   /* Altura de cabecera por tipo. En "baja" no hay: es la cama sobre tarima,
      y su gracia es justamente que no tiene respaldo. */
-  const hCab = { plataforma: 0.78, capitonada: 1.15, dosel: 0.62, individual: 0.6, baja: 0 }[v] ?? 0.78
+  const hCab =
+    { plataforma: 0.78, capitonada: 1.15, dosel: 0.62, individual: 0.6, baja: 0, barrotes: 0.95, conCajones: 0.78, king: 0.82, trineo: 0.7, conPiecera: 0.8 }[
+      v
+    ] ?? 0.78
 
   return (
     <group>
@@ -456,8 +545,71 @@ export function Cama({ w = 1.6, largo = 2.0, v = 'plataforma' }) {
       {/* la ropa de cama cubre de los pies hasta media cama */}
       <P g={cja(W + 0.03, 0.09, L * 0.62)} m={ropa} position={[0, yColchon + 0.11, L * 0.17]} />
 
+      {/* cabecera de barrotes: marco de tubo con travesaños verticales. De
+          lejos lo que se ve es que se transparenta el muro de atrás, y eso es
+          exactamente lo que la distingue de una de tabla. */}
+      {v === 'barrotes' && (
+        <>
+          {[-1, 1].map((sg) => (
+            <P
+              key={sg}
+              g={cap(0.022, hCab)}
+              m={mat(pal.acento, 'metal')}
+              position={[(sg * (W + 0.06)) / 2, yColchon + hCab / 2 - 0.22, -L / 2 - 0.02]}
+              sombra={false}
+            />
+          ))}
+          <P
+            g={cja(W + 0.1, 0.03, 0.03)}
+            m={mat(pal.acento, 'metal')}
+            position={[0, yColchon + hCab - 0.22, -L / 2 - 0.02]}
+            sombra={false}
+          />
+          {[-3, -2, -1, 0, 1, 2, 3].map((i) => (
+            <P
+              key={`b${i}`}
+              g={cap(0.012, hCab - 0.06)}
+              m={mat(pal.acento, 'metal')}
+              position={[(i * W) / 7.4, yColchon + hCab / 2 - 0.24, -L / 2 - 0.02]}
+              sombra={false}
+            />
+          ))}
+        </>
+      )}
+
+      {/* trineo: cabecera y piecera inclinadas hacia afuera */}
+      {v === 'trineo' &&
+        [-1, 1].map((sg) => (
+          <P
+            key={sg}
+            g={cja(W + 0.12, sg < 0 ? hCab : hCab * 0.6, 0.1)}
+            m={base}
+            position={[0, yColchon + (sg < 0 ? hCab : hCab * 0.6) / 2 - 0.22, (sg * (L + 0.08)) / 2]}
+            rotation={[sg * 0.24, 0, 0]}
+          />
+        ))}
+
+      {/* piecera: una tabla baja a los pies. Cambia por dónde se entra a la
+          cama y, en un cuarto angosto, si se puede pasar. */}
+      {v === 'conPiecera' && (
+        <P g={cja(W + 0.1, 0.42, 0.09)} m={base} position={[0, yColchon + 0.05, L / 2 + 0.02]} />
+      )}
+
+      {/* base con cajones: el guardado que no se ve. Ojo con el contacto de
+          abajo, que queda tapado. */}
+      {v === 'conCajones' &&
+        [-1, 1].map((sg) => (
+          <P
+            key={sg}
+            g={cja(W / 2 - 0.1, 0.16, 0.02)}
+            m={mat(pal.secundario, 'madera')}
+            position={[(sg * W) / 4, 0.16, L / 2 - 0.02]}
+            sombra={false}
+          />
+        ))}
+
       {/* cabecera */}
-      {hCab > 0 && v !== 'capitonada' && (
+      {hCab > 0 && v !== 'capitonada' && v !== 'barrotes' && v !== 'trineo' && (
         <P g={cja(W + 0.1, hCab, 0.09)} m={base} position={[0, yColchon + hCab / 2 - 0.22, -L / 2 - 0.02]} />
       )}
 
@@ -536,7 +688,7 @@ export function Buro({ w = 0.46, alto = 0.52, v = 'cajones' }) {
   /* Flotante: sin patas, colgado del muro. Se dibuja levantado porque es como
      se instala, y porque el hueco de abajo es justo lo que se compra. */
   const flotante = v === 'flotante'
-  const patasAltas = v === 'patasAltas'
+  const patasAltas = v === 'patasAltas' || v === 'ancho'
   const y0 = flotante ? 0.3 : patasAltas ? 0.22 : 0.02
   const hCuerpo = alto - (flotante ? 0.16 : patasAltas ? 0.2 : 0.1)
 
