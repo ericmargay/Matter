@@ -343,22 +343,46 @@ export function BancoBarra({ position, rotation }) {
   )
 }
 
-export function Alacena({ position, rotation }) {
+export function Alacena({ position, rotation, w = 1.8, alto = 0.7, d = 0.35, hojas = 2 }) {
   return (
     <group position={position} rotation={rotation}>
-      <B p={[0, 0, 0]} s={[1.8, 0.7, 0.35]} m={M.wood} />
-      {[-1, 1].map((s) => (
-        <B key={s} p={[s * 0.45, 0, 0.18]} s={[0.86, 0.62, 0.02]} m={M.woodDark} />
+      <B p={[0, 0, 0]} s={[w, alto, d]} m={M.wood} />
+      {Array.from({ length: hojas }, (_, i) => (
+        <B
+          key={i}
+          p={[-w / 2 + (w / hojas) * (i + 0.5), 0, d / 2 + 0.01]}
+          s={[w / hojas - 0.04, alto - 0.08, 0.02]}
+          m={M.woodDark}
+        />
       ))}
     </group>
   )
 }
 
-export function Campana({ position, rotation }) {
+/** La campana, en diez. La de isla cuelga y se ve por los cuatro lados; la de
+ *  pared se recarga; la de gaveta desaparece dentro del mueble. Cambia lo que
+ *  hay que dejar previsto arriba: ducto, contacto y, si es de isla, refuerzo. */
+export function Campana({ position, rotation, w = 0.84, tipo = 'piramide' }) {
+  if (tipo === 'gaveta')
+    // integrada bajo la alacena: no se ve, pero el ducto sigue existiendo
+    return (
+      <group position={position} rotation={rotation}>
+        <B p={[0, 0, 0]} s={[w, 0.14, 0.4]} m={M.metal} />
+      </group>
+    )
+
+  if (tipo === 'recta')
+    return (
+      <group position={position} rotation={rotation}>
+        <B p={[0, 0, 0]} s={[w, 0.1, 0.48]} m={M.metal} />
+        <B p={[0, 0.34, -0.1]} s={[w * 0.42, 0.58, 0.22]} m={M.metal} />
+      </group>
+    )
+
   return (
     <group position={position} rotation={rotation}>
       <mesh castShadow>
-        <cylinderGeometry args={[0.16, 0.42, 0.34, 4]} />
+        <cylinderGeometry args={[w * 0.19, w * 0.5, 0.34, tipo === 'isla' ? 20 : 4]} />
         <meshStandardMaterial color="#9aa0a6" roughness={0.3} metalness={0.7} />
       </mesh>
       <C p={[0, 0.42, 0]} s={[0.2, 0.5, 0.2]} m={M.metal} />
@@ -366,35 +390,64 @@ export function Campana({ position, rotation }) {
   )
 }
 
-export function Estufa({ position, rotation }) {
+/**
+ * La estufa, en diez.
+ *
+ * Aquí lo que se está decidiendo no es el mueble: es si la cocina es de gas o
+ * eléctrica, que cambia la instalación entera. De gas hay que llevar la línea
+ * y —lo que importa para nosotros— hay que poner el sensor de fuga cerca del
+ * piso, porque el LP se acumula abajo. Eléctrica o de inducción no lleva
+ * sensor pero pide 220 V y un circuito propio de 40 A.
+ *
+ * `quemadores` y `w` dan el resto: una de seis no cabe en el hueco de 76 que
+ * dejó el albañil, y eso se descubre el día de la instalación si no está en
+ * el plano.
+ */
+export function Estufa({ position, rotation, w = 0.76, quemadores = 4, empotrada = false, induccion = false }) {
+  const d = 0.62
+  const cols = quemadores >= 6 ? 3 : 2
+  const filas = Math.ceil(quemadores / cols)
+
   return (
     <group position={position} rotation={rotation}>
-      <B p={[0, 0.44, 0]} s={[0.76, 0.88, 0.62]} m={M.white} />
-      <B p={[0, 0.9, 0]} s={[0.78, 0.04, 0.64]} m={M.black} />
-      {[-1, 1].map((x) =>
-        [-1, 1].map((z) => (
-          <C key={`${x}${z}`} p={[x * 0.18, 0.93, z * 0.15]} s={[0.16, 0.02, 0.16]} m={M.metal} />
-        )),
+      {/* empotrada: solo la parrilla, el mueble de abajo es carpintería */}
+      {!empotrada && (
+        <>
+          <B p={[0, 0.44, 0]} s={[w, 0.88, d]} m={M.white} />
+          <B p={[0, 0.46, d / 2 + 0.01]} s={[w * 0.79, 0.4, 0.02]} m={M.black} />
+        </>
       )}
-      <B p={[0, 0.46, 0.32]} s={[0.6, 0.4, 0.02]} m={M.black} />
+      <B p={[0, 0.9, 0]} s={[w + 0.02, 0.04, d + 0.02]} m={M.black} />
+
+      {/* Inducción no tiene parrillas: son círculos marcados en el vidrio. Se
+          ve distinto y es lo que dice de un vistazo que ahí no hay gas. */}
+      {Array.from({ length: quemadores }, (_, i) => {
+        const cx = ((i % cols) - (cols - 1) / 2) * (w / (cols + 0.6))
+        const cz = (Math.floor(i / cols) - (filas - 1) / 2) * (d / (filas + 0.9))
+        return induccion ? (
+          <C key={i} p={[cx, 0.925, cz]} s={[w * 0.21, 0.004, w * 0.21]} m={M.metal} shadow={false} />
+        ) : (
+          <C key={i} p={[cx, 0.93, cz]} s={[w * 0.21, 0.02, w * 0.21]} m={M.metal} />
+        )
+      })}
     </group>
   )
 }
 
-export function Microondas({ position, rotation }) {
+export function Microondas({ position, rotation, w = 0.52, alto = 0.3, d = 0.38 }) {
   return (
     <group position={position} rotation={rotation}>
-      <B p={[0, 0.15, 0]} s={[0.52, 0.3, 0.38]} m={M.white} />
-      <B p={[-0.06, 0.16, 0.2]} s={[0.32, 0.22, 0.02]} m={M.black} />
+      <B p={[0, alto / 2, 0]} s={[w, alto, d]} m={M.white} />
+      <B p={[-w * 0.12, alto / 2 + 0.01, d / 2 + 0.01]} s={[w * 0.62, alto * 0.73, 0.02]} m={M.black} />
     </group>
   )
 }
 
-export function Lavavajillas({ position, rotation }) {
+export function Lavavajillas({ position, rotation, w = 0.6, integrado = false }) {
   return (
     <group position={position} rotation={rotation}>
-      <B p={[0, 0.42, 0]} s={[0.6, 0.84, 0.6]} m={M.white} />
-      <B p={[0, 0.78, 0.31]} s={[0.5, 0.05, 0.02]} m={M.metal} />
+      <B p={[0, 0.42, 0]} s={[w, 0.84, 0.6]} m={integrado ? M.wood : M.white} />
+      {!integrado && <B p={[0, 0.78, 0.31]} s={[w * 0.83, 0.05, 0.02]} m={M.metal} />}
     </group>
   )
 }

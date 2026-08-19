@@ -140,7 +140,7 @@ const PX_TEXTO = 11 // altura del número en pantalla, en píxeles
  * acuesta, no cambia de tamaño al acercarse y no la tapa nada — si la tapa el
  * muro que está midiendo, no mide.
  */
-function Rotulo({ texto, color = '#4d9fff', opacidad = 1, arriba = 0.9, px = PX_TEXTO }) {
+function Rotulo({ texto, opacidad = 1, arriba = 0.9, px = PX_TEXTO }) {
   const g = useRef()
 
   useFrame(({ camera, size }) => {
@@ -168,9 +168,14 @@ function Rotulo({ texto, color = '#4d9fff', opacidad = 1, arriba = 0.9, px = PX_
         outlineColor="#ffffff"
       >
         {texto}
+        {/* Blanco, siempre. El color se queda en la LÍNEA de la cota, que es
+            lo que hay que poder distinguir entre una medida activa y una
+            anotación; el número solo tiene que leerse, y sobre paleta pastel
+            —muro, madera o piso claro— el blanco es lo único que se lee
+            parejo en los tres. */}
         <meshBasicMaterial
           attach="material"
-          color={color}
+          color="#ffffff"
           opacity={opacidad}
           transparent
           depthTest={false}
@@ -197,7 +202,7 @@ function Regla({ largo, texto, grueso, color = '#4d9fff' }) {
           {mat}
         </mesh>
       ))}
-      <Rotulo texto={texto} color={color} arriba={0.9} />
+      <Rotulo texto={texto} arriba={0.9} />
     </group>
   )
 }
@@ -1149,7 +1154,7 @@ function Cota({ eje, ancho, largo, alto, onMedir, midiendo, onEntrar, apoyo = '#
           iba acostado sobre el piso: desde media órbita se leía al revés, y
           desde la otra media quedaba en escorzo. Y sin prueba de profundidad,
           porque una medida tapada por un muro no mide nada. */}
-      <Rotulo texto={`${largoCota.toFixed(2)} m`} color={color} opacidad={opacidad} arriba={esY ? 0 : 0.9} />
+      <Rotulo texto={`${largoCota.toFixed(2)} m`} opacidad={opacidad} arriba={esY ? 0 : 0.9} />
 
       {/* Franja invisible de agarre: gruesa a propósito, para el dedo.
           La altura no se jala: se cambia en el inspector. Arrastrarla pediría
