@@ -9,6 +9,7 @@ import { DEVICE_BY_ID } from '../../../content/catalog'
 
 import { MUEBLES } from './catalogo'
 import Conexiones from './Conexiones'
+import { DISPOSICION_BY_ID, DISPOSICIONES, LADO, posicionesDe } from './paneles'
 import Cuarto3D from './Cuarto3D'
 import Rig from './Rig'
 import { fondoDe, useEstilo, paletaDe } from './estilo'
@@ -207,11 +208,19 @@ function Cuerpo({ device, params, encendido, color, apertura }) {
     )
   }
   if (forma === 'panel') {
+    /* Los paneles no son una pieza: son nueve triángulos con la composición
+       que se haya escogido en el muro. Dibujarlos como un disco perdía justo
+       lo que el cliente compra, que es la figura. */
+    const disp = DISPOSICION_BY_ID[params?.disposicion] ?? DISPOSICIONES[0]
     return (
-      <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.22, 0.22, 0.03, 6]} />
-        {mat}
-      </mesh>
+      <group>
+        {posicionesDe(disp).map((t, i) => (
+          <mesh key={i} position={[t.x, t.y, 0]} rotation={[0, 0, t.arriba ? 0 : Math.PI]} castShadow>
+            <cylinderGeometry args={[LADO * 0.56, LADO * 0.56, 0.022, 3]} />
+            {mat}
+          </mesh>
+        ))}
+      </group>
     )
   }
   if (params) {

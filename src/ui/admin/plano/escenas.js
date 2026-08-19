@@ -92,6 +92,39 @@ export function escenasDe(items = []) {
     })
   }
 
+  /* Con sensores de presencia la casa deja de pedir órdenes y empieza a
+     anticiparse — que es el salto que el cliente no ve venir hasta que lo
+     vive. Y con paneles hay una escena que no es funcional sino de enseñar:
+     la que se prende cuando llega visita. */
+  const sensores = deCat(items, 'sensores')
+  const paneles = items.filter((i) => i.params?.forma === 'panel')
+
+  if (sensores.length > 0 && L.length > 0) {
+    out.push({
+      id: 'paso',
+      nombre: 'Luz de paso',
+      porque: 'De noche el sensor prende al 10 % y en ámbar. Alcanza para no tropezar y no te despierta.',
+      voz: 'Oye Siri, luz de paso',
+      dice: 'Listo, luz de paso.',
+      entonces: [...nivel(L, 10), ...tono(L, 2200)],
+    })
+  }
+
+  if (paneles.length > 0) {
+    out.push({
+      id: 'fiesta',
+      nombre: 'Los paneles',
+      porque: 'Apaga lo demás y deja solo la figura de la pared. Es la escena que se fotografía.',
+      voz: 'Oye Siri, pon los paneles',
+      dice: 'Va, solo los paneles.',
+      entonces: [
+        ...nivel(L.filter((i) => !paneles.includes(i)), 0),
+        ...nivel(paneles, 100),
+        ...tono(paneles, 2700),
+      ],
+    })
+  }
+
   if (cortinas.length > 0) {
     out.push({
       id: 'amanecer',

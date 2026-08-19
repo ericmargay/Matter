@@ -17,6 +17,7 @@ import { tipoPorNombre } from './plano/catalogo'
 import { disponerCuarto, disponerPlanta } from './plano/disponer'
 import { ESPACIOS, PROPIEDADES, espaciosDe } from '../../content/espacios'
 import { revisarCompatibilidad } from '../../content/inventario'
+import Firmware from './Firmware'
 import Inventario from '../Inventario'
 import Compartir from './Compartir'
 import { buildQuotePayload, encodeQuote } from '../../content/quoteLink'
@@ -630,6 +631,10 @@ export default function Survey() {
               ))}
             </div>
           )}
+          </div>
+
+          <div className="mt-4 -mx-3">
+            <Firmware rooms={rooms} inv={perfil.inv ?? []} />
           </div>
 
           <label className="mt-4 block">

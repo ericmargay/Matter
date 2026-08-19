@@ -5,6 +5,7 @@ import { uid, planoVacio } from '../../../sync/eventos'
 import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
 import { ESPACIOS } from '../../../content/espacios'
+import { DISPOSICIONES } from './paneles'
 
 /* El Style Lab se carga solo cuando se abre: calibrar es una tarea aparte de
    levantar, y su panel no tiene por qué viajar en el bundle del editor. */
@@ -952,6 +953,34 @@ function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuita
             min={0}
             onChange={(v) => onParchar(item.id, { y: v }, 'Cambió la altura de una pieza')}
           />
+        </div>
+      )}
+
+      {/* La composición de los paneles se decide en el muro, no en la caja.
+          Cambia el muro que se necesita, dónde queda el cable y lo que el
+          cliente va a ver — así que se escoge en el levantamiento. */}
+      {p?.forma === 'panel' && (
+        <div className="mt-3 border-t border-line pt-3">
+          <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Cómo se arman los paneles</p>
+          <div className="mt-1.5 space-y-1">
+            {DISPOSICIONES.map((d) => {
+              const on = (p.disposicion ?? 'triangulo') === d.id
+              return (
+                <button
+                  key={d.id}
+                  onClick={() => onParchar(item.id, { params: { ...p, disposicion: d.id } }, `Cambió la figura de los paneles`)}
+                  className={`block w-full rounded px-1.5 py-1 text-left transition-colors ${
+                    on ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+                  }`}
+                >
+                  <span className="block text-[11px]">{d.nombre}</span>
+                  <span className={`block text-[10px] leading-snug ${on ? 'text-ink/70' : 'text-cream-3'}`}>
+                    {d.porque}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
