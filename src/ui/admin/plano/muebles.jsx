@@ -332,3 +332,160 @@ export function MesaLateral({ d = 0.44, alto = 0.52 }) {
     </group>
   )
 }
+
+/* ── recámara ────────────────────────────────────────────────────
+   El cuarto donde la silueta importa más que en ningún otro: casi todo es
+   volumen grande y plano, así que lo único que separa una cama de una caja es
+   la proporción del colchón contra la base y el grosor de las almohadas. */
+
+export function Cama({ w = 1.6, largo = 2.0, conDosel = false }) {
+  const { pal, mat, cja, cap } = useTaller()
+  const base = mat(pal.apoyo, 'madera')
+  const colchon = mat(pal.neutro, 'tela')
+  const ropa = mat(pal.dominante, 'tela')
+  const almohada = mat(pal.secundario, 'tela')
+
+  return (
+    <group>
+      {/* base, un poco más chica que el colchón: así el colchón vuela y se
+          lee como colchón en vez de como tapa */}
+      <P g={cja(w - 0.06, 0.24, largo - 0.06)} m={base} position={[0, 0.16, 0]} />
+      <P g={cja(w, 0.22, largo)} m={colchon} position={[0, 0.38, 0]} />
+
+      {/* la ropa de cama cubre de los pies hasta media cama */}
+      <P g={cja(w + 0.03, 0.09, largo * 0.62)} m={ropa} position={[0, 0.49, largo * 0.17]} />
+
+      {/* cabecera */}
+      <P g={cja(w + 0.1, 0.78, 0.09)} m={base} position={[0, 0.55, -largo / 2 - 0.02]} />
+
+      {/* dos almohadas gordas */}
+      {[-1, 1].map((s) => (
+        <P
+          key={s}
+          g={cja(w * 0.42, 0.13, 0.3)}
+          m={almohada}
+          position={[(s * w) / 4.4, 0.55, -largo / 2 + 0.24]}
+          rotation={[-0.12, 0, 0]}
+        />
+      ))}
+
+      {conDosel &&
+        [-1, 1].map((x) =>
+          [-1, 1].map((z) => (
+            <P
+              key={`${x}${z}`}
+              g={cap(0.03, 1.7)}
+              m={base}
+              position={[(x * w) / 2, 1.0, (z * largo) / 2]}
+              sombra={false}
+            />
+          )),
+        )}
+    </group>
+  )
+}
+
+export function Buro({ w = 0.46, alto = 0.52 }) {
+  const { pal, mat, cja, cap } = useTaller()
+  const cuerpo = mat(pal.apoyo, 'madera')
+  return (
+    <group>
+      <P g={cja(w, alto - 0.1, 0.4)} m={cuerpo} position={[0, alto / 2 + 0.02, 0]} />
+      {/* dos cajones hundidos: la diferencia de profundidad es todo el mueble */}
+      {[0, 1].map((i) => (
+        <P
+          key={i}
+          g={cja(w - 0.07, (alto - 0.18) / 2 - 0.02, 0.02)}
+          m={mat(pal.secundario, 'madera')}
+          position={[0, alto * 0.32 + i * (alto - 0.2) * 0.46, 0.201]}
+          sombra={false}
+        />
+      ))}
+      {[0, 1].map((i) => (
+        <P
+          key={`t${i}`}
+          g={cja(0.12, 0.018, 0.018)}
+          m={mat(pal.acento, 'metal')}
+          position={[0, alto * 0.32 + i * (alto - 0.2) * 0.46, 0.215]}
+          sombra={false}
+        />
+      ))}
+      {[-1, 1].map((x) =>
+        [-1, 1].map((z) => (
+          <P
+            key={`p${x}${z}`}
+            g={cap(0.022, 0.08)}
+            m={mat(pal.apoyo, 'metal')}
+            position={[(x * (w - 0.1)) / 2, 0.05, (z * 0.3) / 2]}
+            sombra={false}
+          />
+        )),
+      )}
+    </group>
+  )
+}
+
+export function Closet({ w = 1.8, alto = 2.15, d = 0.6 }) {
+  const { pal, mat, cja } = useTaller()
+  const cuerpo = mat(pal.apoyo, 'madera')
+  const puerta = mat(pal.secundario, 'madera')
+  return (
+    <group>
+      <P g={cja(w, alto, d)} m={cuerpo} position={[0, alto / 2, 0]} />
+      {[-1, 1].map((s) => (
+        <P
+          key={s}
+          g={cja(w / 2 - 0.05, alto - 0.12, 0.025)}
+          m={puerta}
+          position={[(s * w) / 4, alto / 2, d / 2 - 0.012]}
+          sombra={false}
+        />
+      ))}
+      {[-1, 1].map((s) => (
+        <P
+          key={`j${s}`}
+          g={cja(0.02, 0.22, 0.02)}
+          m={mat(pal.acento, 'metal')}
+          position={[s * 0.06, alto / 2, d / 2 + 0.012]}
+          sombra={false}
+        />
+      ))}
+    </group>
+  )
+}
+
+export function Comoda({ w = 1.1, alto = 0.82, d = 0.45 }) {
+  const { pal, mat, cja, cap } = useTaller()
+  const cuerpo = mat(pal.apoyo, 'madera')
+  return (
+    <group>
+      <P g={cja(w, alto - 0.1, d)} m={cuerpo} position={[0, alto / 2 + 0.02, 0]} />
+      {[0, 1, 2].map((i) => (
+        <P
+          key={i}
+          g={cja(w - 0.09, (alto - 0.2) / 3 - 0.02, 0.02)}
+          m={mat(pal.secundario, 'madera')}
+          position={[0, 0.2 + i * ((alto - 0.18) / 3), d / 2 - 0.011]}
+          sombra={false}
+        />
+      ))}
+      {[-1, 1].map((x) =>
+        [-1, 1].map((z) => (
+          <P key={`${x}${z}`} g={cap(0.024, 0.08)} m={mat(pal.apoyo, 'metal')} position={[(x * (w - 0.14)) / 2, 0.05, (z * (d - 0.12)) / 2]} sombra={false} />
+        )),
+      )}
+    </group>
+  )
+}
+
+/** La del buró, que es la del comando "buenas noches". */
+export function LamparaBuro({ alto = 0.42 }) {
+  const { pal, mat, cil } = useTaller()
+  return (
+    <group>
+      <P g={cil(0.09, 0.11, 0.03, 18)} m={mat(pal.acento, 'metal')} position={[0, 0.015, 0]} />
+      <P g={cil(0.022, 0.022, alto * 0.5)} m={mat(pal.acento, 'metal')} position={[0, alto * 0.28, 0]} />
+      <P g={cil(0.1, 0.14, 0.17, 20)} m={mat(pal.neutro, 'ceramica')} position={[0, alto - 0.05, 0]} />
+    </group>
+  )
+}

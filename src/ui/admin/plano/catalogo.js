@@ -51,9 +51,9 @@ export const MUEBLES = {
   bocina: AN('Bocina', N.Bocina, 0.16, 0.16, 0.3, { alto: 0.28 }),
 
   /* ── recámara ── */
-  cama: A('Cama', P.Bed, 1.9, 2.1, 0.6),
-  buro: A('Buró', P.Nightstand, 0.45, 0.4, 0.55),
-  closet: A('Clóset', P.Wardrobe, 1.8, 0.6, 2.2),
+  cama: AN('Cama', N.Cama, 1.62, 2.05, 0.95, { w: 1.6, largo: 2.0 }),
+  buro: AN('Buró', N.Buro, 0.46, 0.4, 0.54, { w: 0.46, alto: 0.52 }),
+  closet: AN('Clóset', N.Closet, 1.8, 0.6, 2.15, { w: 1.8, alto: 2.15, d: 0.6 }),
 
   /* ── comedor ──
      La isla de cocina hace de mesa: mismas proporciones y misma altura, y
@@ -115,7 +115,7 @@ export const MUEBLES = {
   microondas: A('Microondas', X.Microondas, 0.52, 0.38, 0.3),
   lavavajillas: A('Lavavajillas', X.Lavavajillas, 0.6, 0.6, 0.85),
 
-  comoda: A('Cómoda', X.Comoda, 1.1, 0.45, 0.8),
+  comoda: AN('Cómoda', N.Comoda, 1.1, 0.45, 0.82, { w: 1.1, alto: 0.82, d: 0.45 }),
   espejoPie: A('Espejo de pie', X.EspejoPie, 0.55, 0.3, 1.65),
   bancaPie: A('Banca de pie de cama', X.BancaPie, 1.2, 0.4, 0.5),
   cuna: A('Cuna', X.Cuna, 1.3, 0.7, 0.75),
@@ -145,7 +145,7 @@ export const MUEBLES = {
   lamparaEsfera: L('Colgante esfera', X.LamparaEsfera, 0.32, 0.32, 1.2),
   lamparaTripode: L('Lámpara trípode', X.LamparaTripode, 0.5, 0.5, 1.5),
   lamparaEscritorio: L('Lámpara de escritorio', X.LamparaEscritorio, 0.45, 0.2, 0.62),
-  lamparaBuro: L('Lámpara de buró', X.LamparaBuro, 0.3, 0.3, 0.43),
+  lamparaBuro: { ...AN('Lámpara de buró', N.LamparaBuro, 0.3, 0.3, 0.44, { alto: 0.42 }), portafoco: true },
 
   /* ── envolvente ── */
   ventana: A('Ventana', P.WindowUnit, 1.4, 0.1, 1.5),

@@ -14,6 +14,7 @@ import { DEVICES } from './catalog'
    rates.local.js si existe (real, en .gitignore). import.meta.glob no
    truena cuando el archivo no está: devuelve un objeto vacío. */
 import { LABOR_TIERS as DEMO_LABOR, RATES as DEMO_RATES } from './rates'
+import { instalacionDelProyecto } from './instalacion'
 
 const overrides = import.meta.glob('./rates.local.js', { eager: true })
 const local = Object.values(overrides)[0]
@@ -97,8 +98,6 @@ export function quote(survey) {
   }
 
   const equipo = []
-  let laborTotal = 0
-  const laborCount = {}
 
   for (const [id, qty] of Object.entries(counts)) {
     const d = DEVICES.find((x) => x.id === id)
@@ -116,10 +115,15 @@ export function quote(survey) {
       cat: d.cat,
     })
 
-    const tier = laborTier(d)
-    laborCount[tier] = (laborCount[tier] ?? 0) + qty
-    laborTotal += LABOR_TIERS[tier].price * qty
   }
+
+  /* La instalación se cobra por ESPACIO, no por pieza. Cobrar por pieza
+     inflaba la cotización hasta volverla irreal —el sexto foco de una
+     recámara no cuesta lo mismo que el primero— y además no es como se
+     trabaja: el instalador llega a un cuarto y resuelve lo que haya en esa
+     visita. */
+  const inst = instalacionDelProyecto(survey.rooms ?? [])
+  const laborTotal = inst.total
 
   equipo.sort((a, b) => b.importe - a.importe)
 
@@ -146,10 +150,10 @@ export function quote(survey) {
       importe: round(levantamiento),
     },
     {
-      concepto: 'Instalación y puesta en obra',
-      detalle: Object.entries(laborCount)
-        .map(([t, n]) => `${n} × ${LABOR_TIERS[t].label.toLowerCase()}`)
-        .join(' · ') || 'Sin piezas todavía',
+      concepto: `Instalación — ${inst.porEspacio.length} espacio${inst.porEspacio.length === 1 ? '' : 's'}`,
+      detalle:
+        inst.porEspacio.map((x) => `${x.room.nombre} $${round(x.total).toLocaleString('es-MX')}`).join(' · ') ||
+        'Sin piezas todavía',
       qty: 1,
       unit: round(laborTotal),
       importe: round(laborTotal),
@@ -219,7 +223,9 @@ export function quote(survey) {
     servicios,
     equipoTotal,
     serviciosTotal,
-    laborCount,
+    /* El desglose de instalación ahora es por espacio, no un conteo de piezas
+       por dificultad. Quien lo pinte tiene el detalle aquí. */
+    instalacion: inst,
     bruto,
     descuento,
     descPct,
