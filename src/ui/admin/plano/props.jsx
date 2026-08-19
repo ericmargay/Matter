@@ -676,8 +676,8 @@ export function CuadroArte({ position, rotation, w = 0.6, h = 0.8, estilo = 'abs
   )
 }
 
-export function CuadroGrande({ position, rotation }) {
-  return <CuadroArte position={position} rotation={rotation} w={1.3} h={0.9} estilo="paisaje" />
+export function CuadroGrande({ position, rotation, w = 1.3, alto = 0.9, estilo = 'paisaje' }) {
+  return <CuadroArte position={position} rotation={rotation} w={w} h={alto} estilo={estilo} />
 }
 
 /** Tres piezas del mismo alto, que es como se cuelga un tríptico. */
@@ -717,7 +717,7 @@ export function CuadroPiso({ position, rotation, w = 0.86, alto = 1.1, d = 0.3 }
 
 export function LamparaArco({ position, rotation, alcance = 1.1, altura = 1.35 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 1.36, alto / 0.96, d / 0.06]}>
       <C p={[0, 0.03, 0]} s={[0.4, 0.06, 0.4]} m={M.metal} />
       {Array.from({ length: 8 }, (_, i) => {
         const t = i / 7

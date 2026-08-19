@@ -393,9 +393,9 @@ export function Island({ position, rotation, w = 1.9, d = 0.9, alto = 0.88 }) {
   )
 }
 
-export function Fridge({ position, rotation }) {
+export function Fridge({ position, rotation, w = 0.78, alto = 1.9, d = 0.7 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.78, alto / 1.9, d / 0.7]}>
       <B p={[0, 0.95, 0]} s={[0.78, 1.9, 0.7]} m={M.metal} />
       <B p={[0, 1.28, 0.355]} s={[0.74, 0.01, 0.01]} m={M.black} shadow={false} />
       <B p={[0.3, 1.5, 0.36]} s={[0.02, 0.5, 0.02]} m={M.metalWarm} shadow={false} />
@@ -456,9 +456,9 @@ export function Desk({ position, rotation, w = 1.8, d = 0.72, alto = 0.75 }) {
   )
 }
 
-export function Monitor({ position, rotation, w = 1.05 }) {
+export function Monitor({ position, rotation, w = 1.05 , talla = 1 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={talla}>
       <C p={[0, 0.01, 0]} s={[0.26, 0.02, 0.18]} m={M.metal} shadow={false} />
       <C p={[0, 0.14, 0]} s={[0.04, 0.28, 0.04]} m={M.metal} shadow={false} />
       <B p={[0, 0.46, 0]} s={[w, 0.42, 0.03]} m={M.black} />
@@ -467,9 +467,9 @@ export function Monitor({ position, rotation, w = 1.05 }) {
   )
 }
 
-export function OfficeChair({ position, rotation }) {
+export function OfficeChair({ position, rotation, w = 0.5, alto = 0.95, d = 0.5 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.5, alto / 0.95, d / 0.5]}>
       <RoundedBox args={[0.5, 0.1, 0.48]} radius={0.04} smoothness={2} position={[0, 0.46, 0]} material={M.fabric} castShadow />
       <RoundedBox
         args={[0.46, 0.56, 0.09]}
@@ -499,9 +499,9 @@ export function OfficeChair({ position, rotation }) {
 }
 
 /** El rack: la pieza que casi nadie muestra y que explica por qué cobramos. */
-export function Rack({ position, rotation }) {
+export function Rack({ position, rotation, w = 0.6, alto = 1.2, d = 0.6 }) {
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={[w / 0.6, alto / 1.2, d / 0.6]}>
       <B p={[0, 0.5, 0]} s={[0.56, 1.0, 0.5]} m={M.black} />
       {[0.24, 0.44, 0.64, 0.84].map((y, i) => (
         <group key={y}>
@@ -568,7 +568,7 @@ export function WindowUnit({ position, rotation, w = 1.4, h = 1.5 }) {
  * Persiana motorizada. Si recibe `room`, la posición la manda el centro de
  * control y baja con la inercia de un motor real, no de golpe.
  */
-export function Blinds({ position, rotation, w = 1.4, h = 1.5, open = 0.35, room }) {
+export function Blinds({ position, rotation, w = 1.4, h = 1.5, open = 0.35, room , talla = 1 }) {
   const slats = 9
   const group = useRef()
 
@@ -585,7 +585,7 @@ export function Blinds({ position, rotation, w = 1.4, h = 1.5, open = 0.35, room
   const drop = h * (1 - open)
 
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={talla}>
       <B p={[0, h / 2 + 0.06, 0]} s={[w + 0.08, 0.1, 0.14]} m={M.metal} shadow={false} />
       <group ref={group}>
         {Array.from({ length: slats }, (_, i) => (
@@ -622,13 +622,13 @@ export function SlatWall({ position, rotation, w = 3, h = 2.6, count = 26 }) {
 }
 
 /** Cuadro enmarcado. `art` elige una de las composiciones generadas. */
-export function Artwork({ position, rotation, w = 0.6, h = 0.8, art = 0 }) {
+export function Artwork({ position, rotation, w = 0.6, h = 0.8, art = 0 , talla = 1 }) {
   const canvasMat = useMemo(
     () => new THREE.MeshStandardMaterial({ map: getPainting(art), roughness: 0.85 }),
     [art],
   )
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} scale={talla}>
       <B p={[0, 0, 0]} s={[w, h, 0.035]} m={M.woodDark} shadow={false} />
       {/* passe-partout: sin el margen blanco el cuadro se ve como una calcomanía */}
       <B p={[0, 0, 0.02]} s={[w - 0.05, h - 0.05, 0.005]} m={M.white} shadow={false} />
