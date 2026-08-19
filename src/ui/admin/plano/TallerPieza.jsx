@@ -120,7 +120,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
       className="fixed inset-0 z-[60] flex flex-col bg-ink transition-opacity duration-200 ease-out"
       style={{ opacity: visible ? 1 : 0 }}
     >
-      <header className="flex items-center gap-3 border-b border-line px-4 py-2.5">
+      <header className="relative z-10 flex items-center gap-3 border-b border-line bg-ink px-4 py-2.5">
         <div className="min-w-0">
           <p className="text-[10px] tracking-[0.14em] text-cream-3 uppercase">Taller de pieza</p>
           <h2 className="display truncate text-[19px] text-cream">{titulo}</h2>
@@ -157,7 +157,9 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
               ? {
                   position: 'fixed',
                   flex: 'none',
-                  zIndex: 1,
+                  /* Debajo de todo: el lienzo va fijo para poder animarlo, y
+                     fijo con z por encima tapaba el panel de controles. */
+                  zIndex: 0,
                   transition:
                     'left 420ms cubic-bezier(.22,1,.36,1), top 420ms cubic-bezier(.22,1,.36,1), right 420ms cubic-bezier(.22,1,.36,1), bottom 420ms cubic-bezier(.22,1,.36,1)',
                   ...(abierto
@@ -276,7 +278,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
         </div>
 
         {/* los controles */}
-        <aside className="w-[330px] shrink-0 overflow-y-auto border-l border-line">
+        <aside className="relative z-10 w-[330px] shrink-0 overflow-y-auto border-l border-line bg-ink">
           <div className="flex gap-0.5 border-b border-line p-1">
             {SECCIONES.map(([id, label]) => (
               <button

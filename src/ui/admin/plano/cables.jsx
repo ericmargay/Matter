@@ -43,6 +43,34 @@ function trazo(desde, hasta, largo, ruta) {
   return pts
 }
 
+/**
+ * La clavija: dónde queda enchufado cada aparato.
+ *
+ * Se dibuja saliendo del contacto, ocho centímetros hacia su propio cable, que
+ * es como se ve una clavija puesta. Sirve para lo mismo que el cable: que el
+ * contacto que va a usar cada aparato sea algo que se VE en el plano y no un
+ * dato escondido en un menú.
+ *
+ * Por ahora no se arrastra. El contacto se elige en el taller de la pieza, en
+ * la pestaña de cable.
+ */
+export function Clavija({ pos }) {
+  return (
+    <group position={pos}>
+      <mesh castShadow>
+        <boxGeometry args={[0.05, 0.06, 0.034]} />
+        <meshStandardMaterial color="#2a2e38" roughness={0.5} />
+      </mesh>
+      {[-1, 1].map((sg) => (
+        <mesh key={sg} position={[sg * 0.012, 0.042, 0]}>
+          <boxGeometry args={[0.006, 0.032, 0.006]} />
+          <meshStandardMaterial color="#c9b48a" metalness={0.8} roughness={0.3} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 export function Cable({ desde, hasta, largo = 1.8, ruta = 'piso', alcanza = true, interactivo = true }) {
   const malla = useRef()
   const [encima, setEncima] = useState(false)

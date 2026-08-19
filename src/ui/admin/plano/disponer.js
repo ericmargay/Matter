@@ -413,18 +413,36 @@ export function disponerCuarto({ plano, tipo, equipo }) {
   }
   items.push(apagador)
 
-  const nEnchufes = Math.max(2, Math.min(6, Math.round((a * l) / 8)))
-  for (let i = 0; i < nEnchufes; i++) {
-    const enMuroNorte = i % 2 === 0
-    items.push({
-      id: uid('i'),
-      clase: 'punto',
-      tipo: 'enchufe',
-      x: Number(sobreMuro(Math.ceil(nEnchufes / 2), a - 0.8, Math.floor(i / 2)).toFixed(2)),
-      y: 0.4,
-      z: Number(((enMuroNorte ? -1 : 1) * (l / 2 - MURO)).toFixed(2)),
-      rot: 0,
-    })
+  /* Contactos en LOS CUATRO muros, no solo en dos.
+     Antes salían repartidos entre el norte y el sur, y el resultado era un
+     cuarto donde la mitad de las paredes no tenía dónde enchufar nada —que es
+     justo el problema que el plano tiene que enseñar, no fabricar—. Se
+     reparten con la regla de obra: ningún punto de un muro a más de metro y
+     medio de un contacto, o sea uno cada tres metros, con mínimo de uno por
+     muro. En una recámara de 4.60 × 3.48 salen seis, que es lo que hay. */
+  const PASO = 3.0
+  const MUROS_DEL_CUARTO = [
+    { largo: a, fijo: -(l / 2 - MURO), eje: 'x' },
+    { largo: a, fijo: l / 2 - MURO, eje: 'x' },
+    { largo: l, fijo: -(a / 2 - MURO), eje: 'z' },
+    { largo: l, fijo: a / 2 - MURO, eje: 'z' },
+  ]
+
+  for (const m of MUROS_DEL_CUARTO) {
+    const cuantos = Math.max(1, Math.round(m.largo / PASO))
+    for (let i = 0; i < cuantos; i++) {
+      const t = sobreMuro(cuantos, m.largo - 0.9, i)
+      items.push({
+        id: uid('i'),
+        clase: 'punto',
+        tipo: 'enchufe',
+        x: Number((m.eje === 'x' ? t : m.fijo).toFixed(2)),
+        // 40 cm: la altura de contacto de siempre en una casa mexicana
+        y: 0.4,
+        z: Number((m.eje === 'x' ? m.fijo : t).toFixed(2)),
+        rot: 0,
+      })
+    }
   }
 
   /* ── cableado y regla ──

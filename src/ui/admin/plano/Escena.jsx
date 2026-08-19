@@ -11,7 +11,7 @@ import { ID_MUROS, MUEBLES } from './catalogo'
 import { GROSOR_MURO, piezaSeVe } from './muros'
 import Animar from './animacion.jsx'
 import PiezaPropia from './PiezaPropia'
-import { Cable } from './cables.jsx'
+import { Cable, Clavija } from './cables.jsx'
 import { puntoSalida } from './cables'
 import Conexiones from './Conexiones'
 import { DISPOSICION_BY_ID, DISPOSICIONES, LADO, posicionesDe, trianguloPanel } from './paneles'
@@ -452,20 +452,28 @@ function Cables({ items }) {
           enchufes.reduce((a, b) =>
             Math.hypot(b.x - it.x, b.z - it.z) < Math.hypot(a.x - it.x, a.z - it.z) ? b : a,
           )
+        /* La clavija SALE del contacto, no vive dentro de él: ocho centímetros
+           hacia donde está su aparato, que es lo que hace una clavija puesta. */
+        const hacia = new THREE.Vector3(it.x - destino.x, 0, it.z - destino.z)
+        if (hacia.lengthSq() > 0.0001) hacia.normalize().multiplyScalar(0.08)
+        const clavija = new THREE.Vector3(destino.x, destino.y ?? 0.4, destino.z).add(hacia)
+
         const desde = puntoSalida(it, null, it.cable.salida)
-        const hasta = new THREE.Vector3(destino.x, destino.y ?? 0.4, destino.z)
         /* Si el cable no da, se dibuja en rojo. Es la conversación que hay que
            tener en el plano y no con el aparato ya montado en el muro. */
-        const alcanza = it.cable.largo >= desde.distanceTo(hasta) * 1.05
+        const alcanza = it.cable.largo >= desde.distanceTo(clavija) * 1.05
+
         return (
-          <Cable
-            key={it.id}
-            desde={desde}
-            hasta={hasta}
-            largo={it.cable.largo}
-            ruta={it.cable.ruta}
-            alcanza={alcanza}
-          />
+          <group key={it.id}>
+            <Cable
+              desde={desde}
+              hasta={clavija}
+              largo={it.cable.largo}
+              ruta={it.cable.ruta}
+              alcanza={alcanza}
+            />
+            <Clavija pos={[clavija.x, clavija.y, clavija.z]} />
+          </group>
         )
       })}
     </>
