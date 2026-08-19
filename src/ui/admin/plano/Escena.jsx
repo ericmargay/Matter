@@ -131,6 +131,7 @@ const enMedida = (m) => (m < 1 ? `${Math.round(m * 100)} cm` : `${m.toFixed(2)} 
  */
 const HSL_LUZ = { h: 0, s: 0, l: 0 }
 const PUNTO_TXT = new THREE.Vector3()
+const LOCAL_CAM = new THREE.Vector3()
 const PX_TEXTO = 11 // altura del número en pantalla, en píxeles
 
 /**
@@ -164,15 +165,15 @@ function Rotulo({ texto, opacidad = 1, arriba = 0.9, px = PX_TEXTO }) {
            borde sucio alrededor de cada cifra; el blanco la separa del muro
            sin ensuciarla y de paso la vuelve legible también sobre madera
            oscura. */
-        outlineWidth={0.06}
-        outlineColor="#ffffff"
+        outlineWidth={0.07}
+        outlineColor="#6b7285"
       >
         {texto}
-        {/* Blanco, siempre. El color se queda en la LÍNEA de la cota, que es
-            lo que hay que poder distinguir entre una medida activa y una
-            anotación; el número solo tiene que leerse, y sobre paleta pastel
-            —muro, madera o piso claro— el blanco es lo único que se lee
-            parejo en los tres. */}
+        {/* Blanco con un halo gris tenue. El color se queda en la LÍNEA de la
+            cota, que es lo que distingue una medida activa de una anotación;
+            el número solo tiene que leerse. Y el halo no es adorno: sobre un
+            piso de mármol o porcelánico —que son casi blancos— una cifra
+            blanca sin halo desaparece. */}
         <meshBasicMaterial
           attach="material"
           color="#ffffff"
@@ -333,12 +334,27 @@ function CotasPieza({ item, caja }) {
     const sep = Math.max(mayor * 0.09, (porPixel * 30) / esc)
     const { min, max } = caja
 
-    /* A la altura de la base, nunca por debajo: bajo el piso la cota queda
-       tapada por el propio piso y el número desaparece. Se apartan hacia
-       afuera, que es donde siempre hay aire. */
-    anchoRef.current?.position.set((min.x + max.x) / 2, min.y, max.z + sep)
-    fondoRef.current?.position.set(max.x + sep, min.y, (min.z + max.z) / 2)
-    altoRef.current?.position.set(max.x + sep, (min.y + max.y) / 2, max.z + sep)
+    /* De qué lado está la cámara, en el marco de la PIEZA. La pieza gira con
+       su `rot`, así que "la derecha" no es la misma dirección del mundo para
+       una cama que para el escritorio que está girado un cuarto de vuelta: hay
+       que preguntárselo a la pieza, no al mundo. */
+    LOCAL_CAM.copy(camera.position)
+    g.worldToLocal(LOCAL_CAM)
+    const sx = LOCAL_CAM.x >= 0 ? 1 : -1
+    const sz = LOCAL_CAM.z >= 0 ? 1 : -1
+    const ladoX = sx > 0 ? max.x + sep : min.x - sep
+    const ladoZ = sz > 0 ? max.z + sep : min.z - sep
+    const lejosZ = sz > 0 ? min.z : max.z
+
+    /* Mismo reparto que en el cuarto: el ancho al frente, el fondo al costado
+       derecho y la ALTURA al costado, en el extremo lejano. Puesta en la
+       arista de enfrente, la altura caía justo encima del gizmo —flechas y
+       cifra peleándose el mismo pixel— que es donde uno está trabajando.
+       A la altura de la base y nunca por debajo: bajo el piso la cota queda
+       tapada por el propio piso y el número desaparece. */
+    anchoRef.current?.position.set((min.x + max.x) / 2, min.y, ladoZ)
+    fondoRef.current?.position.set(ladoX, min.y, (min.z + max.z) / 2)
+    altoRef.current?.position.set(ladoX, (min.y + max.y) / 2, lejosZ)
   })
 
   if (!caja) return null

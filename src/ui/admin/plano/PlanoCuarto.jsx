@@ -5,6 +5,7 @@ import { uid, planoVacio } from '../../../sync/eventos'
 import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, ID_MUROS, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
 import { MUROS_ACABADO, PISOS } from './acabados'
+import { comoAloja, dispositivosDe } from './aloja'
 import { ESPACIOS } from '../../../content/espacios'
 import { DISPOSICIONES } from './paneles'
 
@@ -727,6 +728,9 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onMandar={correr}
               estado={sim?.[seleccionado.id]}
               bloqueo={bloqueo}
+              items={plano.items}
+              sim={sim}
+              onSeleccionar={seleccionar}
               onQuitarTramo={(tid) => guardar({ tramos: plano.tramos.filter((t) => t.id !== tid) }, 'Quitó una línea eléctrica')}
             />
           ) : (
@@ -1204,8 +1208,24 @@ const COLORES = [
 
 /* ── inspector de la pieza seleccionada ───────────────────────── */
 
-function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuitarTramo, onModulo, onMandar, estado, bloqueo }) {
+function Inspector({
+  item,
+  onParchar,
+  onGirar,
+  onQuitar,
+  onUnir,
+  tramos,
+  onQuitarTramo,
+  onModulo,
+  onMandar,
+  estado,
+  bloqueo,
+  items = [],
+  sim,
+  onSeleccionar,
+}) {
   const dev = item.clase === 'equipo' ? DEVICE_BY_ID[item.deviceId] : null
+  const alojados = useMemo(() => dispositivosDe(item, items), [item, items])
   const p = item.params
 
   const titulo =
@@ -1292,6 +1312,30 @@ function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuita
       {item.clase === 'equipo' && dev && onMandar && (
         <Mando item={item} dev={dev} estado={estado} onMandar={onMandar} bloqueo={bloqueo} />
       )}
+
+      {/* Lo inteligente que este mueble lleva dentro o encima.
+          El cliente no ve dos piezas: ve una lámpara. Cuando la señala y
+          pregunta "¿ésta se apaga desde el teléfono?", la respuesta tiene que
+          estar aquí y no en un punto invisible flotando adentro de ella. */}
+      {item.clase === 'mueble' &&
+        onMandar &&
+        alojados.map((eq) => {
+          const d = DEVICE_BY_ID[eq.deviceId]
+          return (
+            <div key={eq.id} className="mt-2">
+              <p className="text-[10px] leading-snug text-cream-3">
+                {MUEBLES[item.tipo]?.label} {comoAloja(item, d)}{' '}
+                <button
+                  onClick={() => onSeleccionar?.(eq.id)}
+                  className="text-cream underline decoration-dotted underline-offset-2 hover:text-ember"
+                >
+                  {d.name}
+                </button>
+              </p>
+              <Mando item={eq} dev={d} estado={sim?.[eq.id]} onMandar={onMandar} bloqueo={bloqueo} />
+            </div>
+          )
+        })}
 
       {/* Las versiones de este mueble. Va arriba de todo lo demás porque es lo
           primero que se decide: qué cama, no dónde va la cama. */}
