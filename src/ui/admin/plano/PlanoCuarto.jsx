@@ -1029,6 +1029,7 @@ function Mando({ item, dev, estado, onMandar, bloqueo }) {
   const prendido = nivel > 0.02
   const abierto = Math.round((estado?.apertura ?? 0) * 100)
   const esCortina = dev.cat === 'cortinas'
+  const enColor = !!estado?.rgb
 
   const mandar = (accion, valor = null) => {
     if (bloqueo) return
@@ -1053,7 +1054,11 @@ function Mando({ item, dev, estado, onMandar, bloqueo }) {
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-[10px] tracking-[0.12em] text-thread-2 uppercase">Pruébalo</p>
         <span className="text-[10.5px] text-cream-3">
-          {esCortina ? `${abierto} % abierta` : prendido ? `al ${Math.round(nivel * 100)} %` : 'apagado'}
+          {esCortina
+            ? `${abierto} % abierta`
+            : !prendido
+              ? 'apagado'
+              : `al ${Math.round(nivel * 100)} %${enColor ? ' · en color' : ''}`}
         </span>
       </div>
 
@@ -1083,7 +1088,58 @@ function Mando({ item, dev, estado, onMandar, bloqueo }) {
             [2700, 'Cálido'],
             [4000, 'Neutro'],
             [6000, 'Frío'],
-          ].map(([k, label]) => chip(label, () => mandar('tono', k), (estado?.k ?? 0) === k))}
+          ].map(([k, label]) => chip(label, () => mandar('tono', k), !enColor && (estado?.k ?? 0) === k))}
+        </div>
+      )}
+
+      {/* La paleta, solo en los que de verdad hacen color. Un foco de blanco
+          regulable no la ve: ofrecerle "pon la sala en morado" es la clase de
+          promesa que se cae el día de la entrega. */}
+      {posibles.includes('color') && (
+        <div className="mt-1.5">
+          <div className="flex flex-wrap items-center gap-1">
+            {COLORES.map(([hex, nombre]) => (
+              <button
+                key={hex}
+                onClick={() => mandar('color', hex)}
+                disabled={!!bloqueo}
+                title={nombre}
+                aria-label={nombre}
+                className={`h-6 w-6 rounded-full border transition-transform disabled:opacity-40 ${
+                  enColor && estado.rgb === hex
+                    ? 'scale-110 border-cream'
+                    : 'border-line hover:scale-110'
+                }`}
+                style={{ background: hex }}
+              />
+            ))}
+            {/* Cualquier otro: el selector del sistema. Doce colores cubren lo
+                que se pide de palabra; el resto se elige a ojo. */}
+            <label
+              className={`grid h-6 w-6 cursor-pointer place-items-center rounded-full border text-[11px] ${
+                enColor && !COLORES.some(([h]) => h === estado.rgb)
+                  ? 'border-cream text-cream'
+                  : 'border-line text-cream-3'
+              }`}
+              title="Otro color"
+            >
+              +
+              <input
+                type="color"
+                className="sr-only"
+                value={estado?.rgb ?? '#ff5f6d'}
+                onChange={(e) => mandar('color', e.target.value)}
+              />
+            </label>
+          </div>
+          {enColor && (
+            <button
+              onClick={() => mandar('tono', 2700)}
+              className="mt-1 text-[10.5px] text-cream-3 underline decoration-dotted underline-offset-2 hover:text-cream"
+            >
+              volver a blanco
+            </button>
+          )}
         </div>
       )}
 
@@ -1093,6 +1149,24 @@ function Mando({ item, dev, estado, onMandar, bloqueo }) {
     </div>
   )
 }
+
+/* Doce colores con nombre. No es una rueda de color: en la casa nadie pide
+   "#7c3aed", pide morado. Los doce son los que se dicen de palabra, y para
+   todo lo demás está el selector del sistema. */
+const COLORES = [
+  ['#ff3b30', 'Rojo'],
+  ['#ff6b35', 'Naranja'],
+  ['#ffb300', 'Ámbar'],
+  ['#ffe066', 'Amarillo'],
+  ['#7ed957', 'Verde'],
+  ['#2fbf71', 'Verde bosque'],
+  ['#2ec4c4', 'Turquesa'],
+  ['#3b9dff', 'Azul'],
+  ['#3b5bff', 'Azul rey'],
+  ['#8b5cf6', 'Morado'],
+  ['#e879b9', 'Rosa'],
+  ['#ff5f6d', 'Coral'],
+]
 
 /* ── inspector de la pieza seleccionada ───────────────────────── */
 

@@ -99,14 +99,37 @@ export const ACCIONES = {
   alternar: { label: 'Alternar', ayuda: 'Si está prendido apaga, y al revés. Es como se porta un apagador.' },
   atenuar: { label: 'Atenuar a', valor: true, unidad: '%', min: 0, max: 100, def: 40 },
   tono: { label: 'Poner el tono en', valor: true, unidad: 'K', min: 2200, max: 6500, paso: 100, def: 2700 },
+  /* Color y tono son cosas distintas y conviene no confundirlas. El tono es
+     blanco más cálido o más frío —lo que hace cualquier foco regulable—; el
+     color es RGB, y solo lo tienen los que lo traen. Ofrecerle "pon la sala en
+     morado" a un foco de blanco regulable es la clase de promesa que se cae el
+     día de la entrega. */
+  color: { label: 'Poner el color en', valor: true, unidad: '', color: true, def: '#ff5f6d' },
   abrir: { label: 'Abrir a', valor: true, unidad: '%', min: 0, max: 100, def: 100 },
+}
+
+/**
+ * ¿Este aparato hace color, o solo blanco más cálido y más frío?
+ *
+ * Se decide por el dato, no a mano: un aparato de color baja de los 2000 K en
+ * su rango —ningún blanco regulable llega ahí— o lo dice en su nombre. Los
+ * paneles y las tiras RGBIC son de color por definición.
+ */
+export function esRGB(device) {
+  if (!device?.luz) return false
+  if (device.luz.forma === 'panel' || device.luz.forma === 'lineal') return true
+  if ((device.luz.k?.[0] ?? 2700) <= 2000) return true
+  return /rgb|color/i.test(`${device.name ?? ''} ${device.pitch ?? ''}`)
 }
 
 /** Qué acciones acepta cada cosa. Ofrecer “atenuar” a un enchufe es mentir. */
 export function accionesDe(device) {
   if (!device) return ['avisar', 'alarma', 'bloquear', 'alternar', 'encender', 'apagar']
   if (device.cat === 'cortinas') return ['abrir', 'alternar']
-  if (device.luz) return ['alternar', 'encender', 'apagar', 'atenuar', 'tono']
+  if (device.luz)
+    return esRGB(device)
+      ? ['alternar', 'encender', 'apagar', 'atenuar', 'tono', 'color']
+      : ['alternar', 'encender', 'apagar', 'atenuar', 'tono']
   return ['alternar', 'encender', 'apagar']
 }
 
@@ -133,7 +156,7 @@ const SEGUNDOS_POR_CAT = {
 
 export function duracionDe(device, accion) {
   if (accion === 'avisar' || accion === 'alarma' || accion === 'bloquear') return 0.2
-  if (accion === 'tono') return 0.9
+  if (accion === 'tono' || accion === 'color') return 0.9
   const s = SEGUNDOS_POR_CAT[device?.cat]
   if (s != null) return s
   return device?.luz ? 0.4 : 0.3
@@ -195,6 +218,7 @@ const inicial = (item) => ({
   nivel: 1, // fracción del brillo que trae la pieza
   apertura: DEVICE_BY_ID[item.deviceId]?.cat === 'cortinas' ? 0 : 1,
   k: item.params?.k ?? 2700,
+  rgb: item.params?.rgb ?? null, // null = blanco, según su temperatura
 })
 
 /**
@@ -254,6 +278,10 @@ export function useSimulacion(plano) {
           nivel: a.nivel != null ? mez(a.de.nivel, a.nivel) : previo.nivel,
           apertura: a.apertura != null ? mez(a.de.apertura, a.apertura) : previo.apertura,
           k: a.k != null ? Math.round(mez(a.de.k, a.k)) : previo.k,
+          /* El color no se interpola: un foco RGB no pasa por los tonos de en
+             medio para ir de rojo a azul, salta. Interpolarlo se vería bonito
+             y sería mentira. */
+          rgb: a.rgb !== undefined ? (t > 0.35 ? a.rgb : previo.rgb) : previo.rgb,
         }
         if (t >= 1) anim.current.delete(id)
         else vivos = true
@@ -289,7 +317,10 @@ export function useSimulacion(plano) {
       if (accion === 'encender') destino.nivel = 1
       else if (accion === 'apagar') destino.nivel = 0
       else if (accion === 'atenuar') destino.nivel = Math.max(0, Math.min(1, (valor ?? 0) / 100))
-      else if (accion === 'tono') destino.k = valor ?? 2700
+      else if (accion === 'tono') {
+        destino.k = valor ?? 2700
+        destino.rgb = null // volver al blanco es dejar de estar en color
+      } else if (accion === 'color') destino.rgb = valor ?? '#ff5f6d'
       else if (accion === 'abrir') destino.apertura = Math.max(0, Math.min(1, (valor ?? 100) / 100))
       else if (accion === 'alternar') {
         if (dev?.cat === 'cortinas') destino.apertura = de.apertura > 0.5 ? 0 : 1

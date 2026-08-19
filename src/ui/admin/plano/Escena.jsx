@@ -799,7 +799,10 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
   const nivel = estado?.nivel ?? 1
   const encendido = nivel > 0.02
   const kelvin = estado?.k ?? p?.k ?? 2700
-  const color = useMemo(() => kelvinAColor(kelvin), [kelvin])
+  /* Si la pieza está puesta en un color, manda el color. El blanco por
+     temperatura es el estado de reposo de un foco RGB, no su única opción. */
+  const rgb = estado?.rgb ?? p?.rgb ?? null
+  const color = useMemo(() => (rgb ? new THREE.Color(rgb) : kelvinAColor(kelvin)), [rgb, kelvin])
 
   // la potencia se resuelve cada frame: así el deslizador de brillo y el
   // simulador de reglas se ven al instante, sin reconstruir la escena
@@ -1062,10 +1065,16 @@ function Cota({ eje, ancho, largo, alto, onMedir, midiendo, onEntrar, apoyo = '#
   const fueraZ = sz * (largo / 2 + 0.55)
   const fueraX = sx * (ancho / 2 + 0.55)
 
-  /* La altura se acota en la esquina más cercana, de pie. Sin ella el cuarto
-     tenía dos de sus tres medidas y la tercera —la que decide si un colgante
-     cabe o si un clóset de 2.15 pasa— había que ir a buscarla al inspector. */
-  const pos = esX ? [0, 0.02, fueraZ] : esY ? [fueraX, alto / 2, fueraZ] : [fueraX, 0.02, 0]
+  /* La altura va PEGADA al muro de la derecha, no en la esquina de enfrente.
+     En la esquina más cercana quedaba encimada sobre las otras dos cotas y
+     sobre el cuarto entero: tres medidas saliendo del mismo punto, justo el
+     que está más cerca de la cámara. Contra el muro de la derecha se lee
+     sola, y además dice a las claras de qué muro es la altura. */
+  const pos = esX
+    ? [0, 0.02, fueraZ]
+    : esY
+      ? [fueraX, alto / 2, -sz * (largo / 2 - 0.15)]
+      : [fueraX, 0.02, 0]
   const rot = esX ? [0, 0, 0] : esY ? [0, 0, Math.PI / 2] : [0, Math.PI / 2, 0]
   /* Sobre paleta pastel un gris claro desaparece. La cota se pinta con el
      tono de apoyo del cuarto, que siempre es el más oscuro de la paleta. */
