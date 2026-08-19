@@ -593,17 +593,17 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onClick={historia.deshacer}
               disabled={!historia.queDeshace}
               title={historia.queDeshace ? `Deshacer: ${historia.queDeshace} · ⌘Z` : 'Nada que deshacer'}
-              className="rounded-lg px-2.5 py-1 text-[13px] text-cream-2 transition-colors enabled:hover:bg-cream/10 disabled:opacity-25"
+              className="rounded-lg px-2 py-1.5 text-cream-2 transition-colors enabled:hover:bg-cream/10 enabled:hover:text-cream disabled:opacity-25"
             >
-              ↶
+              <IconoHistoria />
             </button>
             <button
               onClick={historia.rehacer}
               disabled={!historia.queRehace}
               title={historia.queRehace ? `Rehacer: ${historia.queRehace} · ⇧⌘Z` : 'Nada que rehacer'}
-              className="rounded-lg px-2.5 py-1 text-[13px] text-cream-2 transition-colors enabled:hover:bg-cream/10 disabled:opacity-25"
+              className="rounded-lg px-2 py-1.5 text-cream-2 transition-colors enabled:hover:bg-cream/10 enabled:hover:text-cream disabled:opacity-25"
             >
-              ↷
+              <IconoHistoria alReves />
             </button>
           </div>
 
@@ -1147,6 +1147,40 @@ function Mando({ item, dev, estado, onMandar, bloqueo }) {
         Tarda lo que tarda en la casa: {duracionDe(dev, posibles.includes('abrir') ? 'abrir' : 'atenuar')} s.
       </p>
     </div>
+  )
+}
+
+/**
+ * Deshacer y rehacer, dibujados.
+ *
+ * Las flechas de teclado (↶ ↷) las pinta la fuente del sistema, así que
+ * cambian de forma, de grosor y hasta de tamaño según el equipo: en algunos
+ * salían casi rectas y no se leían como "regresar". Este es el mismo trazo que
+ * el resto de los iconos de la herramienta —línea de 1.6, puntas redondas— y
+ * se ve igual en todos lados.
+ *
+ * Es una flecha que da media vuelta hacia atrás. Rehacer es la misma
+ * espejeada, que es como se reconoce el par sin leer nada.
+ */
+function IconoHistoria({ alReves = false, size = 17 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={alReves ? { transform: 'scaleX(-1)' } : undefined}
+    >
+      {/* el arco: sale de la izquierda, sube y regresa */}
+      <path d="M4 9h9.5a5.5 5.5 0 0 1 0 11H8" />
+      {/* la punta, apuntando a donde empieza el arco */}
+      <path d="M7.5 5.5 4 9l3.5 3.5" />
+    </svg>
   )
 }
 

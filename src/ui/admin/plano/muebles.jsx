@@ -1023,3 +1023,154 @@ export function LamparaBuro({ alto = 0.42, v = 'cono' }) {
     </group>
   )
 }
+
+/**
+ * La puerta del cuarto.
+ *
+ * No sale al amueblar por defecto —cada casa la tiene donde la tiene, y
+ * ponerla mal es peor que no ponerla— pero hacía falta poder colocarla,
+ * porque la puerta decide tres cosas del levantamiento y ninguna es
+ * decorativa:
+ *
+ *   — dónde va el apagador (del lado de la manija, a 1.20, y no del otro);
+ *   — por dónde NO se puede poner un mueble, que es el barrido de la hoja;
+ *   — dónde tiene sentido un sensor de contacto o de presencia.
+ *
+ * Por eso la hoja se dibuja abierta en las abatibles: lo que hay que ver en
+ * el plano no es la puerta, es el espacio que se come al abrirse.
+ *
+ * Mide 0.90 × 2.10, que es la de paso de cualquier casa en México. El marco
+ * sobresale del muro los dos lados, como en obra.
+ */
+export function Puerta({ w = 0.9, alto = 2.1, v = 'abatible' }) {
+  const { pal, mat, cja, cil, cap } = useTaller()
+  const marco = mat(pal.apoyo, 'madera')
+  const hoja = mat(pal.secundario, 'madera')
+  const vidrio = mat(pal.neutro, 'vidrio')
+  const herraje = mat(pal.acento, 'metal')
+
+  const g = 0.06 // grosor de la hoja
+  const jamba = 0.05
+
+  const Marco = (
+    <group>
+      {[-1, 1].map((sg) => (
+        <P
+          key={sg}
+          g={cja(jamba, alto, 0.2)}
+          m={marco}
+          position={[(sg * (w + jamba)) / 2, alto / 2, 0]}
+        />
+      ))}
+      <P g={cja(w + jamba * 2, jamba, 0.2)} m={marco} position={[0, alto + jamba / 2, 0]} />
+    </group>
+  )
+
+  /* Una hoja, con lo que la distinga. `abre` es el giro sobre su jamba: es lo
+     que dibuja el barrido y por lo que se ve que es abatible y no corrediza. */
+  const Hoja = ({ ancho = w, x = 0, abre = 0, tipo = 'ciega' }) => (
+    <group position={[x, 0, 0]}>
+      <group position={[-ancho / 2, 0, 0]} rotation={[0, abre, 0]}>
+        <P g={cja(ancho, alto - 0.02, g)} m={hoja} position={[ancho / 2, alto / 2, 0]} />
+        {tipo === 'vidrio' && (
+          <P
+            g={cja(ancho - 0.16, alto * 0.62, 0.012)}
+            m={vidrio}
+            position={[ancho / 2, alto * 0.58, g / 2]}
+            sombra={false}
+          />
+        )}
+        {tipo === 'tablero' && (
+          <>
+            {[0.32, 0.68].map((f) => (
+              <P
+                key={f}
+                g={cja(ancho - 0.18, alto * 0.26, 0.014)}
+                m={marco}
+                position={[ancho / 2, alto * f, g / 2]}
+                sombra={false}
+              />
+            ))}
+          </>
+        )}
+        {/* manija: es lo que dice de qué lado abre, y por lo tanto de qué lado
+            va el apagador */}
+        <P
+          g={cap(0.014, 0.11)}
+          m={herraje}
+          position={[ancho - 0.09, alto * 0.48, g / 2 + 0.02]}
+          rotation={[Math.PI / 2, 0, 0]}
+          sombra={false}
+        />
+      </group>
+    </group>
+  )
+
+  if (v === 'corrediza' || v === 'granero')
+    return (
+      <group>
+        {v === 'granero' && (
+          <>
+            <P g={cja(w * 2.1, 0.05, 0.05)} m={herraje} position={[w * 0.25, alto + 0.12, 0.12]} />
+            {[-1, 1].map((sg) => (
+              <P
+                key={sg}
+                g={cil(0.03, 0.03, 0.04, 12)}
+                m={herraje}
+                position={[w * 0.25 + sg * w * 0.3, alto + 0.05, 0.12]}
+                sombra={false}
+              />
+            ))}
+          </>
+        )}
+        {v === 'corrediza' && Marco}
+        {/* corrida sobre el muro: no se come piso, pero deja ese tramo de muro
+            inservible para un mueble o un apagador */}
+        <group position={[w * 0.92, 0, v === 'granero' ? 0.11 : 0.07]}>
+          <Hoja tipo={v === 'granero' ? 'tablero' : 'ciega'} />
+        </group>
+      </group>
+    )
+
+  if (v === 'doble' || v === 'francesa')
+    return (
+      <group>
+        {Marco}
+        <Hoja ancho={w / 2} x={-w / 4} abre={-0.5} tipo={v === 'francesa' ? 'vidrio' : 'ciega'} />
+        <group scale={[-1, 1, 1]}>
+          <Hoja ancho={w / 2} x={-w / 4} abre={-0.5} tipo={v === 'francesa' ? 'vidrio' : 'ciega'} />
+        </group>
+      </group>
+    )
+
+  if (v === 'arco')
+    return (
+      <group>
+        {Marco}
+        <P g={cil(w / 2 + jamba, w / 2 + jamba, 0.2, 24, 0.5)} m={marco} position={[0, alto + jamba, 0]} rotation={[Math.PI / 2, 0, 0]} />
+        <Hoja abre={-0.7} />
+      </group>
+    )
+
+  if (v === 'oculta')
+    // a ras de muro y sin marco: se pierde a propósito. Sin manija a la vista
+    return <P g={cja(w, alto, g)} m={mat(pal.muro ?? pal.neutro, 'mate')} position={[0, alto / 2, 0]} />
+
+  const abre =
+    { abatible: -0.7, cerrada: 0, pivotante: -1.1, plegable: -0.5, vidrio: -0.7, tablero: -0.7 }[v] ?? -0.7
+  const tipo = v === 'vidrio' ? 'vidrio' : v === 'tablero' ? 'tablero' : 'ciega'
+
+  return (
+    <group>
+      {Marco}
+      {v === 'plegable' ? (
+        <>
+          <Hoja ancho={w / 2} x={-w / 4} abre={-0.9} />
+          <Hoja ancho={w / 2} x={w * 0.1} abre={0.9} />
+        </>
+      ) : (
+        <Hoja abre={abre} tipo={tipo} />
+      )}
+    </group>
+  )
+}

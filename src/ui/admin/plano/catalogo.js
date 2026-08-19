@@ -298,9 +298,27 @@ export const MUEBLES = {
     V('articuladaLarga', 'Articulada larga', 'Brazo que alcanza el centro de la cama sin moverla de sitio.', { v: 'articulada', alto: 0.55 }),
   ] },
   /* ── envolvente ── */
+  puerta: {
+    ...AN('Puerta', N.Puerta, 0.9, 0.24, 2.1, { w: 0.9, alto: 2.1 }),
+    variantes: [
+      V('abatible', 'Abatible', 'La de paso de siempre, 0.90 × 2.10. Se dibuja abierta: lo que importa del plano es el barrido de la hoja.', { v: 'abatible' }),
+      V('cerrada', 'Abatible cerrada', 'La misma, dibujada cerrada. Para cuando el barrido ya se resolvió y estorba verlo.', { v: 'cerrada' }),
+      V('tablero', 'De tablero', 'Con dos entrepaños. La de una casa de siempre.', { v: 'tablero' }),
+      V('vidrio', 'Con paño de vidrio', 'Deja pasar luz al pasillo. Ojo si el cuarto necesita oscuridad para dormir.', { v: 'vidrio' }),
+      V('corrediza', 'Corrediza', 'No se come piso, pero deja ese tramo de muro inservible para un mueble o un apagador.', { v: 'corrediza' }),
+      V('granero', 'Tipo granero', 'Corre sobre riel a la vista. Necesita un muro libre del ancho de la puerta, al lado.', { v: 'granero' }),
+      V('doble', 'Doble hoja', '1.60 de claro. Para sala-comedor o vestidor.', { v: 'doble', w: 1.6 }),
+      V('francesa', 'Francesa', 'Dos hojas con vidrio. Se usa a jardín o a terraza.', { v: 'francesa', w: 1.6 }),
+      V('plegable', 'Plegable', 'Dos paneles que se doblan. Come la mitad de barrido que una abatible.', { v: 'plegable' }),
+      V('oculta', 'Oculta a ras', 'Sin marco y del color del muro. Se pierde a propósito; el apagador tiene que ir lejos de ella.', { v: 'oculta' }),
+      V('pivotante', 'Pivotante ancha', '1.10 girando sobre su centro. Entrada principal, no interior.', { v: 'pivotante', w: 1.1 }),
+      V('arco', 'Remate de arco', 'Con arco arriba. Pide 2.40 de altura libre.', { v: 'arco' }),
+    ],
+  },
   ventana: A('Ventana', P.WindowUnit, 1.4, 0.1, 1.5),
   persiana: A('Persiana', P.Blinds, 1.4, 0.1, 1.5),
-  puerta: A('Puerta corrediza', F.SlidingDoor, 2.2, 0.15, 2.3),
+  // La corrediza grande de terraza: es un vano, no una puerta de paso.
+  ventanalCorredizo: A('Ventanal corredizo', F.SlidingDoor, 2.2, 0.15, 2.3),
   cuadro: A('Cuadro', P.Artwork, 0.6, 0.05, 0.8),
 }
 
@@ -311,14 +329,14 @@ export const MUEBLES = {
  * no quiere ir descartando WCs. Siempre se puede abrir el catálogo completo.
  */
 export const POR_TIPO = {
-  sala: ['sofa', 'sillon', 'puf', 'mesaCentro', 'mueble_tv', 'tv', 'tapete', 'libreroLleno', 'lamparaPie', 'chimenea', 'plantaAlta', 'macetaChica', 'macetaGrande', 'bocina', 'mesaLateral', 'mesaRedonda', 'muroCuadros', 'cuadroSolo', 'relojPared', 'revistero', 'gato', 'perro', 'camaMascota', 'ventana', 'persiana', 'lamparaArco', 'lamparaTripode', 'lamparaColgante', 'cuadroArte', 'cuadroGrande', 'triptico', 'cuadroPiso'],
-  recamara: ['cama', 'buro', 'escritorio', 'monitorCurvo', 'lamparaEscritorio', 'closet', 'comoda', 'bancaPie', 'espejoPie', 'cuna', 'tapete', 'tv', 'lamparaPie', 'plantaAlta', 'macetaChica', 'libreroLleno', 'muroCuadros', 'cuadroSolo', 'relojPared', 'gato', 'camaMascota', 'ventana', 'persiana', 'lamparaBuro', 'lamparaTripode', 'cuadroArte', 'triptico'],
-  cocina: ['barra', 'isla', 'refri', 'estufa', 'campana', 'alacena', 'microondas', 'lavavajillas', 'bancoBarra', 'sillaComedor', 'ventana', 'planta', 'macetaChica', 'relojPared', 'lamparaEsfera', 'lamparaColgante', 'cuadroArte'],
-  bano: ['wc', 'lavabo', 'tina', 'regadera', 'espejo', 'toallero', 'boiler', 'ventana', 'macetaChica', 'cuadroArte'],
-  estudio: ['escritorio', 'mesaTrabajo', 'monitor', 'monitorCurvo', 'silla', 'sillaVisita', 'archivero', 'pizarron', 'libreroLleno', 'rack', 'lamparaPie', 'plantaAlta', 'macetaChica', 'muroCuadros', 'gato', 'ventana', 'persiana', 'lamparaEscritorio', 'lamparaArco', 'cuadroArte', 'cuadroPiso', 'triptico'],
-  comedor: ['mesaComedor', 'mesaRedonda', 'sillaComedor', 'tapete', 'libreroLleno', 'lamparaPie', 'plantaAlta', 'macetaChica', 'macetaGrande', 'muroCuadros', 'relojPared', 'ventana', 'bocina', 'lamparaColgante', 'lamparaEsfera', 'cuadroGrande', 'cuadroArte'],
-  servicio: ['lavadora', 'secadora', 'lavadero', 'boiler', 'tendedero', 'tinaco', 'rack', 'librero', 'archivero', 'ventana'],
-  exterior: ['planta', 'tapete', 'bocina'],
+  sala: ['puerta', 'ventanalCorredizo', 'sofa', 'sillon', 'puf', 'mesaCentro', 'mueble_tv', 'tv', 'tapete', 'libreroLleno', 'lamparaPie', 'chimenea', 'plantaAlta', 'macetaChica', 'macetaGrande', 'bocina', 'mesaLateral', 'mesaRedonda', 'muroCuadros', 'cuadroSolo', 'relojPared', 'revistero', 'gato', 'perro', 'camaMascota', 'ventana', 'persiana', 'lamparaArco', 'lamparaTripode', 'lamparaColgante', 'cuadroArte', 'cuadroGrande', 'triptico', 'cuadroPiso'],
+  recamara: ['puerta', 'cama', 'buro', 'escritorio', 'monitorCurvo', 'lamparaEscritorio', 'closet', 'comoda', 'bancaPie', 'espejoPie', 'cuna', 'tapete', 'tv', 'lamparaPie', 'plantaAlta', 'macetaChica', 'libreroLleno', 'muroCuadros', 'cuadroSolo', 'relojPared', 'gato', 'camaMascota', 'ventana', 'persiana', 'lamparaBuro', 'lamparaTripode', 'cuadroArte', 'triptico'],
+  cocina: ['puerta', 'barra', 'isla', 'refri', 'estufa', 'campana', 'alacena', 'microondas', 'lavavajillas', 'bancoBarra', 'sillaComedor', 'ventana', 'planta', 'macetaChica', 'relojPared', 'lamparaEsfera', 'lamparaColgante', 'cuadroArte'],
+  bano: ['puerta', 'wc', 'lavabo', 'tina', 'regadera', 'espejo', 'toallero', 'boiler', 'ventana', 'macetaChica', 'cuadroArte'],
+  estudio: ['puerta', 'escritorio', 'mesaTrabajo', 'monitor', 'monitorCurvo', 'silla', 'sillaVisita', 'archivero', 'pizarron', 'libreroLleno', 'rack', 'lamparaPie', 'plantaAlta', 'macetaChica', 'muroCuadros', 'gato', 'ventana', 'persiana', 'lamparaEscritorio', 'lamparaArco', 'cuadroArte', 'cuadroPiso', 'triptico'],
+  comedor: ['puerta', 'mesaComedor', 'mesaRedonda', 'sillaComedor', 'tapete', 'libreroLleno', 'lamparaPie', 'plantaAlta', 'macetaChica', 'macetaGrande', 'muroCuadros', 'relojPared', 'ventana', 'bocina', 'lamparaColgante', 'lamparaEsfera', 'cuadroGrande', 'cuadroArte'],
+  servicio: ['puerta', 'lavadora', 'secadora', 'lavadero', 'boiler', 'tendedero', 'tinaco', 'rack', 'librero', 'archivero', 'ventana'],
+  exterior: ['puerta', 'ventanalCorredizo', 'planta', 'tapete', 'bocina'],
   generico: Object.keys(MUEBLES),
 }
 

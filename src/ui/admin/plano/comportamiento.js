@@ -117,6 +117,9 @@ export const ACCIONES = {
  */
 export function esRGB(device) {
   if (!device?.luz) return false
+  /* El dato explícito manda sobre cualquier deducción: hay focos RGBCW cuyo
+     rango de blanco no baja de los 2000 K y que sí hacen color. */
+  if (device.luz.rgb != null) return device.luz.rgb
   if (device.luz.forma === 'panel' || device.luz.forma === 'lineal') return true
   if ((device.luz.k?.[0] ?? 2700) <= 2000) return true
   return /rgb|color/i.test(`${device.name ?? ''} ${device.pitch ?? ''}`)

@@ -39,6 +39,7 @@ export const MUEBLES_DE_MURO = new Set([
   'espejo',
   'toallero',
   'pizarron',
+  'puerta',
 ])
 
 /**

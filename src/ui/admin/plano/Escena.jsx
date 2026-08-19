@@ -160,8 +160,12 @@ function Rotulo({ texto, color = '#4d9fff', opacidad = 1, arriba = 0.9, px = PX_
         anchorX="center"
         anchorY="middle"
         renderOrder={7}
-        outlineWidth={0.12}
-        outlineColor="#0b0e16"
+        /* Contorno blanco, no negro. Sobre paleta pastel el negro metía un
+           borde sucio alrededor de cada cifra; el blanco la separa del muro
+           sin ensuciarla y de paso la vuelve legible también sobre madera
+           oscura. */
+        outlineWidth={0.14}
+        outlineColor="#ffffff"
       >
         {texto}
         <meshBasicMaterial
