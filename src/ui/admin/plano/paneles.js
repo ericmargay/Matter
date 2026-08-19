@@ -76,6 +76,20 @@ export function trianguloPanel(lado = LADO, arriba = true, grosor = GROSOR) {
 
 const C = (f, i) => ({ f, i })
 
+/* Qué celdas pueden ir juntas, que no es cualquiera. Dentro de una fila, dos
+   contiguas siempre comparten la arista inclinada. Entre filas NO: solo una
+   celda de punta arriba (índice par) tiene arista horizontal abajo, y la
+   comparte con la celda `i + 1` de la fila siguiente. Cualquier otro par se
+   toca en un vértice y nada más.
+   Está escrito aquí porque tres de las cinco figuras estaban mal por ignorarlo
+   —dos tenían piezas colgando de un solo punto— y a ojo, en el plano, eso es
+   justo lo que se ve como "no acaban de unirse". */
+export const pegadas = (a, b) => {
+  if (a.f === b.f) return Math.abs(a.i - b.i) === 1
+  const [arriba, abajo] = a.f < b.f ? [a, b] : [b, a]
+  return abajo.f === arriba.f + 1 && arriba.i % 2 === 0 && abajo.i === arriba.i + 1
+}
+
 export const DISPOSICIONES = [
   {
     id: 'triangulo',
@@ -86,20 +100,20 @@ export const DISPOSICIONES = [
   {
     id: 'rombo',
     nombre: 'Rombo',
-    porque: 'Más ancho que alto. Funciona sobre un mueble largo o una cama matrimonial, donde el triángulo se ve chico.',
-    celdas: [C(0, 0), C(0, 1), C(0, 2), C(1, 0), C(1, 1), C(1, 2), C(1, 3), C(1, 4), C(2, 2)],
+    porque: 'Dos hileras corridas media pieza. Más ancho que alto: funciona sobre un mueble largo o una cama matrimonial, donde el triángulo se ve chico.',
+    celdas: [C(0, 0), C(0, 1), C(0, 2), C(0, 3), C(1, 1), C(1, 2), C(1, 3), C(1, 4), C(1, 5)],
   },
   {
     id: 'diagonal',
     nombre: 'Diagonal',
     porque: 'Una banda que sube. Para escalera, pasillo largo o el muro angosto junto a una puerta.',
-    celdas: [C(0, 0), C(0, 1), C(1, 1), C(1, 2), C(2, 2), C(2, 3), C(3, 3), C(3, 4), C(4, 4)],
+    celdas: [C(0, 0), C(0, 1), C(1, 1), C(1, 2), C(2, 2), C(2, 3), C(3, 3), C(3, 4), C(4, 5)],
   },
   {
     id: 'flecha',
     nombre: 'Flecha',
-    porque: 'Apunta a algo: la tele, la puerta, el escritorio. Es la que más se nota en foto.',
-    celdas: [C(0, 0), C(1, 0), C(1, 1), C(1, 2), C(2, 0), C(2, 1), C(2, 3), C(2, 4), C(2, 2)],
+    porque: 'Un cheurón: el triángulo con la base abierta al centro. Apunta a algo —la tele, la puerta, el escritorio— y es la que más se nota en foto.',
+    celdas: [C(0, 0), C(0, 1), C(1, 0), C(1, 1), C(1, 2), C(2, 0), C(2, 1), C(2, 3), C(2, 4)],
   },
   {
     id: 'banda',

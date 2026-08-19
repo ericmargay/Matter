@@ -1,3 +1,7 @@
+import { useEffect, useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
+import * as THREE from 'three'
+
 import { M } from '../../../scene/materials'
 import { B, C } from '../../../scene/props'
 
@@ -764,11 +768,60 @@ export function MonitorCurvo({ position, rotation, ancho = 0.8, alto = 0.34 }) {
         <meshStandardMaterial color="#141417" roughness={0.55} side={2} />
       </mesh>
 
-      {/* la pantalla, encendida */}
-      <mesh position={[0, y, R]}>
-        <cylinderGeometry args={[R, R, alto - 0.012, 48, 1, true, Math.PI - arco / 2 + 0.008, arco - 0.016]} />
-        <meshStandardMaterial color="#05070c" emissive="#4a6fa8" emissiveIntensity={1.1} roughness={1} side={2} />
-      </mesh>
+      {/* la pantalla, con algo puesto */}
+      <PantallaCurva R={R} arco={arco} alto={alto - 0.012} y={y} />
+    </group>
+  )
+}
+
+/**
+ * La pantalla del monitor, encendida y con algo pasando.
+ *
+ * Es una pantalla de LEDs: quieta y de un solo azul parece una placa de
+ * acrílico, no una pantalla. Se parte en franjas verticales con su propio
+ * material y se les corre una onda lenta de brillo y de tono — a la distancia
+ * a la que se mira un plano isométrico eso es exactamente lo que se lee como
+ * "hay algo puesto", sin tener que dibujar nada concreto.
+ *
+ * Lenta a propósito. Una pantalla que parpadea rápido se roba la atención de
+ * todo el cuarto, y aquí el monitor es utilería: lo que se está enseñando es
+ * la instalación, no la película.
+ */
+const FRANJAS = 14
+
+function PantallaCurva({ R, arco, alto, y }) {
+  const materiales = useMemo(
+    () =>
+      Array.from(
+        { length: FRANJAS },
+        () => new THREE.MeshStandardMaterial({ color: '#05070c', emissive: '#4a6fa8', roughness: 1, side: 2 }),
+      ),
+    [],
+  )
+  useEffect(() => () => materiales.forEach((m) => m.dispose()), [materiales])
+
+  const paso = arco / FRANJAS
+  const inicio = Math.PI - arco / 2
+
+  useFrame((st) => {
+    const t = st.clock.elapsedTime
+    materiales.forEach((m, i) => {
+      const u = i / FRANJAS
+      // dos ondas de periodo distinto: sin la segunda se ve el bucle
+      const onda = 0.5 + 0.34 * Math.sin(t * 0.9 - u * 7.4) + 0.16 * Math.sin(t * 0.37 + u * 2.1)
+      m.emissive.setHSL(0.57 + 0.11 * Math.sin(t * 0.21 + u * 3.4), 0.6, 0.42)
+      m.emissiveIntensity = 0.3 + onda * 1.7
+    })
+  })
+
+  return (
+    <group position={[0, y, R]}>
+      {materiales.map((m, i) => (
+        <mesh key={i} material={m}>
+          {/* un pelo de traslape entre franjas: sin él se ve la costura */}
+          <cylinderGeometry args={[R, R, alto, 4, 1, true, inicio + i * paso - 0.002, paso + 0.004]} />
+        </mesh>
+      ))}
     </group>
   )
 }

@@ -3,7 +3,7 @@ import { Suspense, lazy, useEffect, useMemo, useReducer, useRef, useState } from
 import { CATEGORIES, DEVICE_BY_ID } from '../../../content/catalog'
 import { uid, planoVacio } from '../../../sync/eventos'
 import { useSurvey } from '../../../store/survey'
-import { ARRANQUE, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
+import { ARRANQUE, ID_MUROS, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
 import { ESPACIOS } from '../../../content/espacios'
 import { DISPOSICIONES } from './paneles'
 
@@ -604,7 +604,9 @@ export default function PlanoCuarto({ room, onCerrar }) {
             </button>
           </div>
 
-          {seleccion && !midiendo && (
+          {/* La barra de mover/girar/escalar no aplica al espacio: los muros se
+              ajustan con sus cotas, no con un gizmo. */}
+          {seleccion && seleccion !== ID_MUROS && !midiendo && (
             <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-0.5 rounded-xl border border-line bg-ink/92 p-1 backdrop-blur">
               {[
                 ['mover', 'Mover', 'G'],
@@ -820,7 +822,6 @@ const GRUPOS = [
   ['punto', 'Instalación'],
 ]
 
-export const ID_MUROS = '__muros'
 
 function Objetos({ items, seleccion, onSeleccionar, onQuitar }) {
   const nombre = (it) =>

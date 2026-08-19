@@ -17,6 +17,11 @@ import * as N from './muebles'
  * dibujar la selección y para avisar cuando algo no cabe.
  */
 
+/* El "objeto" que representa al cuarto mismo —piso y muros—. Vive aquí, en un
+   módulo hoja, porque lo necesitan tanto el editor como la escena 3D: tocar el
+   piso selecciona el espacio igual que tocar un mueble selecciona el mueble. */
+export const ID_MUROS = '__muros'
+
 const A = (label, Comp, w, d, alto = 0.8, props = {}) => ({ label, Comp, w, d, alto, props })
 
 /**

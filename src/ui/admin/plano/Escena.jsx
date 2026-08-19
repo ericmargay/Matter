@@ -7,7 +7,7 @@ import * as THREE from 'three'
 
 import { DEVICE_BY_ID } from '../../../content/catalog'
 
-import { MUEBLES } from './catalogo'
+import { ID_MUROS, MUEBLES } from './catalogo'
 import Conexiones from './Conexiones'
 import { DISPOSICION_BY_ID, DISPOSICIONES, LADO, posicionesDe, trianguloPanel } from './paneles'
 import Cuarto3D from './Cuarto3D'
@@ -129,7 +129,7 @@ const enMedida = (m) => (m < 1 ? `${Math.round(m * 100)} cm` : `${m.toFixed(2)} 
  * orbita medio giro, las tres cifras quedan al revés.
  */
 const PUNTO_TXT = new THREE.Vector3()
-const PX_TEXTO = 15 // altura del número en pantalla, en píxeles
+const PX_TEXTO = 11 // altura del número en pantalla, en píxeles
 
 function Regla({ largo, texto, grueso, color = '#4d9fff' }) {
   const rotulo = useRef()
@@ -158,7 +158,7 @@ function Regla({ largo, texto, grueso, color = '#4d9fff' }) {
       </mesh>
       {[1, -1].map((sg) => (
         <mesh key={sg} position={[(sg * largo) / 2, 0, 0]} renderOrder={5} userData={{ cota: true }}>
-          <boxGeometry args={[grueso, grueso * 7, grueso * 7]} />
+          <sphereGeometry args={[grueso * 1.8, 10, 8]} />
           {mat}
         </mesh>
       ))}
@@ -993,7 +993,6 @@ function Tramo({ tramo }) {
  * 2— porque con el dedo en un iPad nadie le atina a una línea de dos
  * centímetros.
  */
-const FLECHA = 0.2 // largo del cono de la punta
 /* Plano fijo a la altura de la cota. Se mide contra ESTO y no contra la caja
    de agarre: la caja crece conforme se jala, así que el rayo pegaba cada vez
    en un punto distinto de una geometría en movimiento y la medida temblaba. */
@@ -1021,17 +1020,14 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar, apoyo = '#3b3244
     <meshBasicMaterial color={color} transparent opacity={opacidad} depthTest={false} {...extra} />
   )
 
-  /* La punta apoya EN el borde, no lo rebasa. El cono se dibuja desde su
-     centro, así que hay que recularlo medio cono: si se centra en el borde,
-     la mitad de la flecha queda fuera de la medida que dice representar —que
-     es justo lo que se veía. */
-  const flecha = (signo) => (
-    <mesh
-      position={[(signo * (largoCota - FLECHA)) / 2, 0, 0]}
-      rotation={[0, 0, signo > 0 ? -Math.PI / 2 : Math.PI / 2]}
-      renderOrder={2}
-    >
-      <coneGeometry args={[activa ? 0.09 : 0.07, FLECHA, 8]} />
+  /* Un punto, no una flecha. La flecha pesaba más que la medida: dos conos de
+     catorce centímetros en cada cota tapaban el borde del cuarto y competían
+     con los muebles. Un remate apenas más gordo que la línea dice lo mismo
+     —hasta aquí llega— y desaparece cuando no se le está mirando.
+     Apoya EN el borde: se centra justo en el extremo de la medida. */
+  const remate = (signo) => (
+    <mesh position={[(signo * largoCota) / 2, 0, 0]} renderOrder={3}>
+      <sphereGeometry args={[activa ? 0.05 : 0.038, 10, 8]} />
       {mat()}
     </mesh>
   )
@@ -1042,7 +1038,7 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar, apoyo = '#3b3244
           Antes la cifra caía encima del trazo y se leía a medias — el dato
           que más se mira del plano, tapado por su propia flecha. */}
       {[-1, 1].map((sg) => {
-        const util = Math.max(0.01, largoCota - FLECHA * 2)
+        const util = Math.max(0.01, largoCota)
         const tramo = Math.max(0.01, (util - HUECO) / 2)
         return (
           <mesh key={sg} position={[(sg * (tramo + HUECO)) / 2, 0, 0]} renderOrder={2}>
@@ -1051,8 +1047,8 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar, apoyo = '#3b3244
           </mesh>
         )
       })}
-      {flecha(1)}
-      {flecha(-1)}
+      {remate(1)}
+      {remate(-1)}
 
       {/* los topes contra el muro: marcan dónde cae de verdad la medida */}
       {[1, -1].map((sg) => (
@@ -1067,8 +1063,8 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar, apoyo = '#3b3244
           querer mientras se acomoda un mueble */}
       {activa &&
         [1, -1].map((sg) => (
-          <mesh key={sg} position={[(sg * (largoCota - FLECHA)) / 2, 0, 0]} renderOrder={3}>
-            <sphereGeometry args={[0.13, 14, 10]} />
+          <mesh key={sg} position={[(sg * largoCota) / 2, 0, 0]} renderOrder={4}>
+            <sphereGeometry args={[0.11, 14, 10]} />
             <meshBasicMaterial color="#ff9a4d" transparent opacity={0.55} depthTest={false} />
           </mesh>
         ))}
@@ -1076,7 +1072,7 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar, apoyo = '#3b3244
       <Text
         position={[0, 0.09, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={activa ? 0.3 : 0.26}
+        fontSize={activa ? 0.19 : 0.165}
         color={color}
         fillOpacity={opacidad}
         anchorX="center"
@@ -1283,7 +1279,9 @@ function LuzVentana({ item, ancho, largo, alto, dia }) {
 
 /* ── plano invisible para arrastrar y colocar ─────────────────── */
 
-function Suelo({ ancho, largo, onMover, onSoltar, onColocar, arrastrando, colocando }) {
+const GROSOR_MURO = 0.16 // el mismo que dibuja Cuarto3D
+
+function Suelo({ ancho, largo, onMover, onSoltar, onColocar, arrastrando, colocando, onTocar, onFuera }) {
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
@@ -1299,7 +1297,21 @@ function Suelo({ ancho, largo, onMover, onSoltar, onColocar, arrastrando, coloca
         if (colocando) {
           e.stopPropagation()
           onColocar(e.point.x, e.point.z)
+          return
         }
+        /* Este plano se extiende tres veces el cuarto porque hace de mesa de
+           arrastre. Eso también quiere decir que se traga los clics de
+           "afuera", y por eso soltar la selección picando el fondo no
+           funcionaba: nunca había un clic perdido. Se decide aquí, por dónde
+           cayó el punto. */
+        e.stopPropagation()
+        /* El margen es el grosor del muro: el piso que se VE sobresale eso
+           del cuarto útil, y picarle a la orilla del piso tiene que contar
+           como picarle al espacio, no como salirse de él. */
+        const dentro =
+          Math.abs(e.point.x) <= ancho / 2 + GROSOR_MURO && Math.abs(e.point.z) <= largo / 2 + GROSOR_MURO
+        if (dentro) onTocar?.()
+        else onFuera?.()
       }}
     >
       <planeGeometry args={[ancho * 3, largo * 3]} />
@@ -1481,7 +1493,14 @@ export default function Escena({
         <LuzVentana key={v.id} item={v} ancho={ancho} largo={largo} alto={alto} dia={modo === 'dia'} />
       ))}
 
-      <Cuarto3D ancho={ancho} largo={largo} alto={alto} camaraX={camX} camaraZ={camZ} />
+      <Cuarto3D
+        ancho={ancho}
+        largo={largo}
+        alto={alto}
+        camaraX={camX}
+        camaraZ={camZ}
+        onTocar={midiendo || colocando ? undefined : () => onSeleccionar(ID_MUROS)}
+      />
       <Conexiones plano={plano} alto={alto} />
 
       <Suelo
@@ -1492,6 +1511,8 @@ export default function Escena({
         onColocar={onColocar}
         arrastrando={arrastrando}
         colocando={colocando && !midiendo}
+        onTocar={midiendo ? undefined : () => onSeleccionar(ID_MUROS)}
+        onFuera={midiendo ? undefined : () => onSeleccionar(null)}
       />
 
       {plano.items.map((it) => {
@@ -1548,9 +1569,14 @@ export default function Escena({
           <Tramo key={t.id} tramo={t} />
         ))}
 
-      {/* las manijas solo cuando no se está colocando algo: si no, estorban
-          justo en el borde donde uno quiere soltar la pieza */}
-      {onMedida && !colocando && (
+      {/* Las medidas del cuarto salen al TOCAR el espacio —el piso o un muro—,
+          igual que las de un mueble salen al tocarlo. Puestas siempre, cada
+          plano abría con dos cotas grandes que nadie había pedido y que se
+          cruzaban con todo lo que uno quería mirar. Durante el modo medida se
+          quedan aunque se deseleccione, que es cuando de verdad se usan.
+          Y las manijas, no mientras se coloca algo: estorban justo en el borde
+          donde uno quiere soltar la pieza. */}
+      {onMedida && !colocando && (seleccion === ID_MUROS || midiendo) && (
         <>
           <Cota eje="x" ancho={ancho} largo={largo} onMedir={onMedida} midiendo={midiendo} onEntrar={onMidiendo} apoyo={pal.apoyo} />
           <Cota eje="z" ancho={ancho} largo={largo} onMedir={onMedida} midiendo={midiendo} onEntrar={onMidiendo} apoyo={pal.apoyo} />

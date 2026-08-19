@@ -12,7 +12,7 @@ import { caja } from './geo'
  * Los dos muros que quedan entre la cámara y el cuarto se esconden solos, así
  * que se puede girar libremente sin perder la vista de casa de muñecas.
  */
-export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1 }) {
+export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1, onTocar }) {
   const e = useEstilo()
   const pal = paletaDe(e.paleta)
   const t = 0.16 // grosor del muro
@@ -31,12 +31,21 @@ export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1 
 
   return (
     <group>
-      {/* el piso con espesor: se ve su canto y ancla el diorama */}
+      {/* el piso con espesor: se ve su canto y ancla el diorama.
+          Tocarlo selecciona el espacio, igual que tocar un mueble selecciona
+          el mueble: es de donde salen las medidas del cuarto. */}
       <mesh
         geometry={cja(ancho + t * 2, gPiso, largo + t * 2)}
         material={mat(pal.piso, 'madera')}
         position={[0, -gPiso / 2, 0]}
         receiveShadow
+        onPointerDown={
+          onTocar &&
+          ((e) => {
+            e.stopPropagation()
+            onTocar()
+          })
+        }
       />
 
       {muros.map((m, i) => {
@@ -52,6 +61,14 @@ export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1 
             rotation={[0, m.rot, 0]}
             castShadow
             receiveShadow
+            onPointerDown={
+              visible && onTocar
+                ? (e) => {
+                    e.stopPropagation()
+                    onTocar()
+                  }
+                : undefined
+            }
           />
         )
       })}
