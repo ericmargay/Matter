@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Text, TransformControls } from '@react-three/drei'
+import { Billboard, OrbitControls, Text, TransformControls } from '@react-three/drei'
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
@@ -71,37 +71,282 @@ function SeguirCamara({ onMover }) {
  * `depthTest` apagado a propósito: la caja de un sensor metido tras un mueble
  * tiene que verse igual, si no lo que está tapado nunca se puede tomar.
  */
-const cajaCache = new Map()
-const aristasDe = (w, h, d) => {
-  const k = `${w}|${h}|${d}`
-  if (!cajaCache.has(k)) cajaCache.set(k, new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d)))
-  return cajaCache.get(k)
+
+/* ── las tres medidas de la pieza seleccionada ─────────────────── */
+
+const CAJA = new THREE.Box3()
+const CAJA_TMP = new THREE.Box3()
+const MAT_INV = new THREE.Matrix4()
+
+/**
+ * Mide una pieza de verdad, no por su ficha.
+ *
+ * La huella que hay en el catálogo (`w`, `d`, `alto`) sirve para avisar si algo
+ * cabe, pero no es lo que se DIBUJA: un Apple TV tiene ficha de 34 cm y en la
+ * escena mide nueve. Poner esos números en una cota sería mentir con dos
+ * decimales, así que se recorre la geometría ya montada y se mide lo que
+ * efectivamente está puesto.
+ *
+ * Se mide en el marco de la propia pieza —invirtiendo su matriz— y no en el
+ * del mundo: la caja envolvente de un mueble girado 30° en coordenadas del
+ * mundo es más grande que el mueble, y diría 1.80 donde dice 1.40.
+ */
+function medirObjeto(obj) {
+  if (!obj) return null
+  obj.updateWorldMatrix(true, true)
+  MAT_INV.copy(obj.matrixWorld).invert()
+  CAJA.makeEmpty()
+
+  obj.traverse((o) => {
+    /* Se mide la PIEZA, no lo que le colgamos encima para trabajar: la
+       varilla que la ata al plafón, el aro del piso, las cotas mismas. Sin
+       esta criba, un Apple TV medía 2.48 m de alto —la varilla— y 52 cm de
+       ancho, que es el diámetro del aro. */
+    if (!o.isMesh || !o.geometry || o.userData.cota || o.userData.ayuda || o.visible === false) return
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
+    CAJA_TMP.copy(o.geometry.boundingBox).applyMatrix4(MAT_INV.clone().multiply(o.matrixWorld))
+    CAJA.union(CAJA_TMP)
+  })
+
+  if (CAJA.isEmpty()) return null
+  return {
+    w: CAJA.max.x - CAJA.min.x,
+    h: CAJA.max.y - CAJA.min.y,
+    d: CAJA.max.z - CAJA.min.z,
+    min: CAJA.min.clone(),
+    max: CAJA.max.clone(),
+  }
 }
 
-function Contorno({ item, seleccionado }) {
-  const def = item.clase === 'mueble' ? MUEBLES[item.tipo] : null
-  const w = def?.w ?? (item.clase === 'punto' ? 0.16 : 0.34)
-  const d = def?.d ?? (item.clase === 'punto' ? 0.1 : 0.34)
-  const h = def?.alto ?? (item.clase === 'punto' ? 0.2 : 0.3)
-  const e = item.esc ?? 1
+/** Centímetros abajo de un metro, metros arriba. Es como se dicta en obra. */
+const enMedida = (m) => (m < 1 ? `${Math.round(m * 100)} cm` : `${m.toFixed(2)} m`)
+
+/**
+ * Una cota chica: línea con topes y el número encima.
+ *
+ * Va sobre el eje X local; girando el grupo se usa para las tres direcciones.
+ * El número se pega a la cámara con `Billboard` porque si no, en cuanto se
+ * orbita medio giro, las tres cifras quedan al revés.
+ */
+const PUNTO_TXT = new THREE.Vector3()
+const PX_TEXTO = 15 // altura del número en pantalla, en píxeles
+
+function Regla({ largo, texto, grueso, color = '#4d9fff' }) {
+  const rotulo = useRef()
+
+  /* El número se dibuja del mismo tamaño en pantalla siempre, como en
+     cualquier plano de obra. Con un tamaño fijo en metros, la cota de un
+     enchufe salía ilegible y la de una cama, gigante — y encima cambiaba al
+     acercarse. Se escala por distancia contra la altura del cuadro. */
+  useFrame(({ camera, size }) => {
+    const g = rotulo.current
+    if (!g) return
+    g.getWorldPosition(PUNTO_TXT)
+    const d = camera.position.distanceTo(PUNTO_TXT)
+    const altoMundo = 2 * Math.tan(((camera.fov ?? 42) * Math.PI) / 360) * d
+    g.scale.setScalar((altoMundo * PX_TEXTO) / size.height)
+  })
+
+  if (largo < 0.02) return null
+  const mat = <meshBasicMaterial color={color} depthTest={false} toneMapped={false} />
 
   return (
+    <group userData={{ cota: true }}>
+      <mesh renderOrder={5} userData={{ cota: true }}>
+        <boxGeometry args={[largo, grueso, grueso]} />
+        {mat}
+      </mesh>
+      {[1, -1].map((sg) => (
+        <mesh key={sg} position={[(sg * largo) / 2, 0, 0]} renderOrder={5} userData={{ cota: true }}>
+          <boxGeometry args={[grueso, grueso * 7, grueso * 7]} />
+          {mat}
+        </mesh>
+      ))}
+      <Billboard ref={rotulo} position={[0, grueso * 6, 0]}>
+        <Text
+          position={[0, 0.8, 0]}
+          fontSize={1}
+          anchorX="center"
+          anchorY="middle"
+          renderOrder={6}
+          outlineWidth={0.12}
+          outlineColor="#0b0e16"
+        >
+          {texto}
+          {/* Sin prueba de profundidad, como cualquier acotación: el número de
+              una pieza metida entre dos muebles tiene que leerse igual. Con la
+              prueba puesta, dos de las tres medidas quedaban dentro del propio
+              mueble y no se veían. */}
+          <meshBasicMaterial attach="material" color={color} depthTest={false} toneMapped={false} transparent />
+        </Text>
+      </Billboard>
+    </group>
+  )
+}
+
+/**
+ * Las tres medidas de lo que está seleccionado: ancho, fondo y alto.
+ *
+ * Solo con algo seleccionado. Puestas siempre serían una maraña de números
+ * sobre veinte piezas, y el plano se lee peor con más datos que con menos: lo
+ * que hace falta es la medida de la pieza que se está acomodando, justo
+ * mientras se acomoda.
+ */
+function useMedidaPieza(id) {
+  const { scene } = useThree()
+  const [caja, setCaja] = useState(null)
+
+  /* Se vuelve a medir en cada cuadro mientras está seleccionada: escalar o
+     cambiar el montaje cambia el tamaño, y una cota que no sigue a la pieza es
+     peor que ninguna. Es una pieza, no veinte. */
+  useFrame(() => {
+    if (!id) {
+      if (caja) setCaja(null)
+      return
+    }
+    const m = medirObjeto(scene.getObjectByName(id))
+    if (!m) return
+    if (!caja || Math.abs(m.w - caja.w) > 0.002 || Math.abs(m.h - caja.h) > 0.002 || Math.abs(m.d - caja.d) > 0.002)
+      setCaja(m)
+  })
+
+  return caja
+}
+
+/**
+ * Todo lo que aparece por estar seleccionado: la caja justa, las tres medidas
+ * y el gizmo.
+ *
+ * Va junto porque comparte una sola cosa: cuánto mide la pieza de verdad. El
+ * mismo número que se le enseña al cliente es el que decide qué tan grandes
+ * salen las flechas del gizmo. Y tiene que vivir DENTRO del canvas: medir es
+ * recorrer la escena montada, y fuera no hay escena que recorrer.
+ */
+function Seleccion({ item, modo, onParchar, onFin }) {
+  const caja = useMedidaPieza(item.id)
+  const mayor = caja ? Math.max(caja.w, caja.h, caja.d) : 1
+
+  return (
+    <>
+      <CotasPieza item={item} caja={caja} />
+      {modo && (
+        <Gizmo
+          item={item}
+          modo={modo}
+          onParchar={onParchar}
+          onFin={onFin}
+          tamano={Math.min(0.9, Math.max(0.38, 0.34 + mayor * 0.45))}
+        />
+      )}
+    </>
+  )
+}
+
+/** Suelta un id que ya no corresponde a ninguna pieza: se borra lo que está
+ *  bajo el puntero y el hover se queda apuntando a un fantasma. */
+function SoltarFantasma({ id, items, onSoltar }) {
+  const vivo = !id || items.some((i) => i.id === id)
+  useEffect(() => {
+    if (!vivo) onSoltar()
+  }, [vivo, onSoltar])
+  return null
+}
+
+/** La caja del tamaño que la pieza ocupa de verdad, no el de su ficha. */
+function CajaJusta({ caja, color, opacidad = 0.95 }) {
+  const { w, h, d, min, max } = caja
+  return (
     <lineSegments
-      geometry={aristasDe(w, h, d)}
-      position={[item.x, (item.y ?? (item.clase === 'punto' ? 0.4 : 0)) + (h / 2) * e, item.z]}
-      rotation={[0, item.rot ?? 0, 0]}
-      scale={e}
+      position={[(min.x + max.x) / 2, (min.y + max.y) / 2, (min.z + max.z) / 2]}
       renderOrder={4}
+      userData={{ cota: true }}
     >
-      <lineBasicMaterial
-        color={seleccionado ? '#4d9fff' : '#5eead4'}
-        transparent
-        opacity={seleccionado ? 0.95 : 0.6}
-        depthTest={false}
-      />
+      <edgesGeometry args={[new THREE.BoxGeometry(w, h, d)]} />
+      <lineBasicMaterial color={color} transparent opacity={opacidad} depthTest={false} toneMapped={false} />
     </lineSegments>
   )
 }
+
+/**
+ * El resalte de lo que está bajo el puntero.
+ *
+ * Se mide igual que la selección para que las dos cajas digan lo mismo: una
+ * caja de hover más grande que la de selección sobre la misma pieza se lee
+ * como un error, y encima invita a picarle donde no hay nada.
+ */
+function Realce({ item }) {
+  const caja = useMedidaPieza(item?.id)
+  if (!item || !caja) return null
+  return (
+    <group
+      position={[item.x, item.y ?? (item.clase === 'punto' ? 0.4 : 0), item.z]}
+      rotation={[0, item.rot ?? 0, 0]}
+      scale={item.esc ?? 1}
+    >
+      <CajaJusta caja={caja} color="#5eead4" opacidad={0.6} />
+    </group>
+  )
+}
+
+function CotasPieza({ item, caja }) {
+  const raiz = useRef()
+  const anchoRef = useRef()
+  const fondoRef = useRef()
+  const altoRef = useRef()
+
+  /* Las tres cotas se separan de la caja lo que haga falta EN PANTALLA, no en
+     metros. Con una separación en metros, en un Apple TV de nueve centímetros
+     las tres líneas caían una encima de otra y los tres números se encimaban
+     en un borrón ilegible. Ahora se apartan al menos treinta píxeles, midan lo
+     que midan y se vea desde donde se vea. */
+  useFrame(({ camera, size }) => {
+    const g = raiz.current
+    if (!g || !caja) return
+    g.getWorldPosition(PUNTO_TXT)
+    const dist = camera.position.distanceTo(PUNTO_TXT)
+    const porPixel = (2 * Math.tan(((camera.fov ?? 42) * Math.PI) / 360) * dist) / size.height
+    const esc = item.esc ?? 1
+    const mayor = Math.max(caja.w, caja.h, caja.d)
+    const sep = Math.max(mayor * 0.09, (porPixel * 30) / esc)
+    const { min, max } = caja
+
+    /* A la altura de la base, nunca por debajo: bajo el piso la cota queda
+       tapada por el propio piso y el número desaparece. Se apartan hacia
+       afuera, que es donde siempre hay aire. */
+    anchoRef.current?.position.set((min.x + max.x) / 2, min.y, max.z + sep)
+    fondoRef.current?.position.set(max.x + sep, min.y, (min.z + max.z) / 2)
+    altoRef.current?.position.set(max.x + sep, (min.y + max.y) / 2, max.z + sep)
+  })
+
+  if (!caja) return null
+  const { w, h, d } = caja
+  const grueso = Math.max(0.003, Math.max(w, h, d) * 0.006)
+
+  return (
+    <group
+      ref={raiz}
+      position={[item.x, item.y ?? (item.clase === 'punto' ? 0.4 : 0), item.z]}
+      rotation={[0, item.rot ?? 0, 0]}
+      scale={item.esc ?? 1}
+    >
+      <CajaJusta caja={caja} color="#4d9fff" />
+
+      {/* ancho, al frente y abajo */}
+      <group ref={anchoRef}>
+        <Regla largo={w} texto={enMedida(w)} grueso={grueso} />
+      </group>
+      {/* fondo, al costado y abajo */}
+      <group ref={fondoRef} rotation={[0, Math.PI / 2, 0]}>
+        <Regla largo={d} texto={enMedida(d)} grueso={grueso} />
+      </group>
+      {/* alto, en la arista de enfrente */}
+      <group ref={altoRef} rotation={[0, 0, Math.PI / 2]}>
+        <Regla largo={h} texto={enMedida(h)} grueso={grueso} />
+      </group>
+    </group>
+  )
+}
+
 
 /* ── sombras ──────────────────────────────────────────────────── */
 
@@ -135,6 +380,7 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima }) {
 
   return (
     <group
+      name={item.id}
       ref={g}
       position={[item.x, item.y ?? 0, item.z]}
       rotation={[0, item.rot ?? 0, 0]}
@@ -549,6 +795,7 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
 
   return (
     <group
+      name={item.id}
       position={[item.x, item.y ?? 0, item.z]}
       rotation={[0, item.rot ?? 0, 0]}
       scale={item.esc ?? 1}
@@ -608,13 +855,18 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
          la lámpara— y el cuarto volvía a leerse a diagrama. Ayuda cuando se
          está acomodando esa pieza, estorba el resto del tiempo. */}
       {seleccionado && alto - (item.y ?? 0) > 0.06 && (
-        <mesh position={[0, (alto - (item.y ?? 0)) / 2, 0]}>
+        <mesh position={[0, (alto - (item.y ?? 0)) / 2, 0]} userData={{ ayuda: true }}>
           <cylinderGeometry args={[0.006, 0.006, alto - (item.y ?? 0), 6]} />
           <meshBasicMaterial color="#3a332d" />
         </mesh>
       )}
 
-      <mesh position={[0, -(item.y ?? 0) + 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={seleccionado}>
+      <mesh
+        position={[0, -(item.y ?? 0) + 0.02, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        visible={seleccionado}
+        userData={{ ayuda: true }}
+      >
         <ringGeometry args={[0.18, 0.26, 24]} />
         <meshBasicMaterial color="#ff9a4d" transparent opacity={0.8} depthWrite={false} />
       </mesh>
@@ -640,6 +892,7 @@ function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colo
 
   return (
     <group
+      name={item.id}
       position={[item.x, item.y ?? 0.4, item.z]}
       onPointerOver={(e) => {
         e.stopPropagation()
@@ -912,7 +1165,7 @@ function magnetizar(rad) {
   return Math.round((norm * 180) / Math.PI) * (Math.PI / 180)
 }
 
-function Gizmo({ item, modo, onParchar, onFin }) {
+function Gizmo({ item, modo, onParchar, onFin, tamano = 1 }) {
   const proxy = useRef()
   const [listo, setListo] = useState(false)
 
@@ -952,7 +1205,10 @@ function Gizmo({ item, modo, onParchar, onFin }) {
         <TransformControls
           object={proxy.current}
           mode={MODOS_GIZMO[modo] ?? 'translate'}
-          size={0.9}
+          /* A la medida de lo que se agarra. Con el tamaño fijo, las flechas
+             tapaban por completo un Apple TV de nueve centímetros: no se veía
+             ni la pieza ni sus cotas, solo el gizmo. */
+          size={tamano}
           space="world"
           /* girar solo en Y: inclinar un mueble no es algo que se haga en un
              levantamiento, y los otros dos anillos solo estorban al agarrar */
@@ -1304,13 +1560,17 @@ export default function Escena({
       {/* el aro de giro solo en lo seleccionado: cuatro aros a la vez serían
           ruido y además se pelearían con el arrastre */}
       {/* el contorno de lo que está bajo el puntero, y el de lo seleccionado */}
-      {encima && encima !== seleccion && (
-        <Contorno item={plano.items.find((i) => i.id === encima)} seleccionado={false} />
-      )}
-      {seleccionado && <Contorno item={seleccionado} seleccionado />}
-
-      {seleccionado && !midiendo && modoGizmo && (
-        <Gizmo item={seleccionado} modo={modoGizmo} onParchar={onParchar} onFin={onFinGizmo} />
+      <Realce item={(encima && encima !== seleccion && plano.items.find((i) => i.id === encima)) || null} />
+      {/* El hover se suelta en cuanto su pieza deja de existir: si no, se
+          queda apuntando a un fantasma hasta que el puntero se mueva. */}
+      <SoltarFantasma id={encima} items={plano.items} onSoltar={() => setEncima(null)} />
+      {seleccionado && (
+        <Seleccion
+          item={seleccionado}
+          modo={!midiendo && modoGizmo ? modoGizmo : null}
+          onParchar={onParchar}
+          onFin={onFinGizmo}
+        />
       )}
 
       <Postproceso modo={modo} />
