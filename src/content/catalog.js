@@ -335,6 +335,30 @@ export const DEVICES = [
 /** Índice por id: el catálogo se consulta mucho por id y `find` en cada render cuesta. */
 export const DEVICE_BY_ID = Object.fromEntries(DEVICES.map((d) => [d.id, d]))
 
+/**
+ * Aparatos dados de alta desde la herramienta.
+ *
+ * El catálogo de arriba es curado y se escribe con calma: es lo que se propone
+ * y lo que se cotiza. Pero en una casa siempre aparece algo que no está —la
+ * marca que compró el cliente en el súper, el aparato de una obra anterior, el
+ * modelo nuevo que salió el mes pasado— y hasta ahora eso significaba esperar
+ * a que alguien lo agregara al código.
+ *
+ * Se registran en los MISMOS mapas que los del catálogo a propósito. Un
+ * aparato propio tiene que funcionar en todo —la cotización, el alcance del
+ * asistente, las ambientaciones, el mando individual— sin que ninguna de esas
+ * partes tenga que saber de dónde salió. Un segundo camino sería un segundo
+ * lugar donde olvidarse de mirar.
+ */
+export function registrarPropios(lista = []) {
+  for (const d of lista) {
+    if (!d?.id || DEVICE_BY_ID[d.id]) continue
+    const limpio = { ...d, propio: true }
+    DEVICE_BY_ID[d.id] = limpio
+    DEVICES.push(limpio)
+  }
+}
+
 /** Precio de referencia del equipo: el punto medio del rango. */
 export const refPrice = (d) => Math.round((d.price[0] + d.price[1]) / 2)
 

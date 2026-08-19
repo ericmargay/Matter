@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 
-import { CATEGORIES, DEVICE_BY_ID } from '../../../content/catalog'
+import { CATEGORIES, DEVICE_BY_ID, ECOSYSTEMS, LINK_LABEL } from '../../../content/catalog'
 import { uid, planoVacio } from '../../../sync/eventos'
 import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, ID_MUROS, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
@@ -144,6 +144,9 @@ function useHistoria(plano, aplicar) {
 
 export default function PlanoCuarto({ room, onCerrar }) {
   const setPlano = useSurvey((s) => s.setPlano)
+  const nuevoDevice = useSurvey((s) => s.nuevoDevice)
+  const quitarDevice = useSurvey((s) => s.quitarDevice)
+  const propios = useSurvey((s) => s.proyectos.find((p) => p.id === s.activoId)?.devices ?? [])
 
   const plano = useMemo(() => ({ ...planoVacio(room.m2), ...(room.plano ?? {}) }), [room.plano, room.m2])
   const tipo = plano.tipoCuarto ?? tipoPorNombre(room.nombre)
@@ -175,6 +178,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
   /* Qué pieza está en el taller. Es un modo aparte, no un panel: el cuarto
      desaparece para que se vea lo que se está cambiando. */
   const [enTaller, setEnTaller] = useState(null)
+  const [altaDevice, setAltaDevice] = useState(false)
 
   // el fondo no debe desplazarse detrás del editor
   useEffect(() => {
@@ -504,6 +508,46 @@ export default function PlanoCuarto({ room, onCerrar }) {
             </div>
           </Grupo>
 
+          {/* Dar de alta un aparato que no está. Siempre aparece uno: la marca
+              que compró el cliente en el súper, el que traía de la casa
+              anterior, el modelo que salió el mes pasado. Hasta ahora eso
+              significaba esperar a que alguien lo metiera al código. */}
+          <Grupo titulo="Aparatos">
+            <button
+              onClick={() => setAltaDevice(true)}
+              className="w-full rounded-lg border border-thread/50 px-2 py-1.5 text-[11.5px] text-thread-2 transition-colors hover:bg-thread/10"
+            >
+              Dar de alta un aparato →
+            </button>
+            <p className="mt-1.5 text-[10.5px] leading-snug text-cream-3">
+              Queda en este proyecto y entra a todo: cotización, alcance del asistente, ambientaciones y su
+              propio mando.
+            </p>
+            {propios.length > 0 && (
+              <div className="mt-2 space-y-0.5">
+                {propios.map((d) => (
+                  <div key={d.id} className="flex items-center gap-1">
+                    <button
+                      onClick={() => setColocando({ clase: 'equipo', deviceId: d.id })}
+                      className={`min-w-0 flex-1 truncate rounded px-1.5 py-1 text-left text-[11px] transition-colors ${
+                        colocando?.deviceId === d.id ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+                      }`}
+                    >
+                      {d.name}
+                    </button>
+                    <button
+                      onClick={() => quitarDevice(d.id)}
+                      title="Quitar del catálogo de este proyecto"
+                      className="shrink-0 px-1 text-[11px] text-cream-3 hover:text-ember"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Grupo>
+
           <Grupo titulo="Instalación eléctrica">
             <div className="grid grid-cols-2 gap-1">
               {[
@@ -589,7 +633,18 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onFinGizmo={() => guardar({ items: plano.items }, `Acomodó una pieza en ${room.nombre}`)}
             />
 
-          {enTaller && (
+          {altaDevice && (
+        <AltaDevice
+          onCerrar={() => setAltaDevice(false)}
+          onCrear={(d) => {
+            nuevoDevice(d)
+            setAltaDevice(false)
+            setColocando({ clase: 'equipo', deviceId: d.id })
+          }}
+        />
+      )}
+
+      {enTaller && (
         <Suspense fallback={null}>
           <TallerPieza
             item={plano.items.find((i) => i.id === enTaller)}
@@ -1249,6 +1304,191 @@ function IconoHistoria({ alReves = false, size = 17 }) {
       {/* la punta, apuntando a donde empieza el arco */}
       <path d="M7.5 5.5 4 9l3.5 3.5" />
     </svg>
+  )
+}
+
+/**
+ * Alta de un aparato que no está en el catálogo.
+ *
+ * Se piden solo los datos que CAMBIAN algo aguas abajo, y se dice para qué
+ * sirve cada uno: la categoría decide qué se le puede pedir y dónde se coloca;
+ * los ecosistemas deciden qué asistente lo alcanza —que es de lo que se queja
+ * el cliente el primer día—; el enlace decide si necesita puente; los lúmenes
+ * y el tono entran al cálculo de luz del cuarto. Pedir la ficha completa de un
+ * fabricante sería un formulario que nadie llena.
+ *
+ * Queda en ESTE proyecto. El catálogo curado es lo que se le propone a
+ * cualquier cliente; esto es lo que ya tiene éste en su casa.
+ */
+function AltaDevice({ onCerrar, onCrear }) {
+  const [d, setD] = useState({
+    name: '',
+    brand: '',
+    cat: 'iluminacion',
+    link: 'wifi',
+    eco: ['apple', 'google', 'alexa'],
+    power: 'corriente',
+    precio: 0,
+    lm: 800,
+    k: 2700,
+    rgb: false,
+  })
+  const set = (k, v) => setD((x) => ({ ...x, [k]: v }))
+  const esLuz = d.cat === 'iluminacion'
+
+  const crear = () => {
+    if (!d.name.trim()) return
+    const id = `propio-${d.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 28)}-${Math.random().toString(36).slice(2, 6)}`
+    onCrear({
+      id,
+      name: d.name.trim(),
+      brand: d.brand.trim() || 'Sin marca',
+      cat: d.cat,
+      link: d.link,
+      eco: d.eco,
+      power: d.power,
+      price: [Number(d.precio) || 0, Number(d.precio) || 0],
+      tier: 'esencial',
+      ...(esLuz
+        ? { luz: { lm: Number(d.lm) || 800, k: [d.rgb ? 1800 : 2700, 6500], haz: 180, forma: 'punto', rgb: d.rgb } }
+        : {}),
+      pitch: 'Dado de alta en el levantamiento. Revisar ficha del fabricante antes de cotizar.',
+    })
+  }
+
+  const campo = 'mt-0.5 w-full rounded-lg border border-line bg-ink px-2 py-1.5 text-[12px] text-cream'
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-ink/80 p-4 backdrop-blur">
+      <div className="max-h-full w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-ink p-4">
+        <p className="text-[10px] tracking-[0.14em] text-cream-3 uppercase">Alta de aparato</p>
+        <h3 className="display mt-0.5 text-[19px] text-cream">Uno que no está en el catálogo</h3>
+        <p className="mt-1.5 text-[11px] leading-snug text-cream-3">
+          Solo lo que cambia algo después. Queda en este proyecto y entra a la cotización, al alcance del
+          asistente, a las ambientaciones y a su propio mando.
+        </p>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <label className="block sm:col-span-2">
+            <span className="block text-[10px] text-cream-3">Cómo se llama</span>
+            <input
+              autoFocus
+              value={d.name}
+              onChange={(e) => set('name', e.target.value)}
+              placeholder="Foco RGB 9 W"
+              className={campo}
+            />
+          </label>
+          <label className="block">
+            <span className="block text-[10px] text-cream-3">Marca</span>
+            <input value={d.brand} onChange={(e) => set('brand', e.target.value)} className={campo} />
+          </label>
+          <label className="block">
+            <span className="block text-[10px] text-cream-3">Precio unitario</span>
+            <input
+              type="number"
+              min="0"
+              value={d.precio}
+              onChange={(e) => set('precio', e.target.value)}
+              className={campo}
+            />
+          </label>
+
+          <label className="block">
+            <span className="block text-[10px] text-cream-3">Qué es</span>
+            <select value={d.cat} onChange={(e) => set('cat', e.target.value)} className={campo}>
+              {CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="block text-[10px] text-cream-3">Cómo se conecta</span>
+            <select value={d.link} onChange={(e) => set('link', e.target.value)} className={campo}>
+              {['matter', 'thread', 'wifi', 'zigbee', 'zwave', 'ble', 'cable', 'poe'].map((l) => (
+                <option key={l} value={l}>
+                  {LINK_LABEL[l] ?? l}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="sm:col-span-2">
+            <span className="block text-[10px] text-cream-3">Con qué asistentes habla</span>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {ECOSYSTEMS.map((e) => {
+                const on = d.eco.includes(e.id)
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => set('eco', on ? d.eco.filter((x) => x !== e.id) : [...d.eco, e.id])}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                      on ? 'border-ember bg-ember/12 text-cream' : 'border-line text-cream-3 hover:bg-cream/6'
+                    }`}
+                  >
+                    {e.label}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-1 text-[10px] leading-snug text-cream-3">
+              Esto es lo que decide qué asistente lo alcanza, y es de lo que se queja el cliente el primer día.
+              Si no estás seguro, mira la caja: viene impreso.
+            </p>
+          </div>
+
+          <label className="block">
+            <span className="block text-[10px] text-cream-3">Cómo se alimenta</span>
+            <select value={d.power} onChange={(e) => set('power', e.target.value)} className={campo}>
+              {['corriente', 'enchufe', 'cableado', 'pila', 'poe', 'ninguna'].map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {esLuz && (
+            <>
+              <label className="block">
+                <span className="block text-[10px] text-cream-3">Lúmenes</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={d.lm}
+                  onChange={(e) => set('lm', e.target.value)}
+                  className={campo}
+                />
+              </label>
+              <label className="flex items-center gap-2 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={d.rgb}
+                  onChange={(e) => set('rgb', e.target.checked)}
+                  className="h-4 w-4 accent-[#4d9fff]"
+                />
+                <span className="text-[11.5px] text-cream-2">Hace color, no solo blanco regulable</span>
+              </label>
+            </>
+          )}
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onCerrar} className="rounded-lg border border-line px-3 py-1.5 text-[12px] text-cream-2">
+            Cancelar
+          </button>
+          <button
+            onClick={crear}
+            disabled={!d.name.trim()}
+            className="rounded-lg bg-ember px-3.5 py-1.5 text-[12px] text-ink disabled:opacity-40"
+          >
+            Dar de alta y colocar
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

@@ -10,6 +10,7 @@ import {
   seccionDe,
   uid,
 } from '../sync/eventos'
+import { registrarPropios } from '../content/catalog'
 import { conectar, enCola, mandar } from './conexion'
 
 export { ESTADOS, nuevoFolio }
@@ -112,6 +113,9 @@ export const useSurvey = create((set, get) => ({
       let base = estado
       const sinConfirmar = s.eventos.filter((e) => e.pendiente)
       for (const ev of sinConfirmar) base = aplicar(base, ev)
+      /* Los propios de TODOS los proyectos, de una vez: el catálogo es global
+         y el levantador se mueve entre proyectos sin recargar. */
+      for (const p of base.proyectos ?? []) registrarPropios(p.devices ?? [])
       return {
         yo: usuario,
         socios,
@@ -124,6 +128,7 @@ export const useSurvey = create((set, get) => ({
   _evento: (ev) =>
     set((s) => {
       const estado = aplicar({ proyectos: s.proyectos }, ev)
+      if (ev.tipo === 'device.crear') registrarPropios([ev.datos.device])
       // si es el eco de algo nuestro, se sustituye el optimista por el sellado
       const i = s.eventos.findIndex((e) => e.id === ev.id)
       const eventos = i === -1 ? [...s.eventos, ev] : s.eventos.with(i, ev)
@@ -352,6 +357,25 @@ export const useSurvey = create((set, get) => ({
    * Va agrupado: arrastrar un mueble dispara decenas de posiciones por
    * segundo y no tiene sentido mandarlas todas — ni a la red ni al historial.
    */
+  /* Alta de un aparato propio. Se registra de inmediato en los mapas del
+     catálogo para que la pantalla lo pueda usar antes de que vuelva el eco del
+     servidor: si no, se da de alta un aparato y no aparece hasta recargar. */
+  nuevoDevice: (device) => {
+    const s = get()
+    if (!s.activoId) return
+    registrarPropios([device])
+    despachar('device.crear', s.activoId, { device })
+  },
+
+  /* Quitar un aparato propio del proyecto. No toca el catálogo curado —de ahí
+     no se borra nada desde aquí— y no quita las piezas ya colocadas: eso se
+     hace en el plano, que es donde se ve lo que se está quitando. */
+  quitarDevice: (deviceId) => {
+    const s = get()
+    if (!s.activoId) return
+    despachar('device.borrar', s.activoId, { deviceId })
+  },
+
   setPlano: (cuartoId, plano, que) => {
     const s = get()
     const id = s.activoId

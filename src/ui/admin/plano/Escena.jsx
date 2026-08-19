@@ -10,6 +10,7 @@ import { DEVICE_BY_ID } from '../../../content/catalog'
 import { ID_MUROS, MUEBLES } from './catalogo'
 import { GROSOR_MURO, piezaSeVe } from './muros'
 import Animar from './animacion.jsx'
+import PiezaPropia from './PiezaPropia'
 import { Cable } from './cables.jsx'
 import { puntoSalida } from './cables'
 import Conexiones from './Conexiones'
@@ -464,19 +465,23 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = t
   const g = useRef()
   useSombras(g)
   const def = MUEBLES[item.tipo]
-  if (!def) return null
-  const { Comp } = def
+  /* Una pieza propia no tiene componente: son sus partes. Puede venir sola
+     —dada de alta desde cero— o de haber horneado una del catálogo, y en los
+     dos casos manda ella sobre el tipo. */
+  const propia = item.pieza
+  if (!def && !propia) return null
+  const Comp = def?.Comp
   /* La versión elegida se mezcla encima de las props de base. Es un objeto
      plano a propósito: así una variante puede cambiar solo la silueta (`v`) o
      también la medida (`w`, `largo`) sin que el renderizador sepa de cuál se
      trata. */
-  const variante = def.variantes?.find((x) => x.id === item.variante)
+  const variante = def?.variantes?.find((x) => x.id === item.variante)
   /* Base, encima la versión elegida y encima lo ajustado a mano en el taller.
      El mismo orden que usa el taller para enseñarla: si aquí y allá no fuera
      igual, el taller mostraría una pieza y el plano dibujaría otra. */
-  const props = { ...def.props, ...(variante?.props ?? {}), ...(item.ajustes ?? {}) }
-  const w = props.w ?? def.w
-  const d = props.d ?? def.d
+  const props = { ...def?.props, ...(variante?.props ?? {}), ...(item.ajustes ?? {}) }
+  const w = props.w ?? item.huella?.w ?? def?.w ?? 0.4
+  const d = props.d ?? item.huella?.d ?? def?.d ?? 0.4
 
   return (
     <group
@@ -510,7 +515,9 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = t
           grupo de arriba deja intactas su posición y su rotación en el plano.
           Meciendo el grupo de arriba, mover una planta la sacaba de sitio. */}
       <Animar tipo={item.animacion ?? 'ninguna'} semilla={item.id?.length ?? 0}>
-        {def.Nuevo ? (
+        {propia ? (
+          <PiezaPropia pieza={propia} />
+        ) : def.Nuevo ? (
           <Comp {...props} />
         ) : (
           <Comp position={[0, 0, 0]} rotation={[0, 0, 0]} {...props} />

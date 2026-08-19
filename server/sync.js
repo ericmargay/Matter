@@ -32,6 +32,8 @@ const TIPOS = new Set([
   'equipo.cantidad',
   'equipo.vaciar',
   'plano.editar',
+  'device.crear',
+  'device.borrar',
 ])
 
 /** Un evento honesto no pesa ni 2 kB; el tope corta cualquier abuso. */

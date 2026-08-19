@@ -1,6 +1,6 @@
-import { Suspense, useMemo, useState } from 'react'
+import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls, TransformControls } from '@react-three/drei'
 
 import { DEVICE_BY_ID } from '../../../content/catalog'
 import { MUEBLES } from './catalogo'
@@ -10,6 +10,8 @@ import Animar from './animacion.jsx'
 import { Cuerpo } from './Escena'
 import { paletaDe, useEstilo } from './estilo'
 import { parametrosDe, valoresDe } from './parametros'
+import PiezaPropia from './PiezaPropia'
+import { FORMAS, ROLES, TONOS, hornear, medidaDePieza, parteVacia } from './piezas'
 import Rig from './Rig'
 
 /**
@@ -40,6 +42,12 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
   const [cable, setCable] = useState(item.cable ?? null)
   const [nombre, setNombre] = useState(item.nombre ?? '')
   const [animacion, setAnimacion] = useState(item.animacion ?? 'ninguna')
+  /* Las partes: o la pieza ya es propia, o se hornea desde el catálogo cuando
+     alguien pide moverlas. Antes de hornear no hay nada que editar. */
+  const [pieza, setPieza] = useState(item.pieza ?? null)
+  const [parteSel, setParteSel] = useState(null)
+  const [modoParte, setModoParte] = useState('mover')
+  const escena = useRef()
   const [seccion, setSeccion] = useState('medidas')
 
   const valores = useMemo(
@@ -64,18 +72,42 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
 
   const aplicar = () => {
     onGuardar(
-      { ajustes, cable, animacion, nombre: nombre.trim() || undefined },
+      {
+        ajustes,
+        cable,
+        animacion,
+        pieza,
+        /* La huella se recalcula al guardar: una pieza propia cuyas partes
+           crecieron tiene que ocupar en el plano lo que de verdad ocupa, o la
+           selección y las cotas mienten. */
+        huella: pieza ? medidaDePieza(pieza) : undefined,
+        nombre: nombre.trim() || undefined,
+      },
       `Ajustó ${titulo.toLowerCase()} en el taller`,
     )
     onCerrar()
   }
 
   const SECCIONES = [
-    ['medidas', 'Medidas'],
+    ...(pieza ? [] : [['medidas', 'Medidas']]),
+    ['partes', 'Partes'],
     ['cable', 'Cable'],
     ['movimiento', 'Movimiento'],
     ...(dev ? [['conexion', 'Conexión']] : []),
   ]
+
+  /* Hornear: se lee lo que YA está dibujado y cada malla se vuelve una parte.
+     Se traduce la geometría montada y no el código del componente, así que
+     funciona igual con cualquier mueble, incluidos los que se escriban
+     mañana. Es de un solo sentido y se avisa: a partir de aquí la pieza deja
+     de seguir a su versión del catálogo y pasa a ser suya. */
+  const hornearPieza = () => {
+    const raiz = escena.current
+    const p = hornear(raiz, titulo)
+    setPieza(p)
+    setParteSel(p.partes[0]?.id ?? null)
+    setSeccion('partes')
+  }
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-ink">
@@ -116,24 +148,64 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
             <Rig ancho={tam * 3} largo={tam * 3} alto={tam * 2.6} />
             <Mesa color={pal.piso} r={tam * 2.2 + 0.6} />
             <Suspense fallback={null}>
-              <Animar tipo={animacion} semilla={item.id?.length ?? 0}>
-                {def ? (
-                  def.Nuevo ? (
-                    <def.Comp {...valores} />
-                  ) : (
-                    <def.Comp position={[0, 0, 0]} rotation={[0, 0, 0]} {...valores} />
-                  )
-                ) : (
-                  <Cuerpo device={dev} params={item.params} encendido color={COLOR_LUZ} />
-                )}
-              </Animar>
+              <group ref={escena}>
+                <Animar tipo={animacion} semilla={item.id?.length ?? 0}>
+                  {pieza ? (
+                    <PiezaPropia pieza={pieza} seleccion={parteSel} onTomarParte={setParteSel} />
+                  ) : def?.Comp ? (
+                    def.Nuevo ? (
+                      <def.Comp {...valores} />
+                    ) : (
+                      <def.Comp position={[0, 0, 0]} rotation={[0, 0, 0]} {...valores} />
+                    )
+                  ) : dev ? (
+                    <Cuerpo device={dev} params={item.params} encendido color={COLOR_LUZ} />
+                  ) : null}
+                </Animar>
+              </group>
+
+              {/* El gizmo de la parte. Es el mismo gesto que en el plano —tomar
+                  y arrastrar— pero una escala más abajo: ahí se mueve el mueble
+                  dentro del cuarto, aquí una parte dentro del mueble. */}
+              {pieza && parteSel && (
+                <GizmoParte
+                  parte={pieza.partes.find((x) => x.id === parteSel)}
+                  modo={modoParte}
+                  onCambiar={(patch) =>
+                    setPieza((z) => ({
+                      ...z,
+                      partes: z.partes.map((x) => (x.id === parteSel ? { ...x, ...patch } : x)),
+                    }))
+                  }
+                />
+              )}
             </Suspense>
             <OrbitControls makeDefault target={[0, mira, 0]} minDistance={tam * 0.5} maxDistance={tam * 8 + 3} />
           </Canvas>
 
-          <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-line bg-ink/85 px-3 py-1 text-[11px] text-cream-3 backdrop-blur">
-            Arrastra para girar · rueda para acercar
-          </p>
+          {pieza && parteSel ? (
+            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-0.5 rounded-xl border border-line bg-ink/92 p-1 backdrop-blur">
+              {[
+                ['mover', 'Mover'],
+                ['girar', 'Girar'],
+                ['escalar', 'Estirar'],
+              ].map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setModoParte(id)}
+                  className={`rounded-lg px-2.5 py-1 text-[11.5px] transition-colors ${
+                    modoParte === id ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/10'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-line bg-ink/85 px-3 py-1 text-[11px] text-cream-3 backdrop-blur">
+              Arrastra para girar · rueda para acercar
+            </p>
+          )}
         </div>
 
         {/* los controles */}
@@ -172,6 +244,17 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
             </div>
           )}
 
+          {seccion === 'partes' && (
+            <PanelPartes
+              pieza={pieza}
+              sel={parteSel}
+              onSel={setParteSel}
+              onPieza={setPieza}
+              onHornear={hornearPieza}
+              titulo={titulo}
+            />
+          )}
+
           {seccion === 'cable' && (
             <PanelCable cable={cable} onCambiar={setCable} puntos={puntos} />
           )}
@@ -195,6 +278,275 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
 }
 
 const COLOR_LUZ = { r: 1, g: 0.92, b: 0.82, getHSL: () => ({ h: 0.1, s: 0.3, l: 0.9 }) }
+
+/**
+ * El gizmo de UNA parte.
+ *
+ * Va sobre un nodo intermediario y no sobre la malla: la malla se rehace en
+ * cuanto cambia una medida —la geometría se recalcula— y el control se quedaba
+ * agarrado a un objeto que ya no existe. Con el intermediario, el control
+ * siempre tiene a quién sujetar.
+ *
+ * Estirar mueve la MEDIDA, no la escala. Una parte con escala 1.4 miente sobre
+ * cuánto mide, y estas piezas se van a fabricar: lo que dice el panel tiene
+ * que ser lo que va al carpintero.
+ */
+function GizmoParte({ parte, modo, onCambiar }) {
+  const nodo = useRef()
+  const [listo, setListo] = useState(false)
+
+  useLayoutEffect(() => {
+    const o = nodo.current
+    if (!o || !parte) return
+    o.position.set(...parte.pos)
+    o.rotation.set(...parte.rot)
+    o.scale.set(1, 1, 1)
+    setListo(true)
+  }, [parte])
+
+  if (!parte) return null
+
+  const soltar = () => {
+    const o = nodo.current
+    if (!o) return
+    const r3 = (n) => Number(n.toFixed(4))
+    if (modo === 'escalar') {
+      const med = parte.med.map((m, i) => Math.max(0.005, r3(m * [o.scale.x, o.scale.y, o.scale.z][i])))
+      o.scale.set(1, 1, 1)
+      onCambiar({ med })
+    } else if (modo === 'girar') {
+      onCambiar({ rot: [r3(o.rotation.x), r3(o.rotation.y), r3(o.rotation.z)] })
+    } else {
+      onCambiar({ pos: [r3(o.position.x), r3(o.position.y), r3(o.position.z)] })
+    }
+  }
+
+  return (
+    <>
+      <object3D ref={nodo} />
+      {listo && nodo.current && (
+        <TransformControls
+          object={nodo.current}
+          mode={modo === 'girar' ? 'rotate' : modo === 'escalar' ? 'scale' : 'translate'}
+          size={0.7}
+          translationSnap={0.005}
+          rotationSnap={Math.PI / 36}
+          onMouseUp={soltar}
+        />
+      )}
+    </>
+  )
+}
+
+/**
+ * La lista de partes.
+ *
+ * Antes de hornear no hay lista: la pieza es un componente y sus partes están
+ * en el código. Hornear la traduce a datos —se lee lo que ya está dibujado, no
+ * el código— y a partir de ahí se mueve, se estira, se duplica y se borra
+ * parte por parte.
+ *
+ * Es de un solo sentido y hay que decirlo: horneada, la pieza deja de seguir a
+ * su versión del catálogo. Deja de ser "una cama del sistema" y pasa a ser
+ * esta cama.
+ */
+function PanelPartes({ pieza, sel, onSel, onPieza, onHornear, titulo }) {
+  if (!pieza)
+    return (
+      <div className="px-3 py-3">
+        <p className="text-[10.5px] leading-snug text-cream-3">
+          Las partes de {titulo.toLowerCase()} viven en el código del sistema. Para moverlas una por una hay que
+          pasar la pieza a partes: se lee lo que ya está dibujado y cada volumen se vuelve una parte que se puede
+          mover, estirar, duplicar o borrar.
+        </p>
+        <button
+          onClick={onHornear}
+          className="mt-3 w-full rounded-lg border border-ember px-2 py-1.5 text-[12px] text-ember transition-colors hover:bg-ember hover:text-ink"
+        >
+          Pasar a partes editables →
+        </button>
+        <p className="mt-1.5 text-[10px] leading-snug text-cream-3">
+          Es de un solo sentido: a partir de ahí esta pieza deja de seguir a su versión del catálogo. Las demás
+          del mismo modelo no cambian.
+        </p>
+      </div>
+    )
+
+  const set = (fn) => onPieza((z) => fn(z))
+  const parte = pieza.partes.find((p) => p.id === sel)
+
+  return (
+    <div className="px-3 py-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Partes · {pieza.partes.length}</p>
+        <button
+          onClick={() =>
+            set((z) => {
+              const nueva = parteVacia('caja')
+              onSel(nueva.id)
+              return { ...z, partes: [...z.partes, nueva] }
+            })
+          }
+          className="text-[10.5px] text-thread-2 hover:text-ember"
+        >
+          + agregar
+        </button>
+      </div>
+
+      <div className="mt-1.5 max-h-[190px] space-y-0.5 overflow-y-auto">
+        {pieza.partes.map((p, i) => (
+          <button
+            key={p.id}
+            onClick={() => onSel(p.id)}
+            className={`flex w-full items-baseline justify-between gap-2 rounded px-1.5 py-1 text-left transition-colors ${
+              p.id === sel ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+            }`}
+          >
+            <span className="text-[11.5px]">
+              {i + 1}. {FORMAS[p.forma]?.label ?? p.forma}
+            </span>
+            <span className={`shrink-0 text-[10px] ${p.id === sel ? 'text-ink/70' : 'text-cream-3'}`}>
+              {p.med.map((m) => Math.round(m * 100)).join('×')} cm
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {parte && (
+        <div className="mt-3 border-t border-line pt-3">
+          <div className="flex items-baseline justify-between">
+            <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Esta parte</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() =>
+                  set((z) => {
+                    const copia = { ...parte, id: Math.random().toString(36).slice(2, 9), pos: [...parte.pos] }
+                    copia.pos[0] += 0.08
+                    onSel(copia.id)
+                    return { ...z, partes: [...z.partes, copia] }
+                  })
+                }
+                className="text-[10.5px] text-cream-3 hover:text-cream"
+              >
+                duplicar
+              </button>
+              <button
+                onClick={() =>
+                  set((z) => {
+                    const partes = z.partes.filter((x) => x.id !== parte.id)
+                    onSel(partes[0]?.id ?? null)
+                    return { ...z, partes }
+                  })
+                }
+                className="text-[10.5px] text-cream-3 hover:text-ember"
+              >
+                borrar
+              </button>
+            </div>
+          </div>
+
+          <label className="mt-2 block">
+            <span className="block text-[10px] text-cream-3">Forma</span>
+            <select
+              value={parte.forma}
+              onChange={(ev) =>
+                set((z) => ({
+                  ...z,
+                  partes: z.partes.map((x) => (x.id === parte.id ? { ...x, forma: ev.target.value } : x)),
+                }))
+              }
+              className="mt-0.5 w-full rounded-lg border border-line bg-ink px-2 py-1 text-[12px] text-cream"
+            >
+              {Object.entries(FORMAS).map(([id, f]) => (
+                <option key={id} value={id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            {FORMAS[parte.forma].med.map((label, i) =>
+              label ? (
+                <label key={i} className="block">
+                  <span className="block text-[10px] text-cream-3">{label}</span>
+                  <input
+                    type="number"
+                    step={0.005}
+                    min={0.005}
+                    value={parte.med[i]}
+                    onChange={(ev) =>
+                      set((z) => ({
+                        ...z,
+                        partes: z.partes.map((x) =>
+                          x.id === parte.id
+                            ? { ...x, med: x.med.map((m, k) => (k === i ? Number(ev.target.value) : m)) }
+                            : x,
+                        ),
+                      }))
+                    }
+                    className="mt-0.5 w-full rounded border border-line bg-ink px-1 py-1 text-right text-[11px] text-cream"
+                  />
+                </label>
+              ) : (
+                <span key={i} />
+              ),
+            )}
+          </div>
+
+          <div className="mt-2 grid grid-cols-2 gap-1.5">
+            <label className="block">
+              <span className="block text-[10px] text-cream-3">Tono</span>
+              <select
+                value={parte.color ? '' : parte.tono}
+                onChange={(ev) =>
+                  set((z) => ({
+                    ...z,
+                    partes: z.partes.map((x) =>
+                      x.id === parte.id ? { ...x, tono: ev.target.value, color: undefined } : x,
+                    ),
+                  }))
+                }
+                className="mt-0.5 w-full rounded-lg border border-line bg-ink px-2 py-1 text-[11.5px] text-cream"
+              >
+                {parte.color && <option value="">el que traía</option>}
+                {TONOS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="block text-[10px] text-cream-3">Acabado</span>
+              <select
+                value={parte.rol}
+                onChange={(ev) =>
+                  set((z) => ({
+                    ...z,
+                    partes: z.partes.map((x) => (x.id === parte.id ? { ...x, rol: ev.target.value } : x)),
+                  }))
+                }
+                className="mt-0.5 w-full rounded-lg border border-line bg-ink px-2 py-1 text-[11.5px] text-cream"
+              >
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <p className="mt-2 text-[10px] leading-snug text-cream-3">
+            Estirar con el gizmo cambia la MEDIDA, no una escala. Una parte con escala 1.4 miente sobre cuánto
+            mide, y estas piezas se mandan a hacer: lo que dice aquí es lo que va al carpintero.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /** La mesa de trabajo: un disco y nada más. Un cuarto aquí sería ruido. */
 function Mesa({ color, r = 2.6 }) {

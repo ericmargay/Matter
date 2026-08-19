@@ -207,6 +207,18 @@ export function aplicar(estado, ev) {
     /* Cantidad ABSOLUTA, no incremento. Si dos socios mueven la misma pieza al
        mismo tiempo, un incremento se aplicaría dos veces y la cuenta quedaría
        mal; con cantidad absoluta el último gana y ambos ven lo mismo. */
+    /* Un aparato dado de alta a mano. Vive en el proyecto y no en el catálogo
+       de código: es de esta casa, y mezclarlo con el curado ensuciaría lo que
+       se le propone a los demás clientes. */
+    case 'device.crear':
+      return toca((p) => ({
+        ...p,
+        devices: [...(p.devices ?? []).filter((d) => d.id !== ev.datos.device.id), ev.datos.device],
+      }))
+
+    case 'device.borrar':
+      return toca((p) => ({ ...p, devices: (p.devices ?? []).filter((d) => d.id !== ev.datos.deviceId) }))
+
     case 'equipo.cantidad':
       return toca((p) => ({
         ...p,
@@ -318,6 +330,12 @@ export function resumen(ev, nombreDe = (id) => id) {
       return `Cambió ${lista(d.patch)} de ${d.cuartoNombre ?? 'una habitación'}`
     case 'cuarto.eliminar':
       return `Eliminó la habitación ${d.cuartoNombre ?? ''}`.trim()
+    case 'device.crear':
+      return `Dio de alta ${d.device?.name ?? 'un aparato'}`
+
+    case 'device.borrar':
+      return `Quitó del catálogo ${nombreDe(d.deviceId)}`
+
     case 'equipo.cantidad': {
       const nombre = nombreDe(d.deviceId)
       const donde = d.cuartoNombre ? ` en ${d.cuartoNombre}` : ''
