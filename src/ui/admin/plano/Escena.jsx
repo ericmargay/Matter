@@ -8,6 +8,7 @@ import * as THREE from 'three'
 import { DEVICE_BY_ID } from '../../../content/catalog'
 
 import { ID_MUROS, MUEBLES } from './catalogo'
+import { GROSOR_MURO, piezaSeVe } from './muros'
 import Conexiones from './Conexiones'
 import { DISPOSICION_BY_ID, DISPOSICIONES, LADO, posicionesDe, trianguloPanel } from './paneles'
 import Cuarto3D from './Cuarto3D'
@@ -371,7 +372,7 @@ function useSombras(ref) {
 
 /* ── un mueble ────────────────────────────────────────────────── */
 
-function Mueble({ item, seleccionado, onTomar, colocando, onEncima }) {
+function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = true }) {
   const g = useRef()
   useSombras(g)
   const def = MUEBLES[item.tipo]
@@ -382,6 +383,10 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima }) {
     <group
       name={item.id}
       ref={g}
+      /* Lo que cuelga de un muro se va con su muro. Mirando desde el sur, la
+         ventana del sur queda entre la cámara y el cuarto: dibujarla ahí es un
+         cuadro flotando delante de la escena. */
+      visible={aLaVista}
       position={[item.x, item.y ?? 0, item.z]}
       rotation={[0, item.rot ?? 0, 0]}
       scale={item.esc ?? 1}
@@ -765,7 +770,7 @@ function Cuerpo({ device, params, encendido, color, apertura }) {
   )
 }
 
-function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, colocando, escala = 1, onEncima }) {
+function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, colocando, escala = 1, onEncima, aLaVista = true }) {
   const p = item.params
   const dev = DEVICE_BY_ID[item.deviceId]
   const luz = useRef()
@@ -818,7 +823,12 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
           pegada al muro, una cámara es un cilindro que apunta. Importa porque
           el plano se le enseña al cliente: reconocer de un vistazo qué es cada
           cosa vale más que la geometría exacta de la carcasa. */}
-      <Cuerpo device={dev} params={p} encendido={encendido} color={color} apertura={estado?.apertura} />
+      {/* Solo el CUERPO se esconde con el muro, nunca la luz. Apagarla al girar
+          la cámara oscurecería el cuarto al orbitar, que es justo lo que no
+          debe pasar: la instalación no cambia porque uno se mueva. */}
+      <group visible={aLaVista}>
+        <Cuerpo device={dev} params={p} encendido={encendido} color={color} apertura={estado?.apertura} />
+      </group>
 
       {/* módulo inteligente metido en el registro de la luminaria: la otra
           forma de hacerlo cuando la caja del apagador no da o no hay neutro */}
@@ -886,13 +896,14 @@ const COLOR_PUNTO = { enchufe: '#5eead4', apagador: '#a3c9ff', salida: '#8fd694'
  * fue un arrastre y solo mueve. Es lo que hace que el plano se sienta como la
  * casa — le picas al apagador y la luz responde.
  */
-function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colocando, onEncima }) {
+function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colocando, onEncima, aLaVista = true }) {
   const desde = useRef(null)
   const esApagador = item.tipo === 'apagador'
 
   return (
     <group
       name={item.id}
+      visible={aLaVista}
       position={[item.x, item.y ?? 0.4, item.z]}
       onPointerOver={(e) => {
         e.stopPropagation()
@@ -1279,8 +1290,6 @@ function LuzVentana({ item, ancho, largo, alto, dia }) {
 
 /* ── plano invisible para arrastrar y colocar ─────────────────── */
 
-const GROSOR_MURO = 0.16 // el mismo que dibuja Cuarto3D
-
 function Suelo({ ancho, largo, onMover, onSoltar, onColocar, arrastrando, colocando, onTocar, onFuera }) {
   return (
     <mesh
@@ -1526,6 +1535,7 @@ export default function Escena({
               onTomar={tomar}
               colocando={colocando}
               onEncima={setEncima}
+              aLaVista={piezaSeVe(it, ancho, largo, camX, camZ)}
             />
           )
         if (it.clase === 'equipo')
@@ -1542,6 +1552,7 @@ export default function Escena({
               colocando={colocando}
               escala={exposicion}
               onEncima={setEncima}
+              aLaVista={piezaSeVe(it, ancho, largo, camX, camZ)}
             />
           )
         return (
@@ -1555,6 +1566,7 @@ export default function Escena({
             controla={conRegla?.has(it.id)}
             colocando={colocando}
             onEncima={setEncima}
+            aLaVista={piezaSeVe(it, ancho, largo, camX, camZ)}
           />
         )
       })}

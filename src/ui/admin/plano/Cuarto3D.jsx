@@ -1,5 +1,6 @@
 import { useEstilo, materialDe, paletaDe } from './estilo'
 import { caja } from './geo'
+import { GROSOR_MURO, MUROS, muroSeVe } from './muros'
 
 /**
  * El cuarto como un objeto diseñado, no como cuatro planos sueltos.
@@ -15,19 +16,23 @@ import { caja } from './geo'
 export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1, onTocar }) {
   const e = useEstilo()
   const pal = paletaDe(e.paleta)
-  const t = 0.16 // grosor del muro
+  const t = GROSOR_MURO
   const gPiso = 0.14
 
   const mat = (color, rol) =>
     materialDe(color, { rol, rugosidad: e.rugosidad, metalico: e.metalico, saturacion: e.saturacion })
   const cja = (w, h, d) => caja(w, h, d, e.bisel, e.tono)
 
-  const muros = [
-    { w: ancho + t * 2, pos: [0, -(largo + t) / 2], rot: 0, n: [0, -1] },
-    { w: ancho + t * 2, pos: [0, (largo + t) / 2], rot: 0, n: [0, 1] },
-    { w: largo + t * 2, pos: [-(ancho + t) / 2, 0], rot: Math.PI / 2, n: [-1, 0] },
-    { w: largo + t * 2, pos: [(ancho + t) / 2, 0], rot: Math.PI / 2, n: [1, 0] },
-  ]
+  /* El orden y las normales viven en `muros.js` porque no son solo de aquí:
+     lo que cuelga de cada muro tiene que esconderse con él, y las dos cosas
+     tienen que decidirlo con la misma regla o se descuadran. */
+  const GEO = {
+    norte: { w: ancho + t * 2, pos: [0, -(largo + t) / 2], rot: 0 },
+    sur: { w: ancho + t * 2, pos: [0, (largo + t) / 2], rot: 0 },
+    oeste: { w: largo + t * 2, pos: [-(ancho + t) / 2, 0], rot: Math.PI / 2 },
+    este: { w: largo + t * 2, pos: [(ancho + t) / 2, 0], rot: Math.PI / 2 },
+  }
+  const muros = MUROS.map((m) => ({ ...m, ...GEO[m.id] }))
 
   return (
     <group>
@@ -48,12 +53,12 @@ export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1,
         }
       />
 
-      {muros.map((m, i) => {
+      {muros.map((m) => {
         // se esconde el que taparía la vista
-        const visible = m.n[0] * camaraX + m.n[1] * camaraZ <= 0
+        const visible = muroSeVe(m.n, camaraX, camaraZ)
         return (
           <mesh
-            key={i}
+            key={m.id}
             visible={visible}
             geometry={cja(m.w, alto, t)}
             material={mat(m.n[0] !== 0 ? pal.muroFrio : pal.muro, 'mate')}
