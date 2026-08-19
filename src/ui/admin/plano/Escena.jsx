@@ -9,7 +9,7 @@ import { DEVICE_BY_ID } from '../../../content/catalog'
 
 import { MUEBLES } from './catalogo'
 import Conexiones from './Conexiones'
-import { DISPOSICION_BY_ID, DISPOSICIONES, LADO, posicionesDe } from './paneles'
+import { DISPOSICION_BY_ID, DISPOSICIONES, LADO, posicionesDe, trianguloPanel } from './paneles'
 import Cuarto3D from './Cuarto3D'
 import Rig from './Rig'
 import { fondoDe, useEstilo, paletaDe } from './estilo'
@@ -215,8 +215,7 @@ function Cuerpo({ device, params, encendido, color, apertura }) {
     return (
       <group>
         {posicionesDe(disp).map((t, i) => (
-          <mesh key={i} position={[t.x, t.y, 0]} rotation={[0, 0, t.arriba ? 0 : Math.PI]} castShadow>
-            <cylinderGeometry args={[LADO * 0.56, LADO * 0.56, 0.022, 3]} />
+          <mesh key={i} geometry={trianguloPanel(LADO, t.arriba)} position={[t.x, t.y, 0]} castShadow>
             {mat}
           </mesh>
         ))}
@@ -224,18 +223,79 @@ function Cuerpo({ device, params, encendido, color, apertura }) {
     )
   }
   if (params) {
-    // empotrado: disco a ras. Colgante o foco: media esfera hacia abajo
-    const empotrado = device?.power === 'cableado' || params.haz < 100
-    return empotrado ? (
-      <mesh castShadow>
-        <cylinderGeometry args={[0.09, 0.075, 0.03, 16]} />
-        {mat}
-      </mesh>
-    ) : (
-      <mesh castShadow>
-        <sphereGeometry args={[0.06, 14, 10]} />
-        {mat}
-      </mesh>
+    /* Un foco no es una esfera flotando: es un foco EN algo, y ese algo cambia
+       lo que se ve. En el plafón se ve la roseta y el bulbo colgando; dentro
+       de una lámpara solo se ve el resplandor a través de la pantalla; en el
+       muro se ve la arbotante. Dibujar la misma esfera en los cuatro casos era
+       lo que hacía que el plano se viera a diagrama y no a cuarto.
+
+       `montaje` se levanta al colocar y se puede corregir en el inspector. */
+    const montaje = params.montaje ?? (device?.power === 'cableado' || params.haz < 100 ? 'techo' : 'libre')
+
+    if (montaje === 'techo')
+      return (
+        <group>
+          {/* roseta pegada al plafón */}
+          <mesh position={[0, 0.05, 0]}>
+            <cylinderGeometry args={[0.055, 0.055, 0.018, 16]} />
+            <meshStandardMaterial color="#e9e3d8" roughness={0.8} />
+          </mesh>
+          <mesh position={[0, 0.02, 0]}>
+            <cylinderGeometry args={[0.012, 0.012, 0.05, 8]} />
+            <meshStandardMaterial color="#5a5048" roughness={0.7} />
+          </mesh>
+          {/* el bulbo: pera, no esfera */}
+          <mesh castShadow scale={[1, 1.18, 1]}>
+            <sphereGeometry args={[0.048, 16, 12]} />
+            {mat}
+          </mesh>
+        </group>
+      )
+
+    if (montaje === 'empotrado')
+      return (
+        <mesh castShadow>
+          <cylinderGeometry args={[0.075, 0.062, 0.028, 18]} />
+          {mat}
+        </mesh>
+      )
+
+    if (montaje === 'lampara')
+      /* Dentro de una pantalla solo se ve el resplandor. El bulbo va chico y
+         sin sombra: la sombra la proyecta la lámpara, que es el mueble. */
+      return (
+        <mesh scale={[1, 1.15, 1]}>
+          <sphereGeometry args={[0.038, 14, 10]} />
+          {mat}
+        </mesh>
+      )
+
+    if (montaje === 'muro')
+      return (
+        <group>
+          <mesh position={[0, 0, -0.04]}>
+            <boxGeometry args={[0.09, 0.13, 0.03]} />
+            <meshStandardMaterial color="#e9e3d8" roughness={0.8} />
+          </mesh>
+          <mesh castShadow scale={[1, 1.15, 1]}>
+            <sphereGeometry args={[0.045, 14, 10]} />
+            {mat}
+          </mesh>
+        </group>
+      )
+
+    // suelto: el bulbo con su casquillo, para el que aún no tiene lugar
+    return (
+      <group>
+        <mesh position={[0, 0.055, 0]}>
+          <cylinderGeometry args={[0.022, 0.026, 0.035, 12]} />
+          <meshStandardMaterial color="#9c9388" roughness={0.6} metalness={0.3} />
+        </mesh>
+        <mesh castShadow scale={[1, 1.18, 1]}>
+          <sphereGeometry args={[0.05, 16, 12]} />
+          {mat}
+        </mesh>
+      </group>
     )
   }
 
@@ -272,7 +332,7 @@ function Cuerpo({ device, params, encendido, color, apertura }) {
       </mesh>
     )
 
-  if (cat === 'clima' || cat === 'hubs')
+  if (cat === 'clima')
     return (
       <mesh castShadow>
         <boxGeometry args={[0.11, 0.11, 0.035]} />
@@ -280,20 +340,70 @@ function Cuerpo({ device, params, encendido, color, apertura }) {
       </mesh>
     )
 
+  /* Nodo de malla: una torre, no un disco. Un Deco, un Orbi o un nodo de eero
+     son cajas verticales de unos 17 cm, y así es como se reconocen encima de
+     un mueble. Los de rack sí son planos y se quedan con el disco.
+     Apoyado en la base y no centrado en el origen: puesto encima de un buró,
+     centrado se hunde medio aparato dentro del mueble. */
   if (cat === 'red')
-    return (
+    return /rack|switch|patch/i.test(device?.id ?? '') ? (
       <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.085, 0.085, 0.025, 20]} />
         {gris}
       </mesh>
+    ) : (
+      <group position={[0, 0.085, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.105, 0.17, 0.105]} />
+          <meshStandardMaterial color="#f0eee9" roughness={0.55} />
+        </mesh>
+        <mesh position={[0, 0.087, 0]}>
+          <boxGeometry args={[0.075, 0.004, 0.075]} />
+          <meshStandardMaterial color="#dcd8d0" roughness={0.6} />
+        </mesh>
+        {/* el led de estado, que es lo que se busca cuando algo no conecta */}
+        <mesh position={[0, -0.055, 0.053]}>
+          <sphereGeometry args={[0.006, 8, 6]} />
+          <meshStandardMaterial color="#7ee0b8" emissive="#4ade80" emissiveIntensity={0.8} />
+        </mesh>
+      </group>
     )
 
+  /* Bocina de asistente: cilindro con la cara de pantalla al frente. Va
+     apoyada en su base por lo mismo que el nodo de malla. */
   if (cat === 'av')
     return (
-      <mesh castShadow>
-        <cylinderGeometry args={[0.06, 0.07, 0.17, 14]} />
-        {gris}
-      </mesh>
+      <group position={[0, 0.055, 0]}>
+        <mesh castShadow>
+          <cylinderGeometry args={[0.055, 0.062, 0.11, 20]} />
+          {gris}
+        </mesh>
+        <mesh position={[0, 0.012, 0.05]} rotation={[-0.35, 0, 0]}>
+          <cylinderGeometry args={[0.042, 0.042, 0.004, 20]} />
+          <meshStandardMaterial color="#14161c" roughness={0.25} emissive="#1d4ed8" emissiveIntensity={0.25} />
+        </mesh>
+      </group>
+    )
+
+  if (cat === 'hubs' || device?.id === 'appletv-a2169' || device?.id === 'appletv-4k')
+    /* Cajita plana con la huella cuadrada del Apple TV: 9.3 cm de lado y 3.5
+       de alto. Un cubo genérico no se reconoce y además se ve enorme al lado
+       de un mueble. */
+    return (
+      <group position={[0, 0.017, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.094, 0.033, 0.094]} />
+          <meshStandardMaterial color="#1b1b1f" roughness={0.42} />
+        </mesh>
+        <mesh position={[0, 0.018, 0]}>
+          <boxGeometry args={[0.07, 0.002, 0.07]} />
+          <meshStandardMaterial color="#2c2c31" roughness={0.3} />
+        </mesh>
+        <mesh position={[0, -0.005, 0.048]}>
+          <sphereGeometry args={[0.005, 8, 6]} />
+          <meshStandardMaterial color="#f2ece3" emissive="#ffffff" emissiveIntensity={0.6} />
+        </mesh>
+      </group>
     )
 
   if (cat === 'pantallas')
@@ -423,10 +533,12 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
           <pointLight ref={luz} distance={0} decay={2} castShadow={false} />
         ))}
 
-      {/* varilla hasta el techo: sitúa la pieza en el aire de un vistazo.
-          Va del aparato al plafón, no un metro fijo — con altura fija los
-          empotrados parecían colgar de un cable larguísimo. */}
-      {alto - (item.y ?? 0) > 0.06 && (
+      {/* Varilla hasta el plafón: dice a qué altura está una pieza que flota.
+         Solo cuando está seleccionada. Dibujada siempre, colgaba de un cable
+         negro TODO —el Apple TV sobre el buró, el sensor del muro, el foco de
+         la lámpara— y el cuarto volvía a leerse a diagrama. Ayuda cuando se
+         está acomodando esa pieza, estorba el resto del tiempo. */}
+      {seleccionado && alto - (item.y ?? 0) > 0.06 && (
         <mesh position={[0, (alto - (item.y ?? 0)) / 2, 0]}>
           <cylinderGeometry args={[0.006, 0.006, alto - (item.y ?? 0), 6]} />
           <meshBasicMaterial color="#3a332d" />
@@ -775,8 +887,13 @@ function Gizmo({ item, modo, onParchar, onFin }) {
           space="world"
           /* girar solo en Y: inclinar un mueble no es algo que se haga en un
              levantamiento, y los otros dos anillos solo estorban al agarrar */
+          /* Mover deja los TRES ejes. La versión anterior escondía la Y en
+             modo mover —quedó de cuando todo vivía en el piso— y con eso no
+             había forma de subir un foco al plafón ni bajar un sensor con el
+             gizmo. Girar sigue restringido a Y: inclinar un mueble no es algo
+             que se haga en un levantamiento. */
           showX={modo !== 'girar'}
-          showY={modo !== 'mover'}
+          showY
           showZ={modo !== 'girar'}
           translationSnap={0.05}
           /* 5° de paso en el control; el imán de arriba remata los ángulos
@@ -948,6 +1065,7 @@ export default function Escena({
   const paletaId = useEstilo((e) => e.paleta)
   const pal = paletaDe(paletaId)
   const fondo = fondoDe(paletaId)
+  const verCables = useEstilo((e) => e.verElectricas)
   const orbita = useRef()
 
   /* En modo medida la cámara se queda quieta. Era el estorbo principal:
@@ -1095,9 +1213,15 @@ export default function Escena({
         )
       })}
 
-      {plano.tramos.map((t) => (
-        <Tramo key={t.id} tramo={t} />
-      ))}
+      {/* El cable es información de instalación, no decoración: con todos
+          dibujados el plano se llena de líneas rojas y se deja de leer. Se
+          enseña el del punto que se tenga seleccionado, o todos a la vez desde
+          el Style Lab cuando se le está explicando la instalación al cliente. */}
+      {plano.tramos
+        .filter((t) => verCables || t.entre?.includes(seleccion))
+        .map((t) => (
+          <Tramo key={t.id} tramo={t} />
+        ))}
 
       {/* las manijas solo cuando no se está colocando algo: si no, estorban
           justo en el borde donde uno quiere soltar la pieza */}

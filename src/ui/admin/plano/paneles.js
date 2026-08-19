@@ -1,99 +1,145 @@
+import * as THREE from 'three'
+
 /**
- * Cómo se acomodan los paneles triangulares en el muro.
+ * Cómo se arman los paneles triangulares en el muro.
  *
- * Los Nanoleaf no vienen en una forma: vienen en nueve piezas y la
- * composición se decide en el muro. Eso importa en el levantamiento porque no
- * es lo mismo un triángulo grande compacto sobre la cabecera que una tira
- * diagonal subiendo la escalera — cambia el muro que se necesita, cambia dónde
- * queda el cable y cambia lo que el cliente va a ver.
+ * La primera versión estaba mal y se veía: los triángulos salían separados y
+ * en escalera porque los colocaba en una retícula inventada, con cilindros de
+ * tres lados que ni siquiera compartían arista. Un panel Nanoleaf no es eso —
+ * las piezas se unen borde con borde y forman una figura PLANA sobre el muro,
+ * como un cuadro. Si no se tocan, no es la pieza.
  *
- * Cada disposición se guarda como coordenadas en una retícula triangular, en
- * unidades de lado. Un panel apunta hacia arriba o hacia abajo, que es lo
- * único que hace falta para colocarlo: en una retícula triangular los dos
- * sentidos alternan solos.
+ * Así que la geometría se construye a mano con los vértices exactos de la
+ * teselación triangular, que es la única forma de garantizar que los bordes
+ * coincidan:
  *
- * `T(fila, columna, arriba)` — fila cuenta hacia abajo desde la punta.
+ *   lado L, altura h = L·√3/2
+ *   una fila `f` ocupa de y = −(f+1)·h  a  y = −f·h
+ *   dentro de la fila alternan triángulos con la punta arriba y abajo, y cada
+ *   uno avanza medio lado
+ *
+ * Con eso, `arriba` deja de ser decoración: dice de qué lado está la punta, y
+ * de ahí salen los tres vértices sin ambigüedad.
  */
-const T = (f, c, arriba) => ({ f, c, arriba })
+
+/** Lado del panel. El NL22 mide ~24 cm por lado. */
+export const LADO = 0.24
+export const GROSOR = 0.02
+
+const cache = new Map()
+
+/**
+ * Un triángulo plano de verdad, con su grosor.
+ *
+ * Se hace con `ExtrudeGeometry` sobre una forma de tres puntos en vez de un
+ * cilindro de tres lados: el cilindro da un prisma equilátero pero centrado en
+ * su circunradio, y acomodarlo para que las aristas peguen es pelear con la
+ * trigonometría en cada pieza. Con la forma explícita, los vértices son los
+ * que uno escribió.
+ */
+export function trianguloPanel(lado = LADO, arriba = true, grosor = GROSOR) {
+  const clave = `${lado}|${arriba}|${grosor}`
+  if (cache.has(clave)) return cache.get(clave)
+
+  const h = (Math.sqrt(3) / 2) * lado
+  const s = new THREE.Shape()
+  if (arriba) {
+    // base abajo, punta arriba
+    s.moveTo(-lado / 2, -h / 3)
+    s.lineTo(lado / 2, -h / 3)
+    s.lineTo(0, (h * 2) / 3)
+  } else {
+    // base arriba, punta abajo
+    s.moveTo(-lado / 2, h / 3)
+    s.lineTo(lado / 2, h / 3)
+    s.lineTo(0, (-h * 2) / 3)
+  }
+  s.closePath()
+
+  const g = new THREE.ExtrudeGeometry(s, { depth: grosor, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 1 })
+  g.center()
+  cache.set(clave, g)
+  return g
+}
+
+/* ── las figuras ──────────────────────────────────────────────────
+   Cada una se describe por las CELDAS que ocupa en la teselación: fila y
+   posición dentro de la fila. La posición par es punta arriba y la impar punta
+   abajo; así dos celdas contiguas siempre comparten arista. */
+
+const C = (f, i) => ({ f, i })
 
 export const DISPOSICIONES = [
   {
     id: 'triangulo',
     nombre: 'Triángulo mayor',
-    porque: 'Las nueve piezas forman un triángulo grande. Es la más limpia y la que mejor cae sobre una cabecera o un sillón.',
-    ancho: 3,
-    piezas: [
-      T(0, 0, true),
-      T(1, 0, true), T(1, 1, false), T(1, 2, true),
-      T(2, 0, true), T(2, 1, false), T(2, 2, true), T(2, 3, false), T(2, 4, true),
-    ],
+    porque: 'Las nueve piezas forman un triángulo grande, unidas borde con borde. Es la más limpia y la que mejor cae sobre una cabecera.',
+    celdas: [C(0, 0), C(1, 0), C(1, 1), C(1, 2), C(2, 0), C(2, 1), C(2, 2), C(2, 3), C(2, 4)],
   },
   {
     id: 'rombo',
     nombre: 'Rombo',
     porque: 'Más ancho que alto. Funciona sobre un mueble largo o una cama matrimonial, donde el triángulo se ve chico.',
-    ancho: 3,
-    piezas: [
-      T(0, 1, true), T(0, 2, false), T(0, 3, true),
-      T(1, 0, true), T(1, 1, false), T(1, 2, true), T(1, 3, false), T(1, 4, true),
-      T(2, 2, false),
-    ],
+    celdas: [C(0, 0), C(0, 1), C(0, 2), C(1, 0), C(1, 1), C(1, 2), C(1, 3), C(1, 4), C(2, 2)],
   },
   {
     id: 'diagonal',
     nombre: 'Diagonal',
-    porque: 'Una tira que sube. Para escalera, pasillo largo o el muro angosto junto a una puerta.',
-    ancho: 5,
-    piezas: [
-      T(0, 4, true),
-      T(1, 3, true), T(1, 4, false),
-      T(2, 2, true), T(2, 3, false),
-      T(3, 1, true), T(3, 2, false),
-      T(4, 0, true), T(4, 1, false),
-    ],
+    porque: 'Una banda que sube. Para escalera, pasillo largo o el muro angosto junto a una puerta.',
+    celdas: [C(0, 0), C(0, 1), C(1, 1), C(1, 2), C(2, 2), C(2, 3), C(3, 3), C(3, 4), C(4, 4)],
   },
   {
     id: 'flecha',
     nombre: 'Flecha',
     porque: 'Apunta a algo: la tele, la puerta, el escritorio. Es la que más se nota en foto.',
-    ancho: 4,
-    piezas: [
-      T(0, 2, true),
-      T(1, 1, true), T(1, 2, false), T(1, 3, true),
-      T(2, 0, true), T(2, 1, false),
-      T(2, 3, false), T(2, 4, true),
-      T(3, 0, false),
-    ],
+    celdas: [C(0, 0), C(1, 0), C(1, 1), C(1, 2), C(2, 0), C(2, 1), C(2, 3), C(2, 4), C(2, 2)],
   },
   {
-    id: 'ola',
-    nombre: 'Ola',
-    porque: 'Serpentea a lo ancho. Para un muro largo donde una figura compacta se pierde.',
-    ancho: 6,
-    piezas: [
-      T(0, 1, true), T(0, 5, true),
-      T(1, 0, true), T(1, 1, false), T(1, 2, true),
-      T(1, 4, true), T(1, 5, false), T(1, 6, true),
-      T(2, 3, true),
-    ],
+    id: 'banda',
+    nombre: 'Banda',
+    porque: 'Una sola fila a lo ancho. Para un muro largo y bajo, encima de un mueble de tele o un respaldo.',
+    celdas: [C(0, 0), C(0, 1), C(0, 2), C(0, 3), C(0, 4), C(0, 5), C(0, 6), C(0, 7), C(0, 8)],
   },
 ]
 
 export const DISPOSICION_BY_ID = Object.fromEntries(DISPOSICIONES.map((d) => [d.id, d]))
 
-/** Lado del panel en metros — el NL22 mide ~24 cm por lado. */
-export const LADO = 0.24
-
 /**
- * De la retícula triangular a metros.
- * En una retícula así, cada columna avanza medio lado y cada fila baja la
- * altura del triángulo equilátero.
+ * De celdas a posiciones en metros, ya centradas.
+ *
+ * @returns [{ x, y, arriba }] listo para colocar cada triángulo
  */
 export function posicionesDe(disposicion, lado = LADO) {
-  const alto = (Math.sqrt(3) / 2) * lado
-  return (disposicion?.piezas ?? []).map((p) => ({
-    x: (p.c - (disposicion.ancho - 1)) * (lado / 2),
-    y: -p.f * alto,
-    arriba: p.arriba,
-  }))
+  const h = (Math.sqrt(3) / 2) * lado
+  const celdas = disposicion?.celdas ?? []
+  if (!celdas.length) return []
+
+  const crudas = celdas.map(({ f, i }) => {
+    const arriba = i % 2 === 0
+    /* El centro de una celda: cada paso dentro de la fila avanza medio lado, y
+       la punta arriba o abajo desplaza el centro un sexto de la altura, que es
+       la diferencia entre el baricentro de un triángulo y el del invertido. */
+    const x = (i - (f + 0.5)) * (lado / 2) + lado / 2
+    const y = -f * h + (arriba ? -h / 2 + h / 3 : -h / 2 + (h * 2) / 3) - h / 6
+    return { x, y, arriba }
+  })
+
+  // se centra la figura completa para que el ancla quede en su medio
+  const xs = crudas.map((p) => p.x)
+  const ys = crudas.map((p) => p.y)
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2
+  const cy = (Math.min(...ys) + Math.max(...ys)) / 2
+  return crudas.map((p) => ({ ...p, x: p.x - cx, y: p.y - cy }))
+}
+
+/** Cuánto mide la figura, para la huella y el encuadre. */
+export function medidaDe(disposicion, lado = LADO) {
+  const ps = posicionesDe(disposicion, lado)
+  if (!ps.length) return { w: lado, h: lado }
+  const xs = ps.map((p) => p.x)
+  const ys = ps.map((p) => p.y)
+  return {
+    w: Math.max(...xs) - Math.min(...xs) + lado,
+    h: Math.max(...ys) - Math.min(...ys) + (Math.sqrt(3) / 2) * lado,
+  }
 }

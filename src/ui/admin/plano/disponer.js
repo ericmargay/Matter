@@ -31,12 +31,26 @@ const MURO = 0.12 // qué tan pegado al muro se admite algo
    una de 5 × 6 no se amueblan igual, y el levantamiento trae de todo. */
 
 const RECETAS = {
+  /* La recámara se acomoda pensando en desde dónde se ve. La cámara entra por
+     el sur-este, así que los muros que se leen son el norte y el oeste: ahí va
+     lo que el cliente tiene que ver —la cama, el escritorio, los paneles—. El
+     clóset, que es un bloque grande y no aporta nada a la conversación, se va
+     al muro sur, que queda a espaldas de la vista. */
   recamara: (a, l) => [
     { tipo: 'cama', x: 0, z: -l / 2 + 1.3, rot: 0 },
     { tipo: 'buro', x: -1.25, z: -l / 2 + 0.5, rot: 0 },
     { tipo: 'buro', x: 1.25, z: -l / 2 + 0.5, rot: 0 },
-    ...(a > 3.4 ? [{ tipo: 'closet', x: -a / 2 + 0.4, z: 0.6, rot: Math.PI / 2 }] : []),
+    ...(a > 3.4 ? [{ tipo: 'closet', x: -a / 2 + 1.1, z: l / 2 - 0.35, rot: 0 }] : []),
     ...(l > 4.2 ? [{ tipo: 'tapete', x: 0, z: l / 2 - 1.4, rot: 0 }] : []),
+    /* Escritorio y lámparas. No es decoración: son los portalámparas de la
+       recámara, y sin ellos los focos que el cliente ya tiene metidos en una
+       lámpara de piso terminan pegados al plafón, que es donde no están.
+       La de escritorio va ENCIMA del escritorio, con su `y`: en el suelo, al
+       lado de la mesa, se veía como un objeto tirado. */
+    ...(a > 3.6 ? [{ tipo: 'escritorio', x: -a / 2 + 0.4, z: 0.2, rot: Math.PI / 2 }] : []),
+    ...(a > 3.6 ? [{ tipo: 'lamparaEscritorio', x: -a / 2 + 0.42, y: 0.75, z: -0.25, rot: Math.PI / 2 }] : []),
+    ...(a > 3 ? [{ tipo: 'lamparaPie', x: a / 2 - 0.45, z: l / 2 - 0.45, rot: 0 }] : []),
+    ...(a > 3.8 ? [{ tipo: 'lamparaTripode', x: -a / 2 + 0.5, z: -l / 2 + 0.5, rot: 0 }] : []),
   ],
 
   bano: (a, l) => [
@@ -87,14 +101,61 @@ const RECETAS = {
    La regla la manda la categoría, no la marca: un sensor de presencia va al
    techo sea de la marca que sea. */
 
+/**
+ * A qué altura queda la superficie de cada mueble.
+ *
+ * Es lo que permite apoyar un aparato encima en vez de dejarlo flotando. Solo
+ * están los que de verdad sirven de mesa: nadie pone el Apple TV sobre un
+ * tapete.
+ */
+const ALTURA_MESA = {
+  mueble_tv: 0.5,
+  mesaCentro: 0.45,
+  mesaLateral: 0.56,
+  escritorio: 0.75,
+  mesaTrabajo: 0.74,
+  buro: 0.54,
+  comoda: 0.82,
+  mesaComedor: 0.78,
+  mesaRedonda: 0.75,
+  barra: 0.9,
+  isla: 0.9,
+  librero: 1.8,
+  libreroLleno: 1.7,
+  rack: 1.2,
+}
+
+/**
+ * A qué altura queda el portalámparas de cada lámpara.
+ *
+ * Un foco inteligente casi nunca se compra para el plafón: se compra para la
+ * lámpara que ya está en el cuarto. Esta tabla es lo que permite dibujarlo
+ * dentro de ella —a la altura de su casquillo— en vez de como una esfera
+ * flotando en el techo.
+ */
+const PORTAFOCO = {
+  lamparaPie: 1.42,
+  lamparaTripode: 1.3,
+  lamparaEscritorio: 0.52,
+  lamparaBuro: 0.36,
+  lamparaArco: 1.72,
+  lamparaColgante: 1.9,
+  lamparaEsfera: 1.9,
+}
+
 const zonaDe = (device) => {
   const c = device.cat
   const l = device.luz
 
   if (c === 'iluminacion') {
     if (l?.forma === 'lineal') return 'tiraMuro'
-    if (device.power === 'cableado' || l?.haz < 140) return 'techo'
-    return 'techo'
+    /* Los paneles se montan en el muro, como un cuadro. En el plafón no los
+       pone nadie: se compran para que se vean. */
+    if (l?.forma === 'panel') return 'muroPanel'
+    // empotrado o luminaria de plafón: eso sí va arriba
+    if (device.power === 'cableado' || (l?.haz ?? 180) < 140) return 'techo'
+    // foco de rosca: primero a las lámparas del cuarto, lo que sobre al techo
+    return 'portafoco'
   }
   if (c === 'sensores') {
     if (/leak|fuga/i.test(device.id)) return 'piso'
@@ -108,8 +169,14 @@ const zonaDe = (device) => {
   if (c === 'clima') return 'muroAlto'
   if (c === 'cortinas') return 'ventana'
   if (c === 'energia') return 'muroBajo'
-  if (c === 'av') return 'flanco'
-  if (c === 'hubs' || c === 'red') return 'rincon'
+  /* Bocina y pantallita de buró van encima de un mueble. La barra de sonido y
+     la tele sí van de flanco, pegadas al muro. */
+  if (c === 'av') return /soundbar|barra|tv-|proyector/i.test(device.id) ? 'flanco' : 'mesa'
+  /* El hub y el streaming van SOBRE un mueble: un Apple TV en el rincón del
+     piso no existe en ninguna casa, y flotando se ve peor. La red grande —el
+     rack, el nodo de malla— sí se queda de rincón. */
+  if (c === 'hubs') return 'mesa'
+  if (c === 'red') return /rack|switch|patch/i.test(device.id) ? 'rincon' : 'mesa'
   if (c === 'mascotas' || c === 'electro') return 'pisoRincon'
   return 'muroMedio'
 }
@@ -168,22 +235,80 @@ export function disponerCuarto({ plano, tipo, equipo }) {
     ;(porZona[z] ??= []).push({ d, qty })
   }
 
-  const nuevoEquipo = (d, x, y, z, rot = 0) => ({
-    id: uid('i'),
-    clase: 'equipo',
-    deviceId: d.id,
-    x: Number(x.toFixed(2)),
-    y: Number(y.toFixed(2)),
-    z: Number(z.toFixed(2)),
-    rot,
-    params: parametrosIniciales(d),
+  const nuevoEquipo = (d, x, y, z, rot = 0, extra = {}) => {
+    const params = parametrosIniciales(d)
+    return {
+      id: uid('i'),
+      clase: 'equipo',
+      deviceId: d.id,
+      x: Number(x.toFixed(2)),
+      y: Number(y.toFixed(2)),
+      z: Number(z.toFixed(2)),
+      rot,
+      ...(params ? { params: { ...params, ...(extra.params ?? {}) } } : {}),
+    }
+  }
+
+  /* Dónde vive un foco decide cómo se dibuja. Se levanta al colocarlo y se
+     corrige en el inspector si hizo falta; sin esto todos salían como la misma
+     esfera y el plano se veía a diagrama. */
+  const conMontaje = (montaje) => ({ params: { montaje } })
+
+  /* Los aparatos de mesa —Apple TV, consola, bocina chica— van SOBRE un
+     mueble, no flotando ni en el piso. Se busca la superficie más cercana de
+     las que ya se colocaron y se apoyan encima. */
+  const superficies = items
+    .filter((i) => i.clase === 'mueble' && ALTURA_MESA[i.tipo])
+    .map((i) => ({ x: i.x, z: i.z, y: ALTURA_MESA[i.tipo] }))
+
+  const sobreMueble = (n) => {
+    if (!superficies.length) return null
+    const s = superficies[n % superficies.length]
+    // separados unos centímetros para que dos aparatos no se encimen
+    const desfase = Math.floor(n / superficies.length) * 0.16
+    return { x: s.x + desfase - 0.08, y: s.y, z: s.z }
+  }
+
+  /* Focos de rosca: se van metiendo en las lámparas que hay en el cuarto,
+     una por lámpara, y lo que sobra sube al plafón. Es el orden real de una
+     casa —se compran cuatro focos para las cuatro lámparas que ya están— y es
+     lo que hace que el plano se lea: cada foco dentro de su pantalla en vez de
+     cuatro esferas idénticas colgando de arriba. */
+  const portalamparas = items
+    .filter((i) => i.clase === 'mueble' && PORTAFOCO[i.tipo])
+    .map((i) => ({ x: i.x, z: i.z, y: PORTAFOCO[i.tipo] }))
+
+  const deRosca = (porZona.portafoco ?? []).flatMap(({ d, qty }) => Array.from({ length: qty }, () => d))
+  const sobranFocos = []
+  deRosca.forEach((d, i) => {
+    const s = portalamparas[i]
+    if (s) items.push(nuevoEquipo(d, s.x, s.y, s.z, 0, conMontaje('lampara')))
+    else sobranFocos.push(d)
+  })
+
+  /* Paneles: en el muro norte, centrados y a altura de cuadro. La composición
+     se elige en el inspector; aquí solo se decide que van colgados de una
+     pared y no tirados en el piso. */
+  const paneles = (porZona.muroPanel ?? []).flatMap(({ d, qty }) => Array.from({ length: qty }, () => d))
+  paneles.forEach((d, i) => {
+    /* Muro oeste y no el norte: el norte es el de la ventana, y una figura de
+       paneles detrás de una cortina no se ve. Además el oeste es un muro que
+       la cámara sí muestra —el este queda recortado— y estos paneles se
+       compran justamente para verse. Girados un cuarto de vuelta para quedar
+       contra la pared, a 1.65 m, que es altura de cuadro. */
+    items.push(nuevoEquipo(d, -a / 2 + MURO, 1.65, sobreMuro(paneles.length, l - 1.4, i), Math.PI / 2, conMontaje('muro')))
   })
 
   // techo: todas las luminarias del cuarto entran a la misma retícula, para
   // que se repartan entre ellas y no una encima de otra
-  const alTecho = (porZona.techo ?? []).flatMap(({ d, qty }) => Array.from({ length: qty }, () => d))
+  const alTecho = [
+    ...(porZona.techo ?? []).flatMap(({ d, qty }) => Array.from({ length: qty }, () => d)),
+    ...sobranFocos,
+  ]
   reticulaTecho(alTecho.length, a - 0.8, l - 0.8, h - 0.15).forEach((p, i) => {
-    items.push(nuevoEquipo(alTecho[i], p[0], p[1], p[2]))
+    const d = alTecho[i]
+    const empotrado = d.power === 'cableado' || (d.luz?.haz ?? 180) < 100
+    items.push(nuevoEquipo(d, p[0], p[1], p[2], 0, conMontaje(empotrado ? 'empotrado' : 'techo')))
   })
 
   // tiras: a lo largo del muro norte, repartidas
@@ -202,8 +327,19 @@ export function disponerCuarto({ plano, tipo, equipo }) {
         else items.push(nuevoEquipo(d, -a / 2 + MURO, y, sobreMuro(arr.length, l - 0.6, i)))
       })
 
+  /* Lo de mesa, encima de un mueble de verdad. */
+  const deMesa = (porZona.mesa ?? []).flatMap(({ d, qty }) => Array.from({ length: qty }, () => d))
+  deMesa.forEach((d, i) => {
+    const p = sobreMueble(i)
+    if (p) items.push(nuevoEquipo(d, p.x, p.y, p.z))
+    else items.push(nuevoEquipo(d, -a / 2 + 0.5, 0.75, l / 2 - 0.5))
+  })
+
   colocarEnMuro(porZona.muroAlto ?? [], 2.0)
-  colocarEnMuro(porZona.muroMedio ?? [], 1.5, 'oeste')
+  /* Sensores y apagadores al muro sur, que es donde está la puerta —un sensor
+     de movimiento se pone mirando por dónde se entra— y de paso deja el muro
+     oeste libre para el escritorio y los paneles. */
+  colocarEnMuro(porZona.muroMedio ?? [], 1.5, 'sur')
   colocarEnMuro(porZona.muroBajo ?? [], 0.35, 'oeste')
   colocarEnMuro(porZona.ventana ?? [], h - 0.25)
   colocarEnMuro(porZona.puerta ?? [], 1.6, 'sur')

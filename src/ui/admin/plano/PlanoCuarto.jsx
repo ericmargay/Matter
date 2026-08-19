@@ -118,14 +118,26 @@ export default function PlanoCuarto({ room, onCerrar }) {
     const antes = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKey = (e) => {
+      /* Nada de atajos mientras se escribe. Sin esto, un Backspace corrigiendo
+         una medida borraba la pieza seleccionada, y teclear "sala" en un campo
+         cambiaba el modo del gizmo a escalar. */
+      const t = e.target
+      const escribiendo =
+        t instanceof HTMLElement &&
+        (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))
+
       if (e.key === 'Escape') {
         if (midiendo) setMidiendo(null)
         else if (uniendo) setUniendo(null)
         else if (colocando) setColocando(null)
         else onCerrar()
       }
-      if (midiendo) return
-      if ((e.key === 'Delete' || e.key === 'Backspace') && seleccion) quitar(seleccion)
+      if (midiendo || escribiendo) return
+      if ((e.key === 'Delete' || e.key === 'Backspace') && seleccion) {
+        e.preventDefault()
+        if (seleccion === ID_MUROS) return // los muros no se borran
+        quitar(seleccion)
+      }
       // g/r/s como en cualquier editor 3D: la mano ya sabe dónde están
       if (e.key === 'g') setModoGizmo('mover')
       if (e.key === 'r') setModoGizmo('girar')
@@ -245,12 +257,21 @@ export default function PlanoCuarto({ room, onCerrar }) {
     if (it) parchar(id, { rot: ((it.rot ?? 0) + Math.PI / 8) % (Math.PI * 2) }, 'Giró una pieza')
   }
 
+  /* Una sola escritura, no dos. Cuando esto borraba los items en un `guardar`
+     y limpiaba las reglas en otro, el segundo partía del mismo `plano` de este
+     render —con la pieza todavía dentro— y la reponía: borrar no borraba
+     nada. Todo lo que cambia junto se manda junto. */
   const quitar = (id) => {
-    setItems(plano.items.filter((i) => i.id !== id), 'Quitó una pieza del plano')
-    // las reglas que apuntaban a lo borrado se van con él: una regla
-    // colgando de un fantasma es peor que no tener regla
-    const reglas = (plano.reglas ?? []).filter((r) => r.disparo !== id).map((r) => ({ ...r, destinos: r.destinos.filter((d) => d !== id) }))
-    guardar({ reglas }, 'Quitó una pieza del plano')
+    // las reglas y los tramos que apuntaban a lo borrado se van con él: una
+    // regla colgando de un fantasma es peor que no tener regla
+    const reglas = (plano.reglas ?? [])
+      .filter((r) => r.disparo !== id)
+      .map((r) => ({ ...r, destinos: (r.destinos ?? []).filter((d) => d !== id) }))
+    const tramos = (plano.tramos ?? []).filter((t) => !t.entre?.includes(id))
+    guardar(
+      { items: plano.items.filter((i) => i.id !== id), reglas, tramos },
+      'Quitó una pieza del plano',
+    )
     setSeleccion(null)
   }
 
@@ -953,6 +974,36 @@ function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuita
             min={0}
             onChange={(v) => onParchar(item.id, { y: v }, 'Cambió la altura de una pieza')}
           />
+        </div>
+      )}
+
+      {/* Dónde va montado el foco. Cambia cómo se dibuja —roseta y bulbo en
+          el plafón, solo el resplandor dentro de una pantalla— y eso es lo que
+          separa un plano de un diagrama. */}
+      {p && p.forma !== 'panel' && p.forma !== 'lineal' && (
+        <div className="mt-3 border-t border-line pt-3">
+          <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Dónde va montado</p>
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {[
+              ['techo', 'Al plafón'],
+              ['empotrado', 'Empotrado'],
+              ['lampara', 'Dentro de una lámpara'],
+              ['muro', 'Arbotante en muro'],
+              ['libre', 'Suelto'],
+            ].map(([v, label]) => (
+              <button
+                key={v}
+                onClick={() => onParchar(item.id, { params: { ...p, montaje: v } }, 'Cambió el montaje de un foco')}
+                className={`rounded border px-1.5 py-0.5 text-[10.5px] transition-colors ${
+                  (p.montaje ?? 'techo') === v
+                    ? 'border-ember bg-ember/15 text-ember'
+                    : 'border-line text-cream-3 hover:border-cream/35'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
