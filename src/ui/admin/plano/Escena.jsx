@@ -129,25 +129,55 @@ const enMedida = (m) => (m < 1 ? `${Math.round(m * 100)} cm` : `${m.toFixed(2)} 
  * El número se pega a la cámara con `Billboard` porque si no, en cuanto se
  * orbita medio giro, las tres cifras quedan al revés.
  */
+const HSL_LUZ = { h: 0, s: 0, l: 0 }
 const PUNTO_TXT = new THREE.Vector3()
 const PX_TEXTO = 11 // altura del número en pantalla, en píxeles
 
-function Regla({ largo, texto, grueso, color = '#4d9fff' }) {
-  const rotulo = useRef()
+/**
+ * Un número de cota: de pie, del mismo tamaño en pantalla y por encima de todo.
+ *
+ * Las tres cosas son la misma decisión. En un plano de obra la cifra no se
+ * acuesta, no cambia de tamaño al acercarse y no la tapa nada — si la tapa el
+ * muro que está midiendo, no mide.
+ */
+function Rotulo({ texto, color = '#4d9fff', opacidad = 1, arriba = 0.9, px = PX_TEXTO }) {
+  const g = useRef()
 
-  /* El número se dibuja del mismo tamaño en pantalla siempre, como en
-     cualquier plano de obra. Con un tamaño fijo en metros, la cota de un
-     enchufe salía ilegible y la de una cama, gigante — y encima cambiaba al
-     acercarse. Se escala por distancia contra la altura del cuadro. */
   useFrame(({ camera, size }) => {
-    const g = rotulo.current
-    if (!g) return
-    g.getWorldPosition(PUNTO_TXT)
+    const o = g.current
+    if (!o) return
+    o.getWorldPosition(PUNTO_TXT)
     const d = camera.position.distanceTo(PUNTO_TXT)
     const altoMundo = 2 * Math.tan(((camera.fov ?? 42) * Math.PI) / 360) * d
-    g.scale.setScalar((altoMundo * PX_TEXTO) / size.height)
+    o.scale.setScalar((altoMundo * px) / size.height)
   })
 
+  return (
+    <Billboard ref={g}>
+      <Text
+        position={[0, arriba, 0]}
+        fontSize={1}
+        anchorX="center"
+        anchorY="middle"
+        renderOrder={7}
+        outlineWidth={0.12}
+        outlineColor="#0b0e16"
+      >
+        {texto}
+        <meshBasicMaterial
+          attach="material"
+          color={color}
+          opacity={opacidad}
+          transparent
+          depthTest={false}
+          toneMapped={false}
+        />
+      </Text>
+    </Billboard>
+  )
+}
+
+function Regla({ largo, texto, grueso, color = '#4d9fff' }) {
   if (largo < 0.02) return null
   const mat = <meshBasicMaterial color={color} depthTest={false} toneMapped={false} />
 
@@ -163,24 +193,7 @@ function Regla({ largo, texto, grueso, color = '#4d9fff' }) {
           {mat}
         </mesh>
       ))}
-      <Billboard ref={rotulo} position={[0, grueso * 6, 0]}>
-        <Text
-          position={[0, 0.8, 0]}
-          fontSize={1}
-          anchorX="center"
-          anchorY="middle"
-          renderOrder={6}
-          outlineWidth={0.12}
-          outlineColor="#0b0e16"
-        >
-          {texto}
-          {/* Sin prueba de profundidad, como cualquier acotación: el número de
-              una pieza metida entre dos muebles tiene que leerse igual. Con la
-              prueba puesta, dos de las tres medidas quedaban dentro del propio
-              mueble y no se veían. */}
-          <meshBasicMaterial attach="material" color={color} depthTest={false} toneMapped={false} transparent />
-        </Text>
-      </Billboard>
+      <Rotulo texto={texto} color={color} arriba={0.9} />
     </group>
   )
 }
@@ -799,7 +812,18 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
     // proporción entre piezas —una de 1600 lm sigue dando el doble que una de
     // 800— solo el nivel al que se revela el conjunto.
     luz.current.power = p.lm * factor * escala
-    luz.current.color.copy(color)
+    /* Los paneles tiran su propio color al muro, no blanco. La luz salía del
+       color "de fábrica" del aparato —un blanco cálido— mientras las nueve
+       piezas corrían su secuencia de verdes y azules: el halo sobre la pared
+       no tenía nada que ver con lo que se estaba viendo encendido, y eso se
+       nota antes que cualquier otra cosa. Se usa el mismo tono medio de la
+       secuencia, con la misma deriva. */
+    if (p.forma === 'panel') {
+      color.getHSL(HSL_LUZ)
+      luz.current.color.setHSL((HSL_LUZ.h + performance.now() / 1000 * VUELTA + 1) % 1, 0.62, 0.55)
+    } else {
+      luz.current.color.copy(color)
+    }
     luz.current.visible = factor > 0.01
   })
 
@@ -1019,24 +1043,44 @@ const PLANO_COTA = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.02)
 const PUNTO = new THREE.Vector3()
 const HUECO = 0.95 // el claro que se le deja a la cifra en medio de la línea
 
-function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar, apoyo = '#3b3244' }) {
+function Cota({ eje, ancho, largo, alto, onMedir, midiendo, onEntrar, apoyo = '#3b3244', camaraX = 1, camaraZ = 1 }) {
   const arrastrando = useRef(null)
 
   const esX = eje === 'x'
+  const esY = eje === 'y'
   const activa = midiendo === eje
   const otraActiva = midiendo && !activa
 
-  const largoCota = esX ? ancho : largo
-  const fuera = (esX ? largo : ancho) / 2 + 0.55
-  const pos = esX ? [0, 0.02, fuera] : [-fuera, 0.02, 0]
-  const rot = esX ? [0, 0, 0] : [0, Math.PI / 2, 0]
+  const largoCota = esX ? ancho : esY ? alto : largo
+
+  /* La cota se pone del lado por donde entra la cámara, no en un lado fijo.
+     Con el lado fijo, media vuelta de órbita la mandaba detrás de un muro y la
+     medida —que es el dato que más se mira de un plano— quedaba tapada por el
+     propio cuarto. Ahora sigue a quien la lee. */
+  const sz = camaraZ >= 0 ? 1 : -1
+  const sx = camaraX >= 0 ? 1 : -1
+  const fueraZ = sz * (largo / 2 + 0.55)
+  const fueraX = sx * (ancho / 2 + 0.55)
+
+  /* La altura se acota en la esquina más cercana, de pie. Sin ella el cuarto
+     tenía dos de sus tres medidas y la tercera —la que decide si un colgante
+     cabe o si un clóset de 2.15 pasa— había que ir a buscarla al inspector. */
+  const pos = esX ? [0, 0.02, fueraZ] : esY ? [fueraX, alto / 2, fueraZ] : [fueraX, 0.02, 0]
+  const rot = esX ? [0, 0, 0] : esY ? [0, 0, Math.PI / 2] : [0, Math.PI / 2, 0]
   /* Sobre paleta pastel un gris claro desaparece. La cota se pinta con el
      tono de apoyo del cuarto, que siempre es el más oscuro de la paleta. */
   const color = activa ? '#2563eb' : apoyo
   const opacidad = otraActiva ? 0.2 : 1
 
   const mat = (extra = {}) => (
-    <meshBasicMaterial color={color} transparent opacity={opacidad} depthTest={false} {...extra} />
+    <meshBasicMaterial
+      color={color}
+      transparent
+      opacity={opacidad}
+      depthTest={false}
+      toneMapped={false}
+      {...extra}
+    />
   )
 
   /* Un punto, no una flecha. La flecha pesaba más que la medida: dos conos de
@@ -1088,21 +1132,19 @@ function Cota({ eje, ancho, largo, onMedir, midiendo, onEntrar, apoyo = '#3b3244
           </mesh>
         ))}
 
-      <Text
-        position={[0, 0.09, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={activa ? 0.19 : 0.165}
-        color={color}
-        fillOpacity={opacidad}
-        anchorX="center"
-        renderOrder={3}
-      >
-        {largoCota.toFixed(2)} m
-      </Text>
+      {/* El número, de pie y pegado a la cámara, como el de las piezas. Antes
+          iba acostado sobre el piso: desde media órbita se leía al revés, y
+          desde la otra media quedaba en escorzo. Y sin prueba de profundidad,
+          porque una medida tapada por un muro no mide nada. */}
+      <Rotulo texto={`${largoCota.toFixed(2)} m`} color={color} opacidad={opacidad} arriba={esY ? 0 : 0.9} />
 
-      {/* franja invisible de agarre: gruesa a propósito, para el dedo */}
+      {/* Franja invisible de agarre: gruesa a propósito, para el dedo.
+          La altura no se jala: se cambia en el inspector. Arrastrarla pediría
+          un plano de referencia vertical y, sobre todo, subirle el techo a un
+          cuarto no es un gesto de tanteo — es un dato que se midió. */}
       <mesh
         visible={false}
+        {...(esY ? { raycast: () => null } : {})}
         onPointerDown={(e) => {
           if (otraActiva) return
           e.stopPropagation()
@@ -1600,8 +1642,21 @@ export default function Escena({
           donde uno quiere soltar la pieza. */}
       {onMedida && !colocando && (seleccion === ID_MUROS || midiendo) && (
         <>
-          <Cota eje="x" ancho={ancho} largo={largo} onMedir={onMedida} midiendo={midiendo} onEntrar={onMidiendo} apoyo={pal.apoyo} />
-          <Cota eje="z" ancho={ancho} largo={largo} onMedir={onMedida} midiendo={midiendo} onEntrar={onMidiendo} apoyo={pal.apoyo} />
+          {['x', 'z', 'y'].map((ej) => (
+            <Cota
+              key={ej}
+              eje={ej}
+              ancho={ancho}
+              largo={largo}
+              alto={alto}
+              onMedir={onMedida}
+              midiendo={midiendo}
+              onEntrar={onMidiendo}
+              apoyo={pal.apoyo}
+              camaraX={camX}
+              camaraZ={camZ}
+            />
+          ))}
         </>
       )}
 

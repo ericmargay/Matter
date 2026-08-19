@@ -263,11 +263,13 @@ export default function PlanoCuarto({ room, onCerrar }) {
   /* Arrastrar un muro dispara decenas de medidas por segundo. `setPlano` ya
      agrupa el envío, así que la pantalla responde a cada cuadro y al registro
      llega un solo cambio cuando se suelta. */
-  const medir = (eje, valor) =>
+  const medir = (eje, valor) => {
+    if (eje !== 'x' && eje !== 'z') return // la altura se escribe, no se jala
     guardar(
       { [eje === 'x' ? 'ancho' : 'largo']: Number(valor.toFixed(2)) },
       `Ajustó las medidas de ${room.nombre}`,
     )
+  }
 
   /* ── acciones sobre los objetos ── */
 
@@ -722,6 +724,9 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onUnir={() => setUniendo(seleccionado.id)}
               tramos={plano.tramos ?? []}
               onModulo={ponerModulo}
+              onMandar={correr}
+              estado={sim?.[seleccionado.id]}
+              bloqueo={bloqueo}
               onQuitarTramo={(tid) => guardar({ tramos: plano.tramos.filter((t) => t.id !== tid) }, 'Quitó una línea eléctrica')}
             />
           ) : (
@@ -1004,9 +1009,94 @@ function InspectorMuros({ plano, onGuardar }) {
   )
 }
 
+/**
+ * El mando de un aparato, pieza por pieza.
+ *
+ * Lo que se ofrece sale de lo que el aparato ACEPTA, no de una lista fija:
+ * ofrecerle "atenuar" a un enchufe es mentir, y una cortina no se enciende, se
+ * abre. Es la misma tabla con la que se arman las automatizaciones, así que no
+ * hay dos verdades que mantener.
+ *
+ * Y tarda lo que tarda de verdad: una cortina se toma sus doce segundos aquí
+ * igual que en la casa. Es lo que evita la conversación incómoda de la
+ * entrega —"¿por qué la mía no se abre de golpe como en la maqueta?"—.
+ */
+function Mando({ item, dev, estado, onMandar, bloqueo }) {
+  const posibles = accionesDe(dev).filter((a) => !ACCIONES[a].sinObjetivo)
+  if (posibles.length === 0) return null
+
+  const nivel = estado?.nivel ?? 1
+  const prendido = nivel > 0.02
+  const abierto = Math.round((estado?.apertura ?? 0) * 100)
+  const esCortina = dev.cat === 'cortinas'
+
+  const mandar = (accion, valor = null) => {
+    if (bloqueo) return
+    onMandar([{ objetivo: item.id, accion, valor }])
+  }
+
+  const chip = (texto, onClick, on = false) => (
+    <button
+      key={texto}
+      onClick={onClick}
+      disabled={!!bloqueo}
+      className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors disabled:opacity-40 ${
+        on ? 'border-ember bg-ember/15 text-cream' : 'border-line text-cream-2 hover:bg-cream/8'
+      }`}
+    >
+      {texto}
+    </button>
+  )
+
+  return (
+    <div className="mt-2 rounded-lg border border-thread/30 bg-thread/[0.05] px-2 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[10px] tracking-[0.12em] text-thread-2 uppercase">Pruébalo</p>
+        <span className="text-[10.5px] text-cream-3">
+          {esCortina ? `${abierto} % abierta` : prendido ? `al ${Math.round(nivel * 100)} %` : 'apagado'}
+        </span>
+      </div>
+
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {/* Una cortina no se apaga: se abre o se cierra. El "alternar" que
+            acepta por dentro se ofrece con esas dos palabras más abajo. */}
+        {posibles.includes('alternar') &&
+          !esCortina &&
+          chip(prendido ? 'Apagar' : 'Encender', () => mandar('alternar'))}
+        {posibles.includes('abrir') && (
+          <>
+            {chip('Abrir', () => mandar('abrir', 100), abierto >= 99)}
+            {chip('A la mitad', () => mandar('abrir', 50), abierto > 40 && abierto < 60)}
+            {chip('Cerrar', () => mandar('abrir', 0), abierto <= 1)}
+          </>
+        )}
+        {posibles.includes('atenuar') &&
+          [100, 60, 30, 10].map((n) =>
+            chip(`${n} %`, () => mandar('atenuar', n), prendido && Math.round(nivel * 100) === n),
+          )}
+      </div>
+
+      {posibles.includes('tono') && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {[
+            [2200, 'Vela'],
+            [2700, 'Cálido'],
+            [4000, 'Neutro'],
+            [6000, 'Frío'],
+          ].map(([k, label]) => chip(label, () => mandar('tono', k), (estado?.k ?? 0) === k))}
+        </div>
+      )}
+
+      <p className="mt-1.5 text-[10px] leading-snug text-cream-3">
+        Tarda lo que tarda en la casa: {duracionDe(dev, posibles.includes('abrir') ? 'abrir' : 'atenuar')} s.
+      </p>
+    </div>
+  )
+}
+
 /* ── inspector de la pieza seleccionada ───────────────────────── */
 
-function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuitarTramo, onModulo }) {
+function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuitarTramo, onModulo, onMandar, estado, bloqueo }) {
   const dev = item.clase === 'equipo' ? DEVICE_BY_ID[item.deviceId] : null
   const p = item.params
 
@@ -1084,6 +1174,15 @@ function Inspector({ item, onParchar, onGirar, onQuitar, onUnir, tramos, onQuita
             </button>
           ))}
         </div>
+      )}
+
+      {/* Lo que se le puede pedir a ESTE aparato, ahora mismo.
+          Hasta aquí la demostración era por ambientaciones —escenas de varios
+          aparatos a la vez— y faltaba lo más simple: prender esta lámpara. En
+          la junta el cliente señala una cosa y pregunta "¿y ésta?", y no había
+          forma de contestarle sin correr una escena entera. */}
+      {item.clase === 'equipo' && dev && onMandar && (
+        <Mando item={item} dev={dev} estado={estado} onMandar={onMandar} bloqueo={bloqueo} />
       )}
 
       {/* Las versiones de este mueble. Va arriba de todo lo demás porque es lo
