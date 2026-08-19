@@ -42,14 +42,19 @@ function useTaller() {
    Cojines gordos, brazos anchos, respaldo separado del asiento. Las tres
    piezas se ven como tres piezas: esa separación es lo que da la lectura de
    mueble armado en vez de bloque tallado. */
-export function Sofa({ w = 2.4, d = 0.95, tono = 'dominante' }) {
+export function Sofa({ w = 2.4, d = 0.95, tono = 'dominante', v = 'recto' }) {
   const { pal, mat, cja, cap } = useTaller()
   const cuerpo = mat(pal[tono], 'tela')
   const cojin = mat(pal.secundario, 'tela')
   const pata = mat(pal.apoyo, 'madera')
 
-  const h = 0.42
-  const brazo = 0.24
+  /* Lo que cambia entre un sofá y otro: qué tan alto es el respaldo, qué tan
+     gordo el brazo y si tiene chaise. Los tres se ven a esta distancia y los
+     tres cambian dónde cabe. */
+  const h = v === 'bajo' ? 0.34 : 0.42
+  const brazo = v === 'sinBrazos' ? 0.02 : v === 'brazoAncho' ? 0.4 : 0.24
+  const hResp = v === 'respaldoAlto' ? 0.92 : v === 'bajo' ? 0.46 : 0.62
+  const chaise = v === 'chaise'
   const asiento = w - brazo * 2
   const nCojines = asiento > 1.6 ? 3 : 2
 
@@ -58,11 +63,21 @@ export function Sofa({ w = 2.4, d = 0.95, tono = 'dominante' }) {
       {/* base */}
       <P g={cja(w, h, d)} m={cuerpo} position={[0, h / 2 + 0.1, 0]} />
       {/* respaldo, inclinado apenas para que no se vea a caja */}
-      <P g={cja(w, 0.62, 0.22)} m={cuerpo} position={[0, 0.62, -d / 2 + 0.11]} rotation={[-0.06, 0, 0]} />
+      <P g={cja(w, hResp, 0.22)} m={cuerpo} position={[0, 0.31 + hResp / 2, -d / 2 + 0.11]} rotation={[-0.06, 0, 0]} />
+      {/* chaise: el brazo largo que sale hacia un lado. Es lo que convierte un
+          sofá de 2.40 en una pieza de 2.40 × 1.60, y eso decide si pasa por la
+          puerta y si deja circular por la sala. */}
+      {chaise && (
+        <>
+          <P g={cja(0.9, h, d * 0.85)} m={cuerpo} position={[w / 2 - 0.45, h / 2 + 0.1, d * 0.72]} />
+          <P g={cja(0.9, 0.34, 0.18)} m={cuerpo} position={[w / 2 - 0.45, 0.36, d * 1.12]} />
+        </>
+      )}
       {/* brazos */}
-      {[-1, 1].map((s) => (
-        <P key={s} g={cja(brazo, 0.52, d)} m={cuerpo} position={[(s * (w - brazo)) / 2, 0.36, 0]} />
-      ))}
+      {brazo > 0.05 &&
+        [-1, 1].map((s) => (
+          <P key={s} g={cja(brazo, 0.52, d)} m={cuerpo} position={[(s * (w - brazo)) / 2, 0.36, 0]} />
+        ))}
       {/* cojines: dos o tres según el ancho, siempre gordos.
           `Array.from` NO le pasa el arreglo al mapeador —solo valor e
           índice—, así que la cuenta se calcula antes. */}
@@ -89,51 +104,111 @@ export function Sofa({ w = 2.4, d = 0.95, tono = 'dominante' }) {
 }
 
 /* ── mesa de centro ── */
-export function MesaCentro({ w = 1.1, d = 0.62 }) {
-  const { pal, mat, cja, cap } = useTaller()
+export function MesaCentro({ w = 1.1, d = 0.62, v = 'dosNiveles' }) {
+  const { pal, mat, cja, cil, cap } = useTaller()
   const tabla = mat(pal.secundario, 'madera')
   const pata = mat(pal.apoyo, 'madera')
-  const alto = 0.38
+  const alto = v === 'baja' ? 0.3 : 0.38
+
+  if (v === 'redonda' || v === 'tambor') {
+    const r = Math.min(w, d) / 2
+    return (
+      <group>
+        <P g={cil(r, r, 0.06, 32)} m={tabla} position={[0, alto, 0]} />
+        {v === 'tambor' ? (
+          /* Tambor: una sola pieza maciza. Pesa a la vista y por eso ancla la
+             sala, pero también cierra el paso visual por debajo. */
+          <P g={cil(r * 0.72, r * 0.8, alto - 0.03, 28)} m={pata} position={[0, (alto - 0.03) / 2, 0]} />
+        ) : (
+          <>
+            <P g={cil(0.05, 0.05, alto - 0.06)} m={pata} position={[0, alto / 2, 0]} />
+            <P g={cil(r * 0.6, r * 0.66, 0.04, 28)} m={pata} position={[0, 0.02, 0]} />
+          </>
+        )}
+      </group>
+    )
+  }
 
   return (
     <group>
       {/* tablero de grosor exagerado: es lo que lo salva de verse a lámina */}
       <P g={cja(w, 0.07, d)} m={tabla} position={[0, alto, 0]} />
-      <P g={cja(w - 0.18, 0.05, d - 0.16)} m={tabla} position={[0, alto - 0.16, 0]} />
-      {[-1, 1].map((x) =>
-        [-1, 1].map((z) => (
-          <P
-            key={`${x}${z}`}
-            g={cap(0.028, alto - 0.1)}
-            m={pata}
-            position={[(x * (w - 0.16)) / 2, alto / 2 - 0.02, (z * (d - 0.14)) / 2]}
-          />
-        )),
+      {v === 'dosNiveles' && <P g={cja(w - 0.18, 0.05, d - 0.16)} m={tabla} position={[0, alto - 0.16, 0]} />}
+
+      {/* patas: cuatro capsulas, dos costados macizos o un marco de metal */}
+      {v === 'costados' ? (
+        [-1, 1].map((x) => (
+          <P key={x} g={cja(0.05, alto - 0.04, d - 0.1)} m={pata} position={[(x * (w - 0.14)) / 2, (alto - 0.04) / 2, 0]} />
+        ))
+      ) : v === 'marco' ? (
+        [-1, 1].map((x) =>
+          [-1, 1].map((z) => (
+            <P
+              key={`${x}${z}`}
+              g={cja(0.028, alto - 0.05, 0.028)}
+              m={mat(pal.acento, 'metal')}
+              position={[(x * (w - 0.1)) / 2, (alto - 0.05) / 2, (z * (d - 0.1)) / 2]}
+            />
+          )),
+        )
+      ) : (
+        [-1, 1].map((x) =>
+          [-1, 1].map((z) => (
+            <P
+              key={`${x}${z}`}
+              g={cap(0.028, alto - 0.1)}
+              m={pata}
+              position={[(x * (w - 0.16)) / 2, alto / 2 - 0.02, (z * (d - 0.14)) / 2]}
+            />
+          )),
+        )
       )}
     </group>
   )
 }
 
 /* ── mueble de tele ── */
-export function MuebleTv({ w = 1.9, d = 0.42 }) {
-  const { pal, mat, cja } = useTaller()
+export function MuebleTv({ w = 1.9, d = 0.42, v = 'puertas' }) {
+  const { pal, mat, cja, cap } = useTaller()
   const cuerpo = mat(pal.apoyo, 'madera')
   const frente = mat(pal.secundario, 'madera')
-  const alto = 0.44
+  const alto = v === 'bajo' ? 0.32 : 0.44
+  const flotante = v === 'flotante'
+  const y0 = flotante ? 0.32 : v === 'patas' ? 0.2 : 0.05
 
   return (
     <group>
-      <P g={cja(w, alto, d)} m={cuerpo} position={[0, alto / 2 + 0.05, 0]} />
+      <P g={cja(w, alto, d)} m={cuerpo} position={[0, alto / 2 + y0, 0]} />
+      {/* patas cónicas o flotante: el hueco de abajo es lo que se compra, y
+          además es por donde pasa el cable a la tele. */}
+      {v === 'patas' &&
+        [-1, 1].map((x) =>
+          [-1, 1].map((z) => (
+            <P
+              key={`p${x}${z}`}
+              g={cap(0.02, 0.22)}
+              m={cuerpo}
+              position={[(x * (w - 0.2)) / 2, 0.11, (z * (d - 0.1)) / 2]}
+              rotation={[z * 0.08, 0, -x * 0.08]}
+              sombra={false}
+            />
+          )),
+        )}
+      {/* repisas abiertas en vez de puertas */}
+      {v === 'abierto' && (
+        <P g={cja(w - 0.06, 0.02, d - 0.04)} m={frente} position={[0, alto / 2 + y0, 0]} sombra={false} />
+      )}
       {/* puertas hundidas: la diferencia de profundidad hace el mueble */}
-      {[-1, 1].map((s) => (
-        <P
-          key={s}
-          g={cja(w / 2 - 0.06, alto - 0.12, 0.02)}
-          m={frente}
-          position={[(s * w) / 4, alto / 2 + 0.05, d / 2 - 0.012]}
-          sombra={false}
-        />
-      ))}
+      {v !== 'abierto' &&
+        [-1, 1].map((sg) => (
+          <P
+            key={sg}
+            g={cja(w / 2 - 0.06, alto - 0.12, 0.02)}
+            m={frente}
+            position={[(sg * w) / 4, alto / 2 + y0, d / 2 - 0.012]}
+            sombra={false}
+          />
+        ))}
       {[-1, 1].map((s) => (
         <P
           key={`t${s}`}
@@ -291,13 +366,45 @@ export function Planta({ alto = 1.15, hojas = 7 }) {
 }
 
 /* ── pantalla de pared ── */
-export function Pantalla({ w = 1.5 }) {
-  const { pal, mat, cja } = useTaller()
+export function Pantalla({ w = 1.5, v = 'muro' }) {
+  const { pal, mat, cja, cil, cap } = useTaller()
   const h = w * 0.58
+  const marco = v === 'marco' // tipo cuadro, con marco grueso de madera
+  const g = marco ? 0.09 : 0.05
+
   return (
     <group>
-      <P g={cja(w, h, 0.05)} m={mat(pal.apoyo, 'plastico')} />
-      <P g={cja(w - 0.06, h - 0.06, 0.01)} m={mat('#20242e', 'vidrio')} position={[0, 0, 0.028]} sombra={false} />
+      <P g={cja(w, h, g)} m={mat(marco ? pal.apoyo : pal.apoyo, marco ? 'madera' : 'plastico')} />
+      <P
+        g={cja(w - (marco ? 0.14 : 0.06), h - (marco ? 0.14 : 0.06), 0.01)}
+        m={mat('#20242e', 'vidrio')}
+        position={[0, 0, g / 2 + 0.005]}
+        sombra={false}
+      />
+
+      {/* Base de piso: la tele que NO va colgada. Cambia por completo el
+          mueble que hay que poner debajo y por dónde sale el cable. */}
+      {v === 'base' && (
+        <>
+          <P g={cap(0.03, h * 0.34)} m={mat(pal.apoyo, 'metal')} position={[0, -h / 2 - h * 0.17, 0]} />
+          <P g={cil(w * 0.2, w * 0.22, 0.03, 24)} m={mat(pal.apoyo, 'metal')} position={[0, -h / 2 - h * 0.34, 0.04]} />
+        </>
+      )}
+      {v === 'patas' &&
+        [-1, 1].map((sg) => (
+          <P
+            key={sg}
+            g={cja(0.05, h * 0.3, 0.24)}
+            m={mat(pal.apoyo, 'metal')}
+            position={[(sg * w) / 2.6, -h / 2 - h * 0.15, 0.02]}
+            rotation={[0, 0, sg * 0.16]}
+          />
+        ))}
+      {/* Proyector: no hay pantalla, hay lienzo. Es una decisión distinta y
+          arrastra otra instalación —contacto en el techo y HDMI hasta allá—. */}
+      {v === 'lienzo' && (
+        <P g={cja(w + 0.1, 0.06, 0.08)} m={mat(pal.apoyo, 'metal')} position={[0, h / 2 + 0.05, 0]} />
+      )}
     </group>
   )
 }
