@@ -86,16 +86,6 @@ function VolarA({ enfoque, onListo }) {
     const dir = new THREE.Vector3().subVectors(camera.position, controls?.target ?? ORIGEN).normalize()
     const mira = centro.clone().setY(enfoque.y + enfoque.mira)
 
-    /* El taller tiene un panel de controles a la derecha, así que su lienzo es
-       más angosto que el del cuarto y su centro está más a la izquierda. Sin
-       compensarlo, la pieza da un brinco lateral justo al cruzar —lo único que
-       delataba que son dos escenas y no una—. Se corre la mira lo que mide
-       medio panel, traducido a metros a esa distancia. */
-    if (enfoque.corrimiento) {
-      const alto = 2 * Math.tan(((camera.fov ?? 42) * Math.PI) / 360) * enfoque.dist
-      const derecha = new THREE.Vector3().crossVectors(dir, ARRIBA).normalize()
-      mira.addScaledVector(derecha, alto * camera.aspect * enfoque.corrimiento)
-    }
 
     meta.current = {
       pos: centro.clone().addScaledVector(dir, enfoque.dist).add(new THREE.Vector3().subVectors(mira, centro.clone().setY(enfoque.y + enfoque.mira))),
@@ -130,7 +120,87 @@ function VolarA({ enfoque, onListo }) {
 }
 
 const ORIGEN = new THREE.Vector3()
-const ARRIBA = new THREE.Vector3(0, 1, 0)
+
+/**
+ * Disuelve el cuarto alrededor de una pieza, con niebla.
+ *
+ * Es el truco que hace que entrar al taller no se note. La niebla afecta a
+ * TODOS los materiales del sistema sin tocar ninguno: se cierra hasta justo
+ * detrás de la pieza y el cuarto entero —muros, piso, los otros muebles— se
+ * funde con el fondo, mientras lo que está delante, que es la pieza a la que
+ * ya se voló, se queda intacto.
+ *
+ * Cualquier otra forma de desvanecer pedía clonar materiales compartidos o
+ * apagar mallas de golpe. Esto es una línea por cuadro y funciona con lo que
+ * haya en el cuarto, incluso con lo que se dibuje mañana.
+ *
+ * Y de paso deja la escena EXACTAMENTE como se ve en el taller —una pieza
+ * sobre fondo plano— así que cuando se cruza no hay nada que cambiar.
+ */
+function Disolver({ activo, centro, dist, color, onListo }) {
+  const { scene } = useThree()
+  const t = useRef(0)
+  const aviso = useRef(false)
+  const previa = useRef(undefined)
+
+  useEffect(() => {
+    if (previa.current === undefined) previa.current = scene.fog
+    if (!activo) {
+      t.current = 0
+      aviso.current = false
+      scene.fog = previa.current ?? null
+    }
+    return () => {
+      scene.fog = previa.current ?? null
+    }
+  }, [activo, scene])
+
+  useFrame((_, dt) => {
+    if (!activo || !centro) return
+    t.current = Math.min(1, t.current + dt / 0.75)
+    const k = 1 - Math.pow(1 - t.current, 3) // frena al llegar
+
+    /* De "sin niebla" a "niebla que empieza justo detrás de la pieza". El
+       radio de la pieza se respeta siempre: si el frente entrara en la
+       niebla, se desvanecería justo lo que se quiere conservar. */
+    const cerca = THREE.MathUtils.lerp(dist * 6, dist * 0.72, k)
+    const lejos = THREE.MathUtils.lerp(dist * 12, dist * 1.25, k)
+    if (!scene.fog) scene.fog = new THREE.Fog(color, cerca, lejos)
+    scene.fog.color.set(color)
+    scene.fog.near = cerca
+    scene.fog.far = lejos
+
+    if (!aviso.current && t.current >= 1) {
+      aviso.current = true
+      onListo?.()
+    }
+  })
+
+  return null
+}
+
+/** La mesa del taller, apareciendo bajo la pieza mientras el cuarto se va. */
+function MesaTaller({ activo, centro, r, color }) {
+  const m = useRef()
+  const t = useRef(0)
+
+  useFrame((_, dt) => {
+    const o = m.current
+    if (!o) return
+    t.current = THREE.MathUtils.clamp(t.current + (activo ? dt / 0.6 : -dt / 0.3), 0, 1)
+    o.visible = t.current > 0.01
+    o.scale.setScalar(0.6 + t.current * 0.4)
+    o.material.opacity = t.current
+  })
+
+  if (!centro) return null
+  return (
+    <mesh ref={m} position={[centro.x, 0.004, centro.z]} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+      <circleGeometry args={[r, 48]} />
+      <meshStandardMaterial color={color} roughness={0.9} transparent opacity={0} />
+    </mesh>
+  )
+}
 
 function SeguirCamara({ onMover }) {
   const { camera } = useThree()
@@ -1637,6 +1707,8 @@ export default function Escena({
   onFinGizmo,
   enfoque,
   onEnfocado,
+  disolver,
+  onDisuelto,
 }) {
   const { ancho, largo, alto } = plano
   const [arrastrando, setArrastrando] = useState(null)
@@ -1732,6 +1804,19 @@ export default function Escena({
       <color attach="background" args={[fondo]} />
       <SeguirCamara onMover={(x, z) => setCam([x, z])} />
       <VolarA enfoque={enfoque} onListo={onEnfocado} />
+      <Disolver
+        activo={!!disolver}
+        centro={disolver?.centro}
+        dist={disolver?.dist ?? 3}
+        color={fondo}
+        onListo={onDisuelto}
+      />
+      <MesaTaller
+        activo={!!disolver}
+        centro={disolver?.centro}
+        r={(disolver?.tam ?? 1) * 2.2 + 0.6}
+        color={pal.piso}
+      />
 
       <Rig ancho={ancho} largo={largo} alto={alto} />
 

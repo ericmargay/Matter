@@ -1,6 +1,5 @@
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import * as THREE from 'three'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, TransformControls } from '@react-three/drei'
 
 import { DEVICE_BY_ID } from '../../../content/catalog'
@@ -32,7 +31,7 @@ import Rig from './Rig'
  * mismo modelo pueden acabar distintas, que es lo que pasa en una casa real.
  */
 
-export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], red, pose, visible = true }) {
+export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], red, pose, visible = true, onPintado, rect }) {
   const def = item.clase === 'mueble' ? MUEBLES[item.tipo] : null
   const dev = item.clase === 'equipo' ? DEVICE_BY_ID[item.deviceId] : null
   const e = useEstilo()
@@ -50,6 +49,12 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
   const [modoParte, setModoParte] = useState('mover')
   const escena = useRef()
   const [seccion, setSeccion] = useState('medidas')
+  /* El lienzo NACE en el mismo rectángulo que el del cuarto y de ahí se abre a
+     su sitio. Es lo que hace imposible el brinco: en el instante del cruce las
+     dos escenas ocupan los mismos píxeles con la misma cámara, así que son la
+     misma imagen. Compensar el desfase a mano era pelearse con dos layouts que
+     cambian; esto no tiene nada que compensar. */
+  const [abierto, setAbierto] = useState(!rect)
 
   const valores = useMemo(
     () => (def ? { ...valoresDe({ ...item, ajustes: {} }), ...ajustes } : {}),
@@ -112,7 +117,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col bg-ink transition-opacity duration-300 ease-out"
+      className="fixed inset-0 z-[60] flex flex-col bg-ink transition-opacity duration-200 ease-out"
       style={{ opacity: visible ? 1 : 0 }}
     >
       <header className="flex items-center gap-3 border-b border-line px-4 py-2.5">
@@ -141,7 +146,32 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
 
       <div className="flex min-h-0 flex-1">
         {/* la pieza sola, en su mesa de trabajo */}
-        <div className="relative min-w-0 flex-1">
+        <div
+          className="relative min-w-0 flex-1"
+          /* Se anima con los cuatro bordes y se QUEDA fija: pasar a maqueta de
+             flujo al terminar metía un último salto de unos pixeles —el hueco
+             calculado nunca cae exactamente donde lo pone el flex— y ese
+             saltito al final se veía más que todo lo demás. */
+          style={
+            rect
+              ? {
+                  position: 'fixed',
+                  flex: 'none',
+                  zIndex: 1,
+                  transition:
+                    'left 420ms cubic-bezier(.22,1,.36,1), top 420ms cubic-bezier(.22,1,.36,1), right 420ms cubic-bezier(.22,1,.36,1), bottom 420ms cubic-bezier(.22,1,.36,1)',
+                  ...(abierto
+                    ? { left: 0, top: CABEZA, right: PANEL, bottom: 0 }
+                    : {
+                        left: rect.left,
+                        top: rect.top,
+                        right: Math.max(0, window.innerWidth - rect.left - rect.width),
+                        bottom: Math.max(0, window.innerHeight - rect.top - rect.height),
+                      }),
+                }
+              : undefined
+          }
+        >
           <Canvas
             shadows
             dpr={[1, 1.75]}
@@ -160,6 +190,11 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
             <Mesa color={pal.piso} r={tam * 2.2 + 0.6} />
             <Suspense fallback={null}>
               <group ref={escena}>
+                {/* Con el giro que tiene en el cuarto. Enderezarla aquí sería
+                    más "canónico" y haría que la pieza girara justo al cruzar,
+                    que es lo contrario de lo que se busca: se puede girar con
+                    el ratón, y así se ve de dónde viene. */}
+                <group rotation={[0, item.rot ?? 0, 0]}>
                 <Animar tipo={animacion} semilla={item.id?.length ?? 0}>
                   {pieza ? (
                     <PiezaPropia pieza={pieza} seleccion={parteSel} onTomarParte={setParteSel} />
@@ -173,6 +208,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
                     <Cuerpo device={dev} params={item.params} encendido color={COLOR_LUZ} />
                   ) : null}
                 </Animar>
+                </group>
               </group>
 
               {/* El gizmo de la parte. Es el mismo gesto que en el plano —tomar
@@ -191,15 +227,27 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
                 />
               )}
             </Suspense>
+            {/* Avisa cuando ya hay algo pintado. Sin esto el taller aparecía un
+                cuadro antes de que su lienzo tuviera imagen, y ese cuadro
+                —negro— era el parpadeo que rompía la continuidad. */}
+            <PrimerCuadro
+              onListo={() => {
+                onPintado?.()
+                /* Y un respiro antes de abrir: si el lienzo se expande en el
+                   mismo cuadro en que aparece, el cruce y la apertura se
+                   encinan y se ve un tirón. */
+                setTimeout(() => setAbierto(true), 90)
+              }}
+            />
             <OrbitControls
               makeDefault
               target={[0, pose?.mira ?? mira, 0]}
               minDistance={tam * 0.5}
               maxDistance={tam * 8 + 3}
             />
-            {/* De la pose heredada a la de trabajo. Solo la primera vez: después
-                manda quien esté girando la pieza con el ratón. */}
-            {pose && <AcomodarCamara pos={[lejos * 0.72, lejos * 0.55, lejos * 0.9]} mira={mira} />}
+            {/* Nada de reacomodar al llegar: la cámara viene ya en su sitio
+                desde el cuarto. Un segundo movimiento al entrar es justo lo
+                que delataba el cambio de escena. */}
           </Canvas>
 
           {pieza && parteSel ? (
@@ -296,45 +344,23 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
   )
 }
 
+/* El hueco del taller: encabezado arriba y panel a la derecha. */
+const CABEZA = 57
+const PANEL = 330
+
 const COLOR_LUZ = { r: 1, g: 0.92, b: 0.82, getHSL: () => ({ h: 0.1, s: 0.3, l: 0.9 }) }
 
-/**
- * Lleva la cámara de la pose heredada del cuarto a la de trabajo.
- *
- * Es lo que convierte el cruce en un movimiento: se entra viendo la pieza
- * exactamente como se veía en el cuarto y, mientras el cuarto se desvanece
- * detrás, la cámara se acomoda al tres cuartos con el que se trabaja. Se rinde
- * en cuanto alguien toca el ratón — nada peor que una cámara que se pelea con
- * la mano.
- */
-function AcomodarCamara({ pos, mira }) {
-  const { camera, controls } = useThree()
-  const meta = useMemo(() => new THREE.Vector3(...pos), [pos])
-  const foco = useMemo(() => new THREE.Vector3(0, mira, 0), [mira])
-  const activo = useRef(true)
-
-  useEffect(() => {
-    if (!controls) return
-    const rendirse = () => {
-      activo.current = false
-    }
-    controls.addEventListener('start', rendirse)
-    return () => controls.removeEventListener('start', rendirse)
-  }, [controls])
-
-  useFrame((_, dt) => {
-    if (!activo.current) return
-    const k = 1 - Math.pow(0.06, dt)
-    camera.position.lerp(meta, k)
-    if (controls) {
-      controls.target.lerp(foco, k)
-      controls.update()
-    }
-    if (camera.position.distanceTo(meta) < 0.01) activo.current = false
+/** Avisa en cuanto la escena tiene su primera imagen. */
+function PrimerCuadro({ onListo }) {
+  const n = useRef(0)
+  useFrame(() => {
+    n.current += 1
+    // dos cuadros: el primero puede salir antes de que compilen los shaders
+    if (n.current === 2) onListo?.()
   })
-
   return null
 }
+
 
 /**
  * El gizmo de UNA parte.

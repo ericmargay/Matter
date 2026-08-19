@@ -101,6 +101,8 @@ function Medida({ label, value, onChange, step = 0.1, min = 0.5 }) {
  * medio cuentan como uno solo, así que un arrastre completo se deshace de un
  * golpe.
  */
+const SIN_PROPIOS = []
+
 const PASOS = 60
 const JUNTOS = 1500
 
@@ -146,7 +148,11 @@ export default function PlanoCuarto({ room, onCerrar }) {
   const setPlano = useSurvey((s) => s.setPlano)
   const nuevoDevice = useSurvey((s) => s.nuevoDevice)
   const quitarDevice = useSurvey((s) => s.quitarDevice)
-  const propios = useSurvey((s) => s.proyectos.find((p) => p.id === s.activoId)?.devices ?? [])
+  /* Sin el `?? []` DENTRO del selector: devolver un array nuevo en cada lectura
+     hace que la tienda crea que cambió siempre, y eso es un ciclo de render
+     infinito —React lo corta con "Maximum update depth" y se cae el editor
+     entero—. El vacío se pone fuera, con una constante que no cambia. */
+  const propios = useSurvey((s) => s.proyectos.find((p) => p.id === s.activoId)?.devices) ?? SIN_PROPIOS
 
   const plano = useMemo(() => ({ ...planoVacio(room.m2), ...(room.plano ?? {}) }), [room.plano, room.m2])
   const tipo = plano.tipoCuarto ?? tipoPorNombre(room.nombre)
@@ -186,6 +192,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
   const [enfoque, setEnfoque] = useState(null)
   const [poseTaller, setPoseTaller] = useState(null)
   const [poseAntes, setPoseAntes] = useState(null)
+  const [rectCuarto, setRectCuarto] = useState(null)
   const [visible, setVisible] = useState(false)
   const [altaDevice, setAltaDevice] = useState(false)
 
@@ -641,11 +648,16 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onParchar={parchar}
               onFinGizmo={() => guardar({ items: plano.items }, `Acomodó una pieza en ${room.nombre}`)}
               enfoque={enfoque}
+              disolver={
+                enfoque && !enfoque.volver
+                  ? { centro: { x: enfoque.x, z: enfoque.z }, dist: enfoque.dist, tam: enfoque.tam }
+                  : null
+              }
               onEnfocado={(m) => {
                 /* El vuelo de VUELTA también avisa cuando llega, y ahí no hay
                    pieza que enfocar ni dirección que heredar: sin esta guarda,
                    cerrar el taller reventaba al aterrizar. */
-                if (!enfoque || enfoque.volver || enTaller || !m.dir) return
+                if (!enfoque || enfoque.volver || !m.dir) return
                 /* La pose se guarda RELATIVA a la pieza: en el taller la pieza
                    está en el origen, así que la cámara tiene que ir a la misma
                    distancia y en la misma dirección, no a las mismas
@@ -655,8 +667,14 @@ export default function PlanoCuarto({ room, onCerrar }) {
                   mira: enfoque.mira,
                 })
                 setPoseAntes(m.desde)
+              }}
+              onDisuelto={() => {
+                /* Se cruza cuando el cuarto YA se disolvió y la cámara ya está
+                   donde va a quedar: las dos escenas son la misma imagen, así
+                   que el cambio no tiene nada que enseñar. */
+                if (!enfoque || enfoque.volver || enTaller) return
+                // se monta invisible; aparece cuando ya tiene imagen
                 setEnTaller(enfoque.id)
-                requestAnimationFrame(() => setVisible(true))
               }}
             />
 
@@ -679,6 +697,8 @@ export default function PlanoCuarto({ room, onCerrar }) {
             red={plano.red}
             pose={poseTaller}
             visible={visible}
+            rect={rectCuarto}
+            onPintado={() => setVisible(true)}
             onGuardar={(patch, que) => parchar(enTaller, patch, que)}
             onCerrar={() => {
               /* Al revés: primero se desvanece el taller y solo entonces se
@@ -856,16 +876,20 @@ export default function PlanoCuarto({ room, onCerrar }) {
                 )
                 /* La misma cuenta de encuadre que usa el taller. Si aquí y allá
                    no fuera igual, la pieza cambiaría de tamaño al cruzar. */
+                /* El rectángulo exacto del lienzo del cuarto: el taller nace
+                   ahí para que el cruce no mueva ni un pixel. */
+                const c = document.querySelector('div.fixed.inset-0.z-50 canvas')
+                if (c) {
+                  const r = c.getBoundingClientRect()
+                  setRectCuarto({ left: r.left, top: r.top, width: r.width, height: r.height })
+                }
                 setEnfoque({
                   x: it.x,
                   y: it.y ?? 0,
                   z: it.z,
                   dist: tam * 1.9 + 0.5,
                   mira: Math.min(tam * 0.45, 1.1),
-                  /* Medio panel del taller, en fracción del ancho de pantalla.
-                     Es lo que hay que correr la mira para que la pieza quede
-                     donde va a quedar del otro lado. */
-                  corrimiento: 165 / Math.max(1, window.innerWidth) / 2,
+
                   tam,
                   id,
                 })
