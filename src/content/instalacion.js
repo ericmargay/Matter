@@ -97,6 +97,59 @@ export const MINIMO_PROYECTO = 2200
  * Instalación de UN espacio.
  * @returns { total, base, tramo, recargos: [{label, precio, veces, porque}], piezas }
  */
+/**
+ * Acomodo de cables: la partida que casi nadie cotiza y todo mundo reclama.
+ *
+ * Sin ella, cada aparato queda con su cable de fábrica cayendo por donde caiga
+ * y el cuarto termina con seis cables cruzando el zoclo. Con ella, se traza
+ * una ruta: se agrupan los que van al mismo lado, se llevan pegados al rodapié
+ * o por dentro del muro y se rematan.
+ *
+ * Se cobra por punto y no a ojo, porque el trabajo es por punto: cada aparato
+ * es abrir, medir, sujetar y rematar. Y el precio cambia según hasta dónde se
+ * quiera esconder, que es exactamente la decisión que se toma en el taller de
+ * cada pieza.
+ */
+export const ACOMODOS = {
+  ninguno: {
+    id: 'ninguno',
+    label: 'Sin acomodo',
+    precio: 0,
+    porque: 'Cada cable cae por donde caiga. Es lo que pasa si nadie lo pide.',
+  },
+  canaleta: {
+    id: 'canaleta',
+    label: 'Canaleta al color del muro',
+    precio: 180,
+    porque: 'Ruta ordenada por rodapié y esquinas, pegada y pintada del color de la pared. Sin obra y reversible.',
+  },
+  ranurado: {
+    id: 'ranurado',
+    label: 'Ranurado en muro',
+    precio: 420,
+    porque: 'Se abre el muro, se mete manguera, se resana y se pinta. No se ve nada. Se decide ANTES de pintar o no se hace.',
+  },
+  piso: {
+    id: 'piso',
+    label: 'Por piso técnico o zoclo hueco',
+    precio: 260,
+    porque: 'Cuando el muro no se puede tocar —renta, tabla-roca de un lado— y hay zoclo que sí.',
+  },
+}
+
+/**
+ * @param puntos  cuántos aparatos llevan cable a acomodar
+ * @param modo    cuál de los cuatro acomodos
+ */
+export function acomodoDeCables(puntos = 0, modo = 'ninguno') {
+  const a = ACOMODOS[modo] ?? ACOMODOS.ninguno
+  if (!puntos || a.precio === 0) return { ...a, puntos, importe: 0 }
+  /* Mínimo de tres puntos aunque haya uno solo: montar, medir y remendar un
+     tramo cuesta casi lo mismo por uno que por tres, y cobrar por uno deja el
+     trabajo en pérdida. */
+  return { ...a, puntos, importe: a.precio * Math.max(puntos, 3) }
+}
+
 export function instalacionDeEspacio(room) {
   const items = Object.entries(room.items ?? {}).filter(([, n]) => n > 0)
   const piezas = items.reduce((a, [, n]) => a + n, 0)

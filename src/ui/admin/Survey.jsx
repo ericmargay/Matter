@@ -13,6 +13,7 @@ import {
 } from '../../content/pricing'
 import { nuevoFolio, paramsDelHash, useProyecto, useSurvey } from '../../store/survey'
 import { planoVacio } from '../../sync/eventos'
+import { ACOMODOS } from '../../content/instalacion'
 import { tipoPorNombre } from './plano/catalogo'
 import { disponerCuarto, disponerPlanta } from './plano/disponer'
 import { ESPACIOS, PROPIEDADES, espaciosDe } from '../../content/espacios'
@@ -780,6 +781,41 @@ export default function Survey() {
 
         {/* ── servicios ── */}
         <Card title="Servicios y ajustes" seccion="servicios" proyectoId={proyecto.id}>
+          {/* El acomodo de cables va arriba y con su explicación porque es la
+              partida que casi nadie cotiza y todo mundo reclama: sin ella el
+              cuarto termina con seis cables cruzando el zoclo, y esa foto es la
+              que el cliente enseña cuando se queja. */}
+          <div className="mb-3">
+            <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Acomodo de cables</p>
+            <p className="mt-1 text-[11px] leading-snug text-cream-3">
+              Agrupa los cables de alimentación en una ruta y los esconde lo más posible. Se cobra por punto,
+              porque el trabajo es por punto: abrir, medir, sujetar y rematar cada aparato. Cuenta los que ya
+              tienen cable definido en el taller de cada pieza.
+            </p>
+            <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
+              {Object.values(ACOMODOS).map((a) => {
+                const on = (extras.acomodoCables ?? 'ninguno') === a.id
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => survey.setExtras({ acomodoCables: a.id })}
+                    className={`rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                      on ? 'border-ember bg-ember/10' : 'border-line hover:bg-cream/6'
+                    }`}
+                  >
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="text-[12px] text-cream">{a.label}</span>
+                      <span className="shrink-0 text-[11px] text-cream-3">
+                        {a.precio ? `$${a.precio}/punto` : 'sin costo'}
+                      </span>
+                    </span>
+                    <span className="mt-0.5 block text-[10.5px] leading-snug text-cream-3">{a.porque}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-4">
             <Field label="Puntos de red">
               <Input

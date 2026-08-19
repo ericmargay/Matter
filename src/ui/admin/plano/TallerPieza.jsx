@@ -4,7 +4,9 @@ import { OrbitControls } from '@react-three/drei'
 
 import { DEVICE_BY_ID } from '../../../content/catalog'
 import { MUEBLES } from './catalogo'
+import { ANIMACIONES, animacionesDe } from './animacion'
 import { RUTAS, SALIDAS, cableVacio } from './cables'
+import Animar from './animacion.jsx'
 import { Cuerpo } from './Escena'
 import { paletaDe, useEstilo } from './estilo'
 import { parametrosDe, valoresDe } from './parametros'
@@ -37,6 +39,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
   const [ajustes, setAjustes] = useState(item.ajustes ?? {})
   const [cable, setCable] = useState(item.cable ?? null)
   const [nombre, setNombre] = useState(item.nombre ?? '')
+  const [animacion, setAnimacion] = useState(item.animacion ?? 'ninguna')
   const [seccion, setSeccion] = useState('medidas')
 
   const valores = useMemo(
@@ -61,15 +64,16 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
 
   const aplicar = () => {
     onGuardar(
-      { ajustes, cable, nombre: nombre.trim() || undefined },
+      { ajustes, cable, animacion, nombre: nombre.trim() || undefined },
       `Ajustó ${titulo.toLowerCase()} en el taller`,
     )
     onCerrar()
   }
 
   const SECCIONES = [
-    ['medidas', 'Medidas y partes'],
-    ['cable', 'Alimentación'],
+    ['medidas', 'Medidas'],
+    ['cable', 'Cable'],
+    ['movimiento', 'Movimiento'],
     ...(dev ? [['conexion', 'Conexión']] : []),
   ]
 
@@ -112,7 +116,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
             <Rig ancho={tam * 3} largo={tam * 3} alto={tam * 2.6} />
             <Mesa color={pal.piso} r={tam * 2.2 + 0.6} />
             <Suspense fallback={null}>
-              <group position={[0, 0, 0]}>
+              <Animar tipo={animacion} semilla={item.id?.length ?? 0}>
                 {def ? (
                   def.Nuevo ? (
                     <def.Comp {...valores} />
@@ -122,7 +126,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
                 ) : (
                   <Cuerpo device={dev} params={item.params} encendido color={COLOR_LUZ} />
                 )}
-              </group>
+              </Animar>
             </Suspense>
             <OrbitControls makeDefault target={[0, mira, 0]} minDistance={tam * 0.5} maxDistance={tam * 8 + 3} />
           </Canvas>
@@ -170,6 +174,15 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
 
           {seccion === 'cable' && (
             <PanelCable cable={cable} onCambiar={setCable} puntos={puntos} />
+          )}
+
+          {seccion === 'movimiento' && (
+            <PanelMovimiento
+              tipo={item.tipo ?? ''}
+              cat={dev?.cat ?? ''}
+              valor={animacion}
+              onCambiar={setAnimacion}
+            />
           )}
 
           {seccion === 'conexion' && (
@@ -367,6 +380,50 @@ function PanelCable({ cable, onCambiar, puntos }) {
           </button>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * Qué se mueve en esta pieza.
+ *
+ * Solo se ofrece lo que tiene sentido para ella: proponerle "gira" a una cama
+ * no es una opción, es un error que alguien va a escoger por curiosidad. Y se
+ * ve al instante en la pieza de al lado, que es la única forma de decidir si
+ * un movimiento queda bien — descrito con palabras, todo suena bien.
+ */
+function PanelMovimiento({ tipo, cat, valor, onCambiar }) {
+  const opciones = animacionesDe(tipo, cat)
+  return (
+    <div className="px-3 py-3">
+      <p className="text-[10.5px] leading-snug text-cream-3">
+        Un plano quieto se lee como una lámina. Basta con que algo respire para que el cuarto pase de dibujo a
+        lugar — y aquí importa más que en otros lados, porque lo que se está vendiendo es una casa que responde.
+      </p>
+      <div className="mt-3 space-y-1">
+        {opciones.map((id) => {
+          const a = ANIMACIONES[id]
+          const on = valor === id
+          return (
+            <button
+              key={id}
+              onClick={() => onCambiar(id)}
+              className={`block w-full rounded-lg px-2 py-1.5 text-left transition-colors ${
+                on ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+              }`}
+            >
+              <span className="block text-[11.5px]">{a.label}</span>
+              <span className={`block text-[10px] leading-snug ${on ? 'text-ink/70' : 'text-cream-3'}`}>
+                {a.porque}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <p className="mt-2 text-[10px] leading-snug text-cream-3">
+        Todo es muy poco a propósito. La referencia es lo que se ve por la ventana de una casa de verdad, no un
+        salvapantallas: si el movimiento se nota, ya es demasiado.
+      </p>
     </div>
   )
 }

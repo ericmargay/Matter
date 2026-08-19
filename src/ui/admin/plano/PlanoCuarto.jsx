@@ -1021,6 +1021,53 @@ function InspectorMuros({ plano, onGuardar }) {
         </label>
       </div>
 
+      {/* La red. Va aquí, con el espacio, porque es una condición del lugar
+          como el grosor del muro: en la misma casa la recámara del fondo puede
+          estar en otra malla, y eso decide si un aparato empareja o no. */}
+      <p className="mt-3 text-[10px] tracking-[0.12em] text-cream-3 uppercase">Red inalámbrica</p>
+      <div className="mt-1 grid grid-cols-2 gap-1.5">
+        <label className="block">
+          <span className="block text-[10px] text-cream-3">Nombre de red</span>
+          <input
+            value={plano.red?.ssid ?? ''}
+            onChange={(e) => onGuardar({ red: { ...(plano.red ?? {}), ssid: e.target.value } }, 'Anotó la red')}
+            placeholder="MiCasa_2.4"
+            className="mt-0.5 w-full rounded border border-line bg-ink px-1.5 py-1 text-[11.5px] text-cream placeholder:text-cream-3/50"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-[10px] text-cream-3">Contraseña</span>
+          <input
+            value={plano.red?.clave ?? ''}
+            onChange={(e) => onGuardar({ red: { ...(plano.red ?? {}), clave: e.target.value } }, 'Anotó la red')}
+            className="mt-0.5 w-full rounded border border-line bg-ink px-1.5 py-1 text-[11.5px] text-cream"
+          />
+        </label>
+      </div>
+      <div className="mt-1 flex gap-1">
+        {[
+          ['2.4', '2.4 GHz'],
+          ['5', '5 GHz'],
+          ['mixta', 'Combinada'],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => onGuardar({ red: { ...(plano.red ?? {}), banda: id } }, 'Anotó la banda de la red')}
+            className={`flex-1 rounded px-1.5 py-1 text-[10.5px] transition-colors ${
+              (plano.red?.banda ?? '') === id ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {plano.red?.banda === 'mixta' && (
+        <p className="mt-1 text-[10px] leading-snug text-ember">
+          Combinada: casi todo lo Matter sobre WiFi solo empareja en 2.4 GHz. Hay que separar la banda ANTES de
+          llegar a instalar, o no empareja ninguno.
+        </p>
+      )}
+
       <div className="mt-2 grid grid-cols-3 gap-1.5">
         <Medida label="Ancho m" value={plano.ancho} step={0.1} min={1.2} onChange={(v) => onGuardar({ ancho: v }, 'Ajustó las medidas')} />
         <Medida label="Largo m" value={plano.largo} step={0.1} min={1.2} onChange={(v) => onGuardar({ largo: v }, 'Ajustó las medidas')} />

@@ -9,6 +9,7 @@ import { DEVICE_BY_ID } from '../../../content/catalog'
 
 import { ID_MUROS, MUEBLES } from './catalogo'
 import { GROSOR_MURO, piezaSeVe } from './muros'
+import Animar from './animacion.jsx'
 import { Cable } from './cables.jsx'
 import { puntoSalida } from './cables'
 import Conexiones from './Conexiones'
@@ -505,11 +506,16 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = t
       {/* Las piezas del sistema nuevo se dibujan sin `position`/`rotation`:
           ya vienen colocadas por el grupo de arriba. Las viejas siguen
           pidiéndolos hasta que les toque migrar. */}
-      {def.Nuevo ? (
-        <Comp {...props} />
-      ) : (
-        <Comp position={[0, 0, 0]} rotation={[0, 0, 0]} {...props} />
-      )}
+      {/* Lo que se mueve, se mueve aquí adentro: envolver la pieza y no el
+          grupo de arriba deja intactas su posición y su rotación en el plano.
+          Meciendo el grupo de arriba, mover una planta la sacaba de sitio. */}
+      <Animar tipo={item.animacion ?? 'ninguna'} semilla={item.id?.length ?? 0}>
+        {def.Nuevo ? (
+          <Comp {...props} />
+        ) : (
+          <Comp position={[0, 0, 0]} rotation={[0, 0, 0]} {...props} />
+        )}
+      </Animar>
       {/* huella: es lo que se puede tomar con el puntero, y de paso la
           selección. Invisible pero presente para el raycaster. */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={seleccionado}>

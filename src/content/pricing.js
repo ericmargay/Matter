@@ -14,7 +14,7 @@ import { DEVICES } from './catalog'
    rates.local.js si existe (real, en .gitignore). import.meta.glob no
    truena cuando el archivo no está: devuelve un objeto vacío. */
 import { LABOR_TIERS as DEMO_LABOR, RATES as DEMO_RATES } from './rates'
-import { instalacionDelProyecto } from './instalacion'
+import { acomodoDeCables, instalacionDelProyecto } from './instalacion'
 
 const overrides = import.meta.glob('./rates.local.js', { eager: true })
 const local = Object.values(overrides)[0]
@@ -134,6 +134,15 @@ export function quote(survey) {
   const levantamiento =
     rates.levantamientoBase + extraM2 * rates.levantamientoM2 + (niveles - 1) * rates.levantamientoNivel
 
+  /* Acomodo de cables: se cuentan los aparatos a los que se les definió cable
+     en el taller. Es la partida que casi nadie cotiza y todo mundo reclama
+     cuando ve seis cables cruzando el zoclo de su recámara nueva. */
+  const conCable = (survey.rooms ?? []).reduce(
+    (a, r) => a + (r.plano?.items ?? []).filter((i) => i.cable).length,
+    0,
+  )
+  const acomodo = acomodoDeCables(conCable, survey.extras?.acomodoCables ?? 'ninguno')
+
   const puntosRed = Number(survey.extras?.puntosRed) || 0
   const escenas = Number(survey.extras?.escenas) || 0
   const km = Number(survey.extras?.km) || 0
@@ -159,6 +168,16 @@ export function quote(survey) {
       importe: round(laborTotal),
     },
   ]
+
+  if (acomodo.importe > 0) {
+    servicios.push({
+      concepto: `Acomodo de cables — ${acomodo.label.toLowerCase()}`,
+      detalle: `${acomodo.porque} Se cobra por punto: ${acomodo.puntos} aparato${acomodo.puntos === 1 ? '' : 's'} con cable${acomodo.puntos < 3 ? ', con mínimo de 3' : ''}.`,
+      qty: Math.max(acomodo.puntos, 3),
+      unit: acomodo.precio,
+      importe: acomodo.importe,
+    })
+  }
 
   if (puntosRed > 0) {
     servicios.push({
