@@ -87,17 +87,21 @@ function Libros({ ancho, y, semilla = 0 }) {
   return <>{libros}</>
 }
 
-export function LibreroLleno({ position, rotation, w = 1.1, niveles = 4 }) {
-  const alto = 0.42 * niveles
+export function LibreroLleno({ position, rotation, w = 1.1, niveles, alto: altoPedido }) {
+  /* Se puede pedir por altura o por niveles. Por altura es como se piensa en
+     obra —"de piso a techo", "a la altura del respaldo"— y los entrepaños
+     salen de ahí, que es como se fabrica de verdad. */
+  const n = niveles ?? Math.max(1, Math.round((altoPedido ?? 1.68) / 0.42))
+  const alto = 0.42 * n
   return (
     <group position={position} rotation={rotation}>
       <B p={[-w / 2, alto / 2, 0]} s={[0.04, alto, 0.3]} m={M.wood} />
       <B p={[w / 2, alto / 2, 0]} s={[0.04, alto, 0.3]} m={M.wood} />
-      {Array.from({ length: niveles + 1 }, (_, n) => (
-        <B key={n} p={[0, n * 0.42, 0]} s={[w, 0.035, 0.3]} m={M.wood} />
+      {Array.from({ length: n + 1 }, (_, k) => (
+        <B key={`e${k}`} p={[0, k * 0.42, 0]} s={[w, 0.035, 0.3]} m={M.wood} />
       ))}
-      {Array.from({ length: niveles }, (_, n) => (
-        <Libros key={n} ancho={w - 0.1} y={n * 0.42 + 0.02} semilla={n * 3 + 1} />
+      {Array.from({ length: n }, (_, k) => (
+        <Libros key={k} ancho={w - 0.1} y={k * 0.42 + 0.02} semilla={k * 3 + 1} />
       ))}
     </group>
   )
@@ -156,12 +160,16 @@ export function PlantaAlta({ position, rotation, h = 1.35 }) {
   )
 }
 
-export function MacetaChica({ position, rotation }) {
+/* Una maceta de 20 cm y una de 60 no son la misma pieza ni el mismo problema:
+   la chica va en repisa y la grande ocupa un rincón entero. El tamaño entra
+   por parámetro para que la huella del plano diga la verdad. */
+export function MacetaChica({ position, rotation, w = 0.16, alto = 0.16 }) {
+  const r = w * 0.5
   return (
     <group position={position} rotation={rotation}>
-      <C p={[0, 0.08, 0]} s={[0.16, 0.16, 0.16]} m={M.ceramic ?? M.wood} />
-      <mesh position={[0, 0.24, 0]} castShadow>
-        <icosahedronGeometry args={[0.13, 0]} />
+      <C p={[0, alto / 2, 0]} s={[w, alto, w]} m={M.ceramic ?? M.wood} />
+      <mesh position={[0, alto + r * 0.55, 0]} castShadow>
+        <icosahedronGeometry args={[r * 0.85, 0]} />
         <meshStandardMaterial color="#4a7a55" roughness={0.9} />
       </mesh>
     </group>

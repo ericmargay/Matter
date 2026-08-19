@@ -376,10 +376,10 @@ export function KitchenRun({ position, rotation, w = 3.4, room = 'cocina' }) {
   )
 }
 
-export function Island({ position, rotation, w = 1.9 }) {
+export function Island({ position, rotation, w = 1.9, d = 0.9, alto = 0.88 }) {
   return (
     <group position={position} rotation={rotation}>
-      <B p={[0, 0.44, 0]} s={[w, 0.88, 0.9]} m={M.wood} />
+      <B p={[0, alto / 2, 0]} s={[w, alto, d]} m={M.wood} />
       <B p={[0, 0.91, 0]} s={[w + 0.14, 0.06, 1.04]} m={M.ceramic} />
       {/* banquitos */}
       {[-0.5, 0.5].map((x) => (
@@ -442,12 +442,15 @@ export function PendantLamp({ position, h = 1.2, count = 3, spread = 0.55, room 
 
 /* ───────────────────────── estudio ─────────────────────── */
 
-export function Desk({ position, rotation, w = 1.8 }) {
+/* `d` y `alto` entran como parámetros porque un escritorio de 1.60 × 0.60 y
+   uno de 2.00 × 0.80 no son el mismo mueble: cambian el monitor que cabe, la
+   distancia a los ojos y si el contacto queda alcanzable. */
+export function Desk({ position, rotation, w = 1.8, d = 0.72, alto = 0.75 }) {
   return (
     <group position={position} rotation={rotation}>
-      <B p={[0, 0.74, 0]} s={[w, 0.05, 0.72]} m={M.wood} />
+      <B p={[0, alto - 0.01, 0]} s={[w, 0.05, d]} m={M.wood} />
       {[-1, 1].map((x) => (
-        <B key={x} p={[(x * (w - 0.14)) / 2, 0.37, 0]} s={[0.05, 0.74, 0.62]} m={M.metal} shadow={false} />
+        <B key={x} p={[(x * (w - 0.14)) / 2, (alto - 0.01) / 2, 0]} s={[0.05, alto - 0.01, d - 0.1]} m={M.metal} shadow={false} />
       ))}
     </group>
   )
