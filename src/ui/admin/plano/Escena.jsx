@@ -113,6 +113,11 @@ function VolarA({ enfoque, onListo }) {
     if (!aviso.current && camera.position.distanceTo(m.pos) < m.pos.length() * 0.02 + 0.05) {
       aviso.current = true
       onListo?.(m)
+      /* Y SUELTA la cámara. Sin esto el vuelo seguía tirando de ella para
+         siempre: se podía girar y acercar, pero la cámara volvía sola a la
+         misma pose un instante después, así que se sentía como si el ratón no
+         hiciera nada. Volar es un gesto con final. */
+      meta.current = null
     }
   })
 

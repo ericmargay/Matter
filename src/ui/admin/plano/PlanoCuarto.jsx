@@ -657,7 +657,16 @@ export default function PlanoCuarto({ room, onCerrar }) {
                 /* El vuelo de VUELTA también avisa cuando llega, y ahí no hay
                    pieza que enfocar ni dirección que heredar: sin esta guarda,
                    cerrar el taller reventaba al aterrizar. */
-                if (!enfoque || enfoque.volver || !m.dir) return
+                /* Aterrizó el vuelo de VUELTA: se limpia el enfoque para que
+                   la cámara quede libre. Dejarlo puesto era lo que hacía que
+                   el cuarto no se dejara girar ni acercar después de cerrar el
+                   taller. */
+                if (enfoque?.volver) {
+                  setEnfoque(null)
+                  setPoseAntes(null)
+                  return
+                }
+                if (!enfoque || !m.dir) return
                 /* La pose se guarda RELATIVA a la pieza: en el taller la pieza
                    está en el origen, así que la cámara tiene que ir a la misma
                    distancia y en la misma dirección, no a las mismas
