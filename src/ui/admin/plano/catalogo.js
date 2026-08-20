@@ -989,17 +989,18 @@ export const MUEBLES = {
   /* La pieza propia no trae componente: se dibuja desde sus partes. Está en el
      catálogo para poder colocarla como cualquier otra, y nace como una caja
      que se edita en el taller. */
-  /* Una persona a escala. No es decoración: es la referencia que hace que todo
-     lo demás se lea —una barra a 90 cm o una repisa a 1.80 son números hasta
-     que hay alguien parado al lado— y además es lo que el cliente reconoce
-     primero cuando ve su casa en la pantalla. */
+  /* Un habitante. No es decoración: es la referencia que hace que todo lo demás
+     se lea —una barra a 90 cm o una repisa a 1.80 son números hasta que hay
+     alguien parado al lado— y además es lo primero que el cliente mira cuando
+     ve su casa en la pantalla. Está hecho de primitivas como los muebles, así
+     que pertenece a la casa en vez de verse pegado encima. */
   avatar: {
-    label: 'Persona',
+    label: 'Animalito',
     Comp: AvatarPieza,
     Nuevo: true,
-    w: 0.55,
-    d: 0.35,
-    alto: 1.72,
+    w: 0.6,
+    d: 0.45,
+    alto: 1.2,
     /* Se mide por ficha y no por geometría: un avatar es malla con hueso, y su
        caja envolvente en pose de reposo no dice cuánto mide la persona —da dos
        centímetros de alto porque el esqueleto está tumbado en el archivo—. */

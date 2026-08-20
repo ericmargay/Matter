@@ -12,8 +12,8 @@ import { fondoDe, paletaDe, useEstilo } from './estilo'
 import { parametrosDe, valoresDe } from './parametros'
 import PiezaPropia from './PiezaPropia'
 import AvatarPieza from '../avatar/AvatarPieza'
-import { avatarAlAzar, avatarBase } from '../avatar/aleatorio'
-import { ANIMACIONES as POSES_AVATAR, CATEGORIAS, PALETAS, nombreDePieza } from '../avatar/piezas'
+import { animalitoAlAzar, animalitoBase } from '../avatar/aleatorio'
+import { CATEGORIAS as CATS_AVATAR, PALETAS as PAL_AVATAR, POSES as POSES_AVATAR } from '../avatar/especies'
 import { FORMAS, ROLES, TONOS, hornear, medidaDePieza, parteVacia } from './piezas'
 import Rig from './Rig'
 
@@ -51,8 +51,8 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
   /* Un avatar no se edita como un mueble: no tiene medidas ni partes que
      mover, tiene piezas que se cambian y colores que se eligen. */
   const esAvatar = item.tipo === 'avatar'
-  const [avatar, setAvatar] = useState(item.avatar ?? avatarBase())
-  const [catAvatar, setCatAvatar] = useState(CATEGORIAS[0].id)
+  const [avatar, setAvatar] = useState(item.avatar ?? animalitoBase())
+  const [catAvatar, setCatAvatar] = useState(CATS_AVATAR[0].id)
   const [parteSel, setParteSel] = useState(null)
   const [modoParte, setModoParte] = useState('mover')
   const escena = useRef()
@@ -119,7 +119,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
 
   const SECCIONES = esAvatar
     ? [
-        ['avatar', 'Persona'],
+        ['avatar', 'Animalito'],
         ['pose', 'Pose'],
       ]
     : [
@@ -223,11 +223,22 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
                 {/* Con el giro que tiene en el cuarto. Enderezarla aquí sería
                     más "canónico" y haría que la pieza girara justo al cruzar,
                     que es lo contrario de lo que se busca: se puede girar con
-                    el ratón, y así se ve de dónde viene. */}
-                <group rotation={[0, item.rot ?? 0, 0]}>
+                    el ratón, y así se ve de dónde viene.
+                    Un animalito es la excepción: se voltea a ver a la cámara.
+                    Se viene a editarle la cara, y entrar viéndole la nuca es
+                    empezar mal —el giro se lo puede dar uno después—. */}
+                <group
+                  rotation={[
+                    0,
+                    esAvatar
+                      ? Math.atan2(pose?.pos?.[0] ?? 1, pose?.pos?.[2] ?? 1)
+                      : (item.rot ?? 0),
+                    0,
+                  ]}
+                >
                 <Animar tipo={animacion} semilla={item.id?.length ?? 0}>
                   {esAvatar ? (
-                    <AvatarPieza avatar={avatar} pose={avatar.pose ?? 'Idle'} />
+                    <AvatarPieza avatar={avatar} pose={avatar.pose ?? 'reposo'} />
                   ) : pieza ? (
                     <PiezaPropia
                       pieza={pieza}
@@ -673,60 +684,37 @@ function PanelPartes({ pieza, sel, onSel, onPieza, onHornear, titulo }) {
 }
 
 /**
- * El configurador de la persona.
+ * El configurador del animalito.
  *
- * Es la parte que más se va a usar de todo el taller y por eso está armada al
- * revés que un formulario: primero el azar, después el ajuste. Nadie llega con
- * una cara en la cabeza; se generan tres o cuatro, una se parece a alguien, y
- * ésa se corrige. Empezar en blanco con quince menús es la manera de que nadie
- * lo use nunca.
+ * Es la parte que más se va a usar del taller y está armada al revés que un
+ * formulario: primero el azar, después el ajuste. Nadie llega con un personaje
+ * en la cabeza; se generan cuatro, uno cae bien, y ése se corrige. Empezar en
+ * blanco con nueve menús es la manera de que nadie lo use nunca.
  *
- * Las categorías se tiñen con paletas distintas a propósito. Una piel verde
- * limón y un pelo del color de la playera son dos formas de arruinar un
- * avatar, y la manera de evitarlas no es un aviso: es no ofrecer el color.
+ * Las paletas van separadas por tipo a propósito. Un pelaje fucsia y una panza
+ * del color de la playera son dos maneras de arruinar un personaje, y la forma
+ * de evitarlas no es un aviso: es no ofrecer el color.
  */
 function PanelAvatar({ avatar, onAvatar, cat, onCat }) {
-  const c = CATEGORIAS.find((x) => x.id === cat) ?? CATEGORIAS[0]
-  const puesta = avatar.piezas?.[c.id] ?? null
-  const color = avatar.colores?.[c.id]
-
-  const ponerPieza = (archivo) =>
-    onAvatar({
-      ...avatar,
-      piezas: {
-        ...avatar.piezas,
-        [c.id]: archivo,
-        /* Con traje no hace falta lo de abajo: elegir los dos deja al azar
-           cuál se ve, que es lo mismo que no haber elegido. */
-        ...(c.id === 'Outfit' && archivo ? { Top: null, Bottom: null } : {}),
-        ...((c.id === 'Top' || c.id === 'Bottom') && archivo ? { Outfit: null } : {}),
-      },
-    })
-
-  const ponerColor = (v) =>
-    onAvatar({
-      ...avatar,
-      colores: { ...avatar.colores, [c.id]: v },
-      // el tono de la cabeza ES el de la piel: manos y cuello van con él
-      ...(c.paleta === 'piel' ? { piel: v } : {}),
-    })
+  const c = CATS_AVATAR.find((x) => x.id === cat) ?? CATS_AVATAR[0]
+  const valor = avatar?.[c.id]
+  const set = (v) => onAvatar({ ...avatar, [c.id]: v })
 
   return (
     <div className="px-3 py-3">
       <button
-        onClick={() => onAvatar(avatarAlAzar())}
+        onClick={() => onAvatar({ ...animalitoAlAzar(), pose: avatar?.pose ?? 'reposo' })}
         className="w-full rounded-lg border border-ember px-2 py-1.5 text-[12px] text-ember transition-colors hover:bg-ember hover:text-ink"
       >
-        Generar una al azar
+        Generar uno al azar
       </button>
       <p className="mt-1.5 text-[10.5px] leading-snug text-cream-3">
-        Sale una presentable casi siempre, no una cualquiera: el pelo, las cejas y la barba comparten tono, y
-        cada cosa opcional tiene su propia probabilidad. Se generan tres o cuatro y se corrige la que se parezca
-        a alguien.
+        Sale uno presentable casi siempre, no uno cualquiera: el pelaje casi siempre es el de su especie —un oso
+        turquesa es un chiste que se gasta a la segunda— y cada extra tiene su propia probabilidad.
       </p>
 
       <div className="mt-3 flex flex-wrap gap-1">
-        {CATEGORIAS.map((x) => (
+        {CATS_AVATAR.map((x) => (
           <button
             key={x.id}
             onClick={() => onCat(x.id)}
@@ -739,57 +727,60 @@ function PanelAvatar({ avatar, onAvatar, cat, onCat }) {
         ))}
       </div>
 
-      <div className="mt-2.5 grid grid-cols-3 gap-1">
-        {c.quitable && (
-          <button
-            onClick={() => ponerPieza(null)}
-            className={`aspect-square rounded-lg border text-[11px] transition-colors ${
-              puesta === null ? 'border-ember bg-ember/12 text-cream' : 'border-line text-cream-3 hover:bg-cream/6'
-            }`}
-          >
-            sin
-          </button>
-        )}
-        {c.piezas.map((f) => (
-          <button
-            key={f}
-            onClick={() => ponerPieza(f)}
-            title={nombreDePieza(c.id, f)}
-            className={`aspect-square rounded-lg border px-1 text-[10.5px] leading-tight transition-colors ${
-              puesta === f ? 'border-ember bg-ember/12 text-cream' : 'border-line text-cream-3 hover:bg-cream/6'
-            }`}
-          >
-            {nombreDePieza(c.id, f).replace(c.label, '').trim() || '1'}
-          </button>
-        ))}
-      </div>
-
-      {c.color && c.paleta && (
-        <>
-          <p className="mt-3 text-[10px] tracking-[0.12em] text-cream-3 uppercase">
-            {c.paleta === 'piel' ? 'Tono de piel' : c.paleta === 'pelo' ? 'Color de pelo' : 'Color'}
-          </p>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {PALETAS[c.paleta].map((v) => (
-              <button
-                key={v}
-                onClick={() => ponerColor(v)}
-                aria-label={v}
-                className={`h-6 w-6 rounded-full border transition-transform ${
-                  color === v ? 'scale-110 border-cream' : 'border-line hover:scale-110'
-                }`}
-                style={{ background: v }}
-              />
-            ))}
-          </div>
-          {c.paleta === 'piel' && (
-            <p className="mt-1 text-[10px] leading-snug text-cream-3">
-              El tono de la cabeza manda sobre las manos y el cuello: es un solo material de piel para todo el
-              cuerpo, como debe ser.
-            </p>
-          )}
-        </>
+      {c.tipo === 'lista' && (
+        <div className="mt-2.5 grid grid-cols-2 gap-1">
+          {c.opciones.map((o) => (
+            <button
+              key={o.id}
+              onClick={() => set(o.id)}
+              className={`rounded-lg border px-2 py-1.5 text-[11.5px] transition-colors ${
+                valor === o.id ? 'border-ember bg-ember/12 text-cream' : 'border-line text-cream-3 hover:bg-cream/6'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
       )}
+
+      {c.tipo === 'color' && (
+        <div className="mt-2.5 flex flex-wrap gap-1">
+          {PAL_AVATAR[c.paleta].map((v) => (
+            <button
+              key={v}
+              onClick={() => set(v)}
+              aria-label={v}
+              className={`h-6 w-6 rounded-full border transition-transform ${
+                valor === v ? 'scale-110 border-cream' : 'border-line hover:scale-110'
+              }`}
+              style={{ background: v }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* La estatura es de verdad, en metros: un animalito puesto en el cuarto
+          es la referencia de escala de todo lo demás, y para eso tiene que
+          medir lo que dice que mide. */}
+      <label className="mt-3 block">
+        <div className="flex items-baseline justify-between">
+          <span className="text-[10px] tracking-[0.1em] text-cream-3 uppercase">Estatura</span>
+          <span className="text-[11.5px] text-cream">{(avatar?.estatura ?? 1.2).toFixed(2)} m</span>
+        </div>
+        <input
+          type="range"
+          min={0.6}
+          max={1.9}
+          step={0.01}
+          value={avatar?.estatura ?? 1.2}
+          onChange={(ev) => onAvatar({ ...avatar, estatura: Number(ev.target.value) })}
+          className="mt-1 h-1 w-full accent-[#4d9fff]"
+        />
+        <p className="mt-1 text-[10px] leading-snug text-cream-3">
+          A 1.20 se lee como personaje; a 1.70 sirve de referencia de escala para juzgar alturas de barra, tele y
+          repisas.
+        </p>
+      </label>
     </div>
   )
 }
@@ -797,27 +788,27 @@ function PanelAvatar({ avatar, onAvatar, cat, onCat }) {
 /**
  * La pose.
  *
- * Reposo mientras se configura —una pose de acción estorba para juzgar si el
- * peinado queda bien— y las otras siete para cuando la persona ya está puesta
- * en el cuarto y lo que se busca es que la escena se vea viva.
+ * Se calculan cuadro a cuadro, no salen de archivos: por eso no pesan nada y
+ * por eso la respiración va en todas —un personaje que no respira se lee como
+ * maniquí incluso quieto—.
  */
 function PanelPose({ avatar, onAvatar }) {
   return (
     <div className="px-3 py-3">
       <p className="text-[10.5px] leading-snug text-cream-3">
-        Reposo para configurar; las demás para cuando ya está puesta en el cuarto. Una persona quieta en una
-        esquina se lee como maniquí; una recargada en la barra se lee como alguien que vive ahí.
+        Reposo para configurar; las demás para cuando ya está puesto en el cuarto. Uno quieto en una esquina se
+        lee como maniquí; uno saludando desde la barra se lee como alguien que vive ahí.
       </p>
       <div className="mt-2 grid grid-cols-2 gap-1">
         {POSES_AVATAR.map((a) => (
           <button
-            key={a}
-            onClick={() => onAvatar({ ...avatar, pose: a })}
+            key={a.id}
+            onClick={() => onAvatar({ ...avatar, pose: a.id })}
             className={`rounded-lg px-2 py-1.5 text-[11.5px] transition-colors ${
-              (avatar.pose ?? 'Idle') === a ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+              (avatar?.pose ?? 'reposo') === a.id ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
             }`}
           >
-            {a === 'Idle' ? 'Reposo' : a}
+            {a.label}
           </button>
         ))}
       </div>

@@ -1,76 +1,56 @@
-import { CATEGORIAS, PALETAS } from './piezas'
+import { ACCESORIOS, ESPECIES, OJOS, PALETAS, PATRONES, ROPAS, SOMBREROS } from './especies'
 
 /**
- * Un avatar al azar, pero no cualquiera.
+ * Un animalito al azar, pero no cualquiera.
  *
- * Al azar puro salen monstruos: barba en la mitad de los avatares, sombrero
- * siempre, dos accesorios en la cara peleándose el mismo hueco. Lo que se
- * quiere de un aleatorio no es variedad máxima sino que CASI SIEMPRE salga uno
- * presentable, porque para eso se usa: para empezar de algo en vez de la hoja
- * en blanco, y para que en una junta se puedan generar cinco y elegir.
- *
- * Por eso cada categoría opcional lleva su propia probabilidad, sacada de lo
- * que se ve en la calle y no de una moneda al aire.
+ * Al azar puro salen monstruos: sombrero siempre, estampado de lunares con
+ * rayas, un pelaje morado con panza fucsia. Lo que se quiere de un aleatorio no
+ * es variedad máxima sino que CASI SIEMPRE salga uno presentable, porque para
+ * eso se usa: se generan cuatro, uno cae bien, y ése se corrige.
  */
 
-const PROBABLE = {
-  Face: 0.25,
-  EyeBrow: 0.95,
-  FacialHair: 0.3,
-  Hair: 0.9,
-  Glasses: 0.25,
-  Hat: 0.3,
-  Earring: 0.3,
-  Bow: 0.12,
-  Outfit: 0.25,
-  Top: 0.95,
-  Bottom: 0.95,
-  Shoes: 0.9,
-}
-
 const alAzar = (a) => a[Math.floor(Math.random() * a.length)]
+const aVeces = (p) => Math.random() < p
 
-export function avatarAlAzar() {
-  const piezas = {}
-  const colores = {}
+export function animalitoAlAzar() {
+  const esp = alAzar(ESPECIES)
 
-  /* El pelo, las cejas y la barba comparten tono. Es lo primero que delata a
-     un avatar armado por una máquina: cejas negras con pelo rubio. */
-  const tonoPelo = alAzar(PALETAS.pelo)
-  const piel = alAzar(PALETAS.piel)
+  /* El pelaje sale del de la especie casi siempre. Un gato naranja y un oso
+     café se reconocen; un oso turquesa es un chiste que se gasta a la
+     segunda. Una de cada cinco veces se permite el color libre, que es lo que
+     hace que el catálogo no se sienta cerrado. */
+  const pelaje = aVeces(0.8) ? esp.pelaje : alAzar(PALETAS.pelaje)
+  const panza = aVeces(0.85) ? esp.panza : alAzar(PALETAS.panza)
 
-  for (const c of CATEGORIAS) {
-    if (c.piezas.length === 0) continue
-    const sale = !c.quitable || Math.random() < (PROBABLE[c.id] ?? 0.5)
-    piezas[c.id] = sale ? alAzar(c.piezas) : null
-    if (!c.color) continue
-    colores[c.id] =
-      c.paleta === 'pelo' ? tonoPelo : c.paleta === 'piel' ? piel : alAzar(PALETAS.ropa)
+  return {
+    especie: esp.id,
+    pelaje,
+    panza,
+    ojos: alAzar(OJOS.filter((o) => o.id !== 'dormidos')).id,
+    ropa: aVeces(0.85) ? alAzar(ROPAS.filter((r) => r.id !== 'nada')).id : 'nada',
+    patron: aVeces(0.45) ? alAzar(PATRONES.filter((p) => p.id !== 'liso')).id : 'liso',
+    colorRopa: alAzar(PALETAS.ropa),
+    sombrero: aVeces(0.35) ? alAzar(SOMBREROS.filter((s) => s.id !== 'nada')).id : 'nada',
+    accesorio: aVeces(0.3) ? alAzar(ACCESORIOS.filter((a) => a.id !== 'nada')).id : 'nada',
+    estatura: 1.15 + Math.random() * 0.15,
+    pose: 'reposo',
   }
-
-  /* Con traje no hace falta lo de abajo, y con lo de abajo no hace falta el
-     traje: elegir los dos deja al azar cuál se ve, que es lo mismo que no
-     haber elegido. */
-  if (piezas.Outfit) {
-    piezas.Top = null
-    piezas.Bottom = null
-  }
-
-  return { piezas, colores, piel, pose: 'Idle' }
 }
 
-/** El de arranque: neutro, para empezar a tocarlo. */
-export function avatarBase() {
-  const piezas = {}
-  const colores = {}
-  for (const c of CATEGORIAS) {
-    piezas[c.id] = c.quitable ? null : (c.piezas[0] ?? null)
-    if (c.color) colores[c.id] = c.paleta === 'piel' ? PALETAS.piel[0] : PALETAS[c.paleta ?? 'ropa'][0]
+/** El de arranque: un gato, para empezar a tocarlo. */
+export function animalitoBase() {
+  const esp = ESPECIES[0]
+  return {
+    especie: esp.id,
+    pelaje: esp.pelaje,
+    panza: esp.panza,
+    ojos: 'puntos',
+    ropa: 'playera',
+    patron: 'liso',
+    colorRopa: '#4d9fff',
+    sombrero: 'nada',
+    accesorio: 'nada',
+    estatura: 1.2,
+    pose: 'reposo',
   }
-  piezas.Hair = CATEGORIAS.find((c) => c.id === 'Hair')?.piezas[0] ?? null
-  piezas.EyeBrow = CATEGORIAS.find((c) => c.id === 'EyeBrow')?.piezas[0] ?? null
-  piezas.Top = CATEGORIAS.find((c) => c.id === 'Top')?.piezas[0] ?? null
-  piezas.Bottom = CATEGORIAS.find((c) => c.id === 'Bottom')?.piezas[0] ?? null
-  piezas.Shoes = CATEGORIAS.find((c) => c.id === 'Shoes')?.piezas[0] ?? null
-  return { piezas, colores, piel: PALETAS.piel[0], pose: 'Idle' }
 }
