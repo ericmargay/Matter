@@ -381,15 +381,32 @@ function Regla({ largo, texto, grueso, color = '#4d9fff' }) {
  * que hace falta es la medida de la pieza que se está acomodando, justo
  * mientras se acomoda.
  */
-function useMedidaPieza(id) {
+function useMedidaPieza(id, item) {
   const { scene } = useThree()
   const [caja, setCaja] = useState(null)
+
+  /* Piezas que se miden por ficha y no recorriendo la geometría. */
+  const fija = useMemo(() => {
+    const def = item?.clase === 'mueble' ? MUEBLES[item.tipo] : null
+    if (!def?.medidaFija) return null
+    const e = item.esc ?? 1
+    const w = def.w * e
+    const d = def.d * e
+    const h = def.alto * e
+    return {
+      w,
+      h,
+      d,
+      min: new THREE.Vector3(-w / 2, 0, -d / 2),
+      max: new THREE.Vector3(w / 2, h, d / 2),
+    }
+  }, [item])
 
   /* Se vuelve a medir en cada cuadro mientras está seleccionada: escalar o
      cambiar el montaje cambia el tamaño, y una cota que no sigue a la pieza es
      peor que ninguna. Es una pieza, no veinte. */
   useFrame(() => {
-    if (!id) {
+    if (!id || fija) {
       if (caja) setCaja(null)
       return
     }
@@ -399,7 +416,7 @@ function useMedidaPieza(id) {
       setCaja(m)
   })
 
-  return caja
+  return fija ?? caja
 }
 
 /**
@@ -412,7 +429,7 @@ function useMedidaPieza(id) {
  * recorrer la escena montada, y fuera no hay escena que recorrer.
  */
 function Seleccion({ item, modo, onParchar, onFin }) {
-  const caja = useMedidaPieza(item.id)
+  const caja = useMedidaPieza(item.id, item)
   const mayor = caja ? Math.max(caja.w, caja.h, caja.d) : 1
 
   return (
@@ -542,7 +559,7 @@ function CajaJusta({ caja, color, opacidad = 0.95 }) {
  * como un error, y encima invita a picarle donde no hay nada.
  */
 function Realce({ item }) {
-  const caja = useMedidaPieza(item?.id)
+  const caja = useMedidaPieza(item?.id, item)
   if (!item || !caja) return null
   return (
     <group
@@ -672,6 +689,7 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = t
      El mismo orden que usa el taller para enseñarla: si aquí y allá no fuera
      igual, el taller mostraría una pieza y el plano dibujaría otra. */
   const props = { ...def?.props, ...(variante?.props ?? {}), ...(item.ajustes ?? {}) }
+  if (item.tipo === 'avatar') props.avatar = item.avatar
   const w = props.w ?? item.huella?.w ?? def?.w ?? 0.4
   const d = props.d ?? item.huella?.d ?? def?.d ?? 0.4
 

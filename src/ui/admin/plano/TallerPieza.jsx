@@ -11,6 +11,9 @@ import { Cuerpo } from './Escena'
 import { fondoDe, paletaDe, useEstilo } from './estilo'
 import { parametrosDe, valoresDe } from './parametros'
 import PiezaPropia from './PiezaPropia'
+import AvatarPieza from '../avatar/AvatarPieza'
+import { avatarAlAzar, avatarBase } from '../avatar/aleatorio'
+import { ANIMACIONES as POSES_AVATAR, CATEGORIAS, PALETAS, nombreDePieza } from '../avatar/piezas'
 import { FORMAS, ROLES, TONOS, hornear, medidaDePieza, parteVacia } from './piezas'
 import Rig from './Rig'
 
@@ -45,6 +48,11 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
   /* Las partes: o la pieza ya es propia, o se hornea desde el catálogo cuando
      alguien pide moverlas. Antes de hornear no hay nada que editar. */
   const [pieza, setPieza] = useState(item.pieza ?? null)
+  /* Un avatar no se edita como un mueble: no tiene medidas ni partes que
+     mover, tiene piezas que se cambian y colores que se eligen. */
+  const esAvatar = item.tipo === 'avatar'
+  const [avatar, setAvatar] = useState(item.avatar ?? avatarBase())
+  const [catAvatar, setCatAvatar] = useState(CATEGORIAS[0].id)
   const [parteSel, setParteSel] = useState(null)
   const [modoParte, setModoParte] = useState('mover')
   const escena = useRef()
@@ -54,7 +62,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
      referencias se llenan DESPUÉS de pintar, así que leyéndolas en el render
      el gizmo no aparecía hasta el siguiente cambio. */
   const [nodoSel, setNodoSel] = useState(null)
-  const [seccion, setSeccion] = useState('medidas')
+  const [seccion, setSeccion] = useState(item.tipo === 'avatar' ? 'avatar' : 'medidas')
   /* El lienzo NACE en el mismo rectángulo que el del cuarto y de ahí se abre a
      su sitio. Es lo que hace imposible el brinco: en el instante del cruce las
      dos escenas ocupan los mismos píxeles con la misma cámara, así que son la
@@ -76,14 +84,18 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
   /* El encuadre sale de la pieza, no de un número fijo. Con una distancia
      fija, una cama llenaba el cuadro y un apagador era un punto: la cámara
      tiene que abrir tanto como mida lo que se está viendo. */
-  const tam = Math.max(
+  const tam = esAvatar
+    ? 1.8
+    : Math.max(
     valores.w ?? def?.w ?? 0.3,
     valores.d ?? def?.d ?? 0.3,
     valores.alto ?? valores.h ?? def?.alto ?? 0.3,
     0.25,
   )
-  const lejos = tam * 1.9 + 0.5
-  const mira = Math.min(tam * 0.45, 1.1)
+  /* Una persona se encuadra de cuerpo entero y mirando al pecho, no al
+     ombligo: encuadrada como un mueble salía cortada de los pies. */
+  const lejos = esAvatar ? tam * 2.5 : tam * 1.9 + 0.5
+  const mira = esAvatar ? 0.85 : Math.min(tam * 0.45, 1.1)
   const tocar = (clave, v) => setAjustes((a) => ({ ...a, [clave]: v }))
 
   const aplicar = () => {
@@ -98,19 +110,25 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
            selección y las cotas mienten. */
         huella: pieza ? medidaDePieza(pieza) : undefined,
         nombre: nombre.trim() || undefined,
+        ...(esAvatar ? { avatar } : {}),
       },
       `Ajustó ${titulo.toLowerCase()} en el taller`,
     )
     onCerrar()
   }
 
-  const SECCIONES = [
-    ...(pieza ? [] : [['medidas', 'Medidas']]),
-    ['partes', 'Partes'],
-    ['cable', 'Cable'],
-    ['movimiento', 'Movimiento'],
-    ...(dev ? [['conexion', 'Conexión']] : []),
-  ]
+  const SECCIONES = esAvatar
+    ? [
+        ['avatar', 'Persona'],
+        ['pose', 'Pose'],
+      ]
+    : [
+        ...(pieza ? [] : [['medidas', 'Medidas']]),
+        ['partes', 'Partes'],
+        ['cable', 'Cable'],
+        ['movimiento', 'Movimiento'],
+        ...(dev ? [['conexion', 'Conexión']] : []),
+      ]
 
   /* Hornear: se lee lo que YA está dibujado y cada malla se vuelve una parte.
      Se traduce la geometría montada y no el código del componente, así que
@@ -208,7 +226,9 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
                     el ratón, y así se ve de dónde viene. */}
                 <group rotation={[0, item.rot ?? 0, 0]}>
                 <Animar tipo={animacion} semilla={item.id?.length ?? 0}>
-                  {pieza ? (
+                  {esAvatar ? (
+                    <AvatarPieza avatar={avatar} pose={avatar.pose ?? 'Idle'} />
+                  ) : pieza ? (
                     <PiezaPropia
                       pieza={pieza}
                       seleccion={parteSel}
@@ -312,6 +332,17 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
               </button>
             ))}
           </div>
+
+          {seccion === 'avatar' && (
+            <PanelAvatar
+              avatar={avatar}
+              onAvatar={setAvatar}
+              cat={catAvatar}
+              onCat={setCatAvatar}
+            />
+          )}
+
+          {seccion === 'pose' && <PanelPose avatar={avatar} onAvatar={setAvatar} />}
 
           {seccion === 'medidas' && (
             <div className="px-3 py-3">
@@ -637,6 +668,159 @@ function PanelPartes({ pieza, sel, onSel, onPieza, onHornear, titulo }) {
           </p>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * El configurador de la persona.
+ *
+ * Es la parte que más se va a usar de todo el taller y por eso está armada al
+ * revés que un formulario: primero el azar, después el ajuste. Nadie llega con
+ * una cara en la cabeza; se generan tres o cuatro, una se parece a alguien, y
+ * ésa se corrige. Empezar en blanco con quince menús es la manera de que nadie
+ * lo use nunca.
+ *
+ * Las categorías se tiñen con paletas distintas a propósito. Una piel verde
+ * limón y un pelo del color de la playera son dos formas de arruinar un
+ * avatar, y la manera de evitarlas no es un aviso: es no ofrecer el color.
+ */
+function PanelAvatar({ avatar, onAvatar, cat, onCat }) {
+  const c = CATEGORIAS.find((x) => x.id === cat) ?? CATEGORIAS[0]
+  const puesta = avatar.piezas?.[c.id] ?? null
+  const color = avatar.colores?.[c.id]
+
+  const ponerPieza = (archivo) =>
+    onAvatar({
+      ...avatar,
+      piezas: {
+        ...avatar.piezas,
+        [c.id]: archivo,
+        /* Con traje no hace falta lo de abajo: elegir los dos deja al azar
+           cuál se ve, que es lo mismo que no haber elegido. */
+        ...(c.id === 'Outfit' && archivo ? { Top: null, Bottom: null } : {}),
+        ...((c.id === 'Top' || c.id === 'Bottom') && archivo ? { Outfit: null } : {}),
+      },
+    })
+
+  const ponerColor = (v) =>
+    onAvatar({
+      ...avatar,
+      colores: { ...avatar.colores, [c.id]: v },
+      // el tono de la cabeza ES el de la piel: manos y cuello van con él
+      ...(c.paleta === 'piel' ? { piel: v } : {}),
+    })
+
+  return (
+    <div className="px-3 py-3">
+      <button
+        onClick={() => onAvatar(avatarAlAzar())}
+        className="w-full rounded-lg border border-ember px-2 py-1.5 text-[12px] text-ember transition-colors hover:bg-ember hover:text-ink"
+      >
+        Generar una al azar
+      </button>
+      <p className="mt-1.5 text-[10.5px] leading-snug text-cream-3">
+        Sale una presentable casi siempre, no una cualquiera: el pelo, las cejas y la barba comparten tono, y
+        cada cosa opcional tiene su propia probabilidad. Se generan tres o cuatro y se corrige la que se parezca
+        a alguien.
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-1">
+        {CATEGORIAS.map((x) => (
+          <button
+            key={x.id}
+            onClick={() => onCat(x.id)}
+            className={`rounded-full px-2 py-1 text-[11px] transition-colors ${
+              x.id === cat ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+            }`}
+          >
+            {x.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-2.5 grid grid-cols-3 gap-1">
+        {c.quitable && (
+          <button
+            onClick={() => ponerPieza(null)}
+            className={`aspect-square rounded-lg border text-[11px] transition-colors ${
+              puesta === null ? 'border-ember bg-ember/12 text-cream' : 'border-line text-cream-3 hover:bg-cream/6'
+            }`}
+          >
+            sin
+          </button>
+        )}
+        {c.piezas.map((f) => (
+          <button
+            key={f}
+            onClick={() => ponerPieza(f)}
+            title={nombreDePieza(c.id, f)}
+            className={`aspect-square rounded-lg border px-1 text-[10.5px] leading-tight transition-colors ${
+              puesta === f ? 'border-ember bg-ember/12 text-cream' : 'border-line text-cream-3 hover:bg-cream/6'
+            }`}
+          >
+            {nombreDePieza(c.id, f).replace(c.label, '').trim() || '1'}
+          </button>
+        ))}
+      </div>
+
+      {c.color && c.paleta && (
+        <>
+          <p className="mt-3 text-[10px] tracking-[0.12em] text-cream-3 uppercase">
+            {c.paleta === 'piel' ? 'Tono de piel' : c.paleta === 'pelo' ? 'Color de pelo' : 'Color'}
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {PALETAS[c.paleta].map((v) => (
+              <button
+                key={v}
+                onClick={() => ponerColor(v)}
+                aria-label={v}
+                className={`h-6 w-6 rounded-full border transition-transform ${
+                  color === v ? 'scale-110 border-cream' : 'border-line hover:scale-110'
+                }`}
+                style={{ background: v }}
+              />
+            ))}
+          </div>
+          {c.paleta === 'piel' && (
+            <p className="mt-1 text-[10px] leading-snug text-cream-3">
+              El tono de la cabeza manda sobre las manos y el cuello: es un solo material de piel para todo el
+              cuerpo, como debe ser.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * La pose.
+ *
+ * Reposo mientras se configura —una pose de acción estorba para juzgar si el
+ * peinado queda bien— y las otras siete para cuando la persona ya está puesta
+ * en el cuarto y lo que se busca es que la escena se vea viva.
+ */
+function PanelPose({ avatar, onAvatar }) {
+  return (
+    <div className="px-3 py-3">
+      <p className="text-[10.5px] leading-snug text-cream-3">
+        Reposo para configurar; las demás para cuando ya está puesta en el cuarto. Una persona quieta en una
+        esquina se lee como maniquí; una recargada en la barra se lee como alguien que vive ahí.
+      </p>
+      <div className="mt-2 grid grid-cols-2 gap-1">
+        {POSES_AVATAR.map((a) => (
+          <button
+            key={a}
+            onClick={() => onAvatar({ ...avatar, pose: a })}
+            className={`rounded-lg px-2 py-1.5 text-[11.5px] transition-colors ${
+              (avatar.pose ?? 'Idle') === a ? 'bg-ember text-ink' : 'text-cream-2 hover:bg-cream/8'
+            }`}
+          >
+            {a === 'Idle' ? 'Reposo' : a}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

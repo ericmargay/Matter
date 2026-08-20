@@ -38,3 +38,8 @@ dist-admin
 .env.*
 !.env.example
 .data/
+
+# El configurador de referencia de Wawa Sensei, descargado para sacar de ahí las
+# piezas y estudiar cómo compone el avatar. No es código nuestro y no se
+# versiona: lo que usamos vive en public/avatar y en src/ui/admin/avatar.
+r3f-ultimate-character-configurator-main/
