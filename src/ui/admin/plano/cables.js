@@ -43,6 +43,42 @@ export const SALIDAS = {
 
 export const cableVacio = () => ({ largo: 1.8, salida: 'atras', ruta: 'piso', enchufe: null })
 
+/**
+ * ¿Este aparato lleva cable a un contacto?
+ *
+ * De pila no lleva; cableado tampoco —ése va empotrado y no se ve—; y lo que
+ * se enchufa, sí. Es la diferencia entre un plano que enseña la instalación y
+ * uno que enseña muebles bonitos: los cables son la mitad de los problemas de
+ * una obra y no se pueden dejar fuera solo porque afean.
+ */
+export function llevaCable(device) {
+  if (!device) return false
+  if (device.power !== 'corriente' && device.power !== 'enchufe') return false
+  /* Un FOCO no lleva cable a un contacto: se enrosca en un portalámparas y el
+     cable, si hay, es el de la lámpara que lo sostiene. Dibujárselo llenaba el
+     cuarto de cables bajando del plafón hasta el zoclo, que es exactamente lo
+     que no pasa en ninguna casa. Los paneles y las tiras sí: ésos traen su
+     eliminador y hay que enchufarlo en algún lado. */
+  if (device.cat === 'iluminacion' && (device.luz?.forma ?? 'punto') === 'punto') return false
+  return true
+}
+
+/**
+ * El cable con el que sale de fábrica, según qué es.
+ *
+ * No son inventados: 1.5 m es lo que trae casi todo lo de mesa, las lámparas
+ * de piso traen 1.8 y las teles y los electrodomésticos grandes 1.2 —que es
+ * justo por lo que nunca alcanzan—. Se puede cambiar en el taller de la pieza.
+ */
+export function cablePorDefecto(device) {
+  const largo = /pantalla|refri|lavadora|secadora|electro/.test(`${device?.cat ?? ''}`)
+    ? 1.2
+    : device?.cat === 'iluminacion'
+      ? 1.8
+      : 1.5
+  return { largo, salida: 'atras', ruta: 'piso', enchufe: null }
+}
+
 /** Dónde sale el cable del aparato, en coordenadas del mundo. */
 export function puntoSalida(item, caja, salida = 'atras') {
   const s = SALIDAS[salida] ?? SALIDAS.atras

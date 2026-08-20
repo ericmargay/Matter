@@ -54,12 +54,37 @@ function trazo(desde, hasta, largo, ruta) {
  * Por ahora no se arrastra. El contacto se elige en el taller de la pieza, en
  * la pestaña de cable.
  */
-export function Clavija({ pos }) {
+export function Clavija({ pos, enMano, onTomar }) {
+  const [encima, setEncima] = useState(false)
+  const brillo = enMano ? 0.9 : encima ? 0.4 : 0
+
   return (
     <group position={pos}>
-      <mesh castShadow>
+      {/* Zona de agarre generosa: atinarle a una clavija de cinco centímetros
+          en perspectiva es una prueba de puntería que no le interesa a nadie. */}
+      <mesh
+        onPointerOver={(e) => {
+          e.stopPropagation()
+          setEncima(true)
+        }}
+        onPointerOut={() => setEncima(false)}
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          onTomar?.()
+        }}
+      >
+        <sphereGeometry args={[0.13, 12, 10]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
+      <mesh castShadow scale={enMano || encima ? 1.3 : 1}>
         <boxGeometry args={[0.05, 0.06, 0.034]} />
-        <meshStandardMaterial color="#2a2e38" roughness={0.5} />
+        <meshStandardMaterial
+          color={enMano ? '#4d9fff' : '#2a2e38'}
+          roughness={0.5}
+          emissive="#4d9fff"
+          emissiveIntensity={brillo}
+        />
       </mesh>
       {[-1, 1].map((sg) => (
         <mesh key={sg} position={[sg * 0.012, 0.042, 0]}>

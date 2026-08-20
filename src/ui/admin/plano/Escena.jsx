@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Billboard, OrbitControls, Text, TransformControls } from '@react-three/drei'
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
@@ -12,6 +12,7 @@ import { GROSOR_MURO, piezaSeVe } from './muros'
 import Animar from './animacion.jsx'
 import PiezaPropia from './PiezaPropia'
 import { Cable, Clavija } from './cables.jsx'
+import { cablePorDefecto, llevaCable } from './cables'
 import { puntoSalida } from './cables'
 import Conexiones from './Conexiones'
 import { DISPOSICION_BY_ID, DISPOSICIONES, LADO, posicionesDe, trianguloPanel } from './paneles'
@@ -441,43 +442,66 @@ function Seleccion({ item, modo, onParchar, onFin }) {
  * El contacto se elige a mano o se toma el más cercano, que es lo que va a
  * pasar en la obra si nadie decide otra cosa.
  */
-function Cables({ items }) {
+/**
+ * Los cables de alimentación del cuarto.
+ *
+ * Los lleva TODO lo que se enchufa, no solo lo que alguien configuró: un plano
+ * donde la mitad de los aparatos no tiene cable enseña una casa que no existe.
+ * El cable de fábrica sale del tipo de aparato —1.5 m lo de mesa, 1.8 las
+ * lámparas de piso, 1.2 las teles y los electrodomésticos, que es justo por lo
+ * que nunca alcanzan— y se corrige en el taller de la pieza.
+ *
+ * Conectar es de dos clics: se toma la clavija y se pica el contacto. Dos
+ * clics y no un arrastre a propósito — arrastrar un objeto de cinco
+ * centímetros en perspectiva es puntería, y esto se usa con un trackpad en la
+ * sala de alguien.
+ */
+function Cables({ items, enMano, onTomarClavija }) {
   const enchufes = useMemo(
     () => items.filter((i) => i.clase === 'punto' && (i.tipo === 'enchufe' || i.tipo === 'salida')),
     [items],
   )
-  const conCable = useMemo(() => items.filter((i) => i.cable), [items])
+  const conCable = useMemo(
+    () =>
+      items
+        .map((i) => {
+          if (i.cable) return { it: i, cable: i.cable }
+          const d = i.clase === 'equipo' ? DEVICE_BY_ID[i.deviceId] : null
+          return llevaCable(d) ? { it: i, cable: cablePorDefecto(d) } : null
+        })
+        .filter(Boolean),
+    [items],
+  )
   if (conCable.length === 0 || enchufes.length === 0) return null
 
   return (
     <>
-      {conCable.map((it) => {
+      {conCable.map(({ it, cable }) => {
         const destino =
-          enchufes.find((e) => e.id === it.cable.enchufe) ??
+          enchufes.find((e) => e.id === cable.enchufe) ??
           enchufes.reduce((a, b) =>
             Math.hypot(b.x - it.x, b.z - it.z) < Math.hypot(a.x - it.x, a.z - it.z) ? b : a,
           )
         /* La clavija SALE del contacto, no vive dentro de él: ocho centímetros
-           hacia donde está su aparato, que es lo que hace una clavija puesta. */
+           hacia donde está su aparato, que es lo que hace una clavija puesta.
+           Y de paso deja de pelearse el clic con el contacto. */
         const hacia = new THREE.Vector3(it.x - destino.x, 0, it.z - destino.z)
         if (hacia.lengthSq() > 0.0001) hacia.normalize().multiplyScalar(0.08)
         const clavija = new THREE.Vector3(destino.x, destino.y ?? 0.4, destino.z).add(hacia)
 
-        const desde = puntoSalida(it, null, it.cable.salida)
+        const desde = puntoSalida(it, null, cable.salida)
         /* Si el cable no da, se dibuja en rojo. Es la conversación que hay que
            tener en el plano y no con el aparato ya montado en el muro. */
-        const alcanza = it.cable.largo >= desde.distanceTo(clavija) * 1.05
+        const alcanza = cable.largo >= desde.distanceTo(clavija) * 1.05
 
         return (
           <group key={it.id}>
-            <Cable
-              desde={desde}
-              hasta={clavija}
-              largo={it.cable.largo}
-              ruta={it.cable.ruta}
-              alcanza={alcanza}
+            <Cable desde={desde} hasta={clavija} largo={cable.largo} ruta={cable.ruta} alcanza={alcanza} />
+            <Clavija
+              pos={[clavija.x, clavija.y, clavija.z]}
+              enMano={enMano === it.id}
+              onTomar={() => onTomarClavija?.(enMano === it.id ? null : it.id)}
             />
-            <Clavija pos={[clavija.x, clavija.y, clavija.z]} />
           </group>
         )
       })}
@@ -1189,7 +1213,7 @@ const COLOR_PUNTO = { enchufe: '#5eead4', apagador: '#a3c9ff', salida: '#8fd694'
  * fue un arrastre y solo mueve. Es lo que hace que el plano se sienta como la
  * casa — le picas al apagador y la luz responde.
  */
-function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colocando, onEncima, aLaVista = true }) {
+function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colocando, onEncima, aLaVista = true, enchufando, onConectar }) {
   const desde = useRef(null)
   const esApagador = item.tipo === 'apagador'
 
@@ -1206,6 +1230,13 @@ function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colo
       onPointerDown={(e) => {
         if (colocando) return
         e.stopPropagation()
+        /* Con una clavija en la mano, picar un contacto ES conectarla. Que el
+           mismo clic seleccione el contacto además sería un estorbo: uno está
+           enchufando, no inspeccionando. */
+        if (enchufando && (item.tipo === 'enchufe' || item.tipo === 'salida')) {
+          onConectar?.(item.id)
+          return
+        }
         desde.current = [e.clientX, e.clientY]
         onTomar(item.id)
       }}
@@ -1219,6 +1250,15 @@ function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colo
         }
       }}
     >
+      {/* Con una clavija en la mano, los contactos se marcan: es lo que dice
+          dónde se puede soltar sin tener que adivinarlo. */}
+      {enchufando && (item.tipo === 'enchufe' || item.tipo === 'salida') && (
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.03]}>
+          <ringGeometry args={[0.09, 0.13, 20]} />
+          <meshBasicMaterial color="#4d9fff" transparent opacity={0.9} depthTest={false} />
+        </mesh>
+      )}
+
       {/* la placa mecánica que ya estaba en el muro */}
       <mesh>
         <boxGeometry args={[0.09, 0.13, 0.03]} />
@@ -1722,6 +1762,9 @@ export default function Escena({
   onEnfocado,
   disolver,
   onDisuelto,
+  enMano,
+  onTomarClavija,
+  onEnchufar,
 }) {
   const { ancho, largo, alto } = plano
   const [arrastrando, setArrastrando] = useState(null)
@@ -1902,6 +1945,8 @@ export default function Escena({
             onAccionar={onAccionar}
             controla={conRegla?.has(it.id)}
             colocando={colocando}
+            enchufando={!!enMano}
+            onConectar={(id) => onEnchufar?.(enMano, id)}
             onEncima={setEncima}
             aLaVista={piezaSeVe(it, ancho, largo, camX, camZ)}
           />
@@ -1926,7 +1971,7 @@ export default function Escena({
           Y las manijas, no mientras se coloca algo: estorban justo en el borde
           donde uno quiere soltar la pieza. */}
       {onMedida && !colocando && (seleccion === ID_MUROS || midiendo) && (
-        <>
+        <Suspense fallback={null}>
           {['x', 'z', 'y'].map((ej) => (
             <Cota
               key={ej}
@@ -1942,7 +1987,7 @@ export default function Escena({
               camaraZ={camZ}
             />
           ))}
-        </>
+        </Suspense>
       )}
 
       {/* el aro de giro solo en lo seleccionado: cuatro aros a la vez serían
@@ -1951,10 +1996,17 @@ export default function Escena({
       <Realce item={(encima && encima !== seleccion && plano.items.find((i) => i.id === encima)) || null} />
 
       {/* Los cables de alimentación, de cada aparato a su contacto. */}
-      <Cables items={plano.items} />
+      <Cables items={plano.items} enMano={enMano} onTomarClavija={onTomarClavija} />
       {/* El hover se suelta en cuanto su pieza deja de existir: si no, se
           queda apuntando a un fantasma hasta que el puntero se mueva. */}
       <SoltarFantasma id={encima} items={plano.items} onSoltar={() => setEncima(null)} />
+      {/* Los rótulos de las cotas cargan una fuente la primera vez, y cargar
+          SUSPENDE. Sin esta frontera propia, esa espera la atendía el Suspense
+          de arriba —el que envuelve el lienzo entero— y al seleccionar la
+          primera pieza la pantalla se ponía negra con un "Cargando plano…" de
+          unos milisegundos. Con la frontera aquí, lo único que espera es el
+          número, y nadie lo nota. */}
+      <Suspense fallback={null}>
       {seleccionado && (
         <Seleccion
           item={seleccionado}
@@ -1963,6 +2015,7 @@ export default function Escena({
           onFin={onFinGizmo}
         />
       )}
+      </Suspense>
 
       <Postproceso modo={modo} />
 

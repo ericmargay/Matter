@@ -5,6 +5,7 @@ import { uid, planoVacio } from '../../../sync/eventos'
 import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, ID_MUROS, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
 import { MUROS_ACABADO, PISOS } from './acabados'
+import { cablePorDefecto } from './cables'
 import { comoAloja, dispositivosDe } from './aloja'
 import { ESPACIOS } from '../../../content/espacios'
 import { DISPOSICIONES } from './paneles'
@@ -193,6 +194,9 @@ export default function PlanoCuarto({ room, onCerrar }) {
   const [poseTaller, setPoseTaller] = useState(null)
   const [poseAntes, setPoseAntes] = useState(null)
   const [rectCuarto, setRectCuarto] = useState(null)
+  /* Qué clavija está en la mano. Es estado de gesto, no del levantamiento: no
+     se guarda ni viaja a nadie. */
+  const [enMano, setEnMano] = useState(null)
   const [visible, setVisible] = useState(false)
   const [altaDevice, setAltaDevice] = useState(false)
 
@@ -210,7 +214,8 @@ export default function PlanoCuarto({ room, onCerrar }) {
         (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))
 
       if (e.key === 'Escape') {
-        if (midiendo) setMidiendo(null)
+        if (enMano) setEnMano(null)
+        else if (midiendo) setMidiendo(null)
         else if (uniendo) setUniendo(null)
         else if (colocando) setColocando(null)
         else onCerrar()
@@ -647,6 +652,16 @@ export default function PlanoCuarto({ room, onCerrar }) {
               modoGizmo={modoGizmo}
               onParchar={parchar}
               onFinGizmo={() => guardar({ items: plano.items }, `Acomodó una pieza en ${room.nombre}`)}
+              enMano={enMano}
+              onTomarClavija={setEnMano}
+              onEnchufar={(itemId, enchufeId) => {
+                setEnMano(null)
+                const it = plano.items.find((x) => x.id === itemId)
+                if (!it) return
+                const dev = DEVICE_BY_ID[it.deviceId]
+                const base = it.cable ?? cablePorDefecto(dev)
+                parchar(itemId, { cable: { ...base, enchufe: enchufeId } }, 'Conectó un aparato a otro contacto')
+              }}
               enfoque={enfoque}
               disolver={
                 enfoque && !enfoque.volver
