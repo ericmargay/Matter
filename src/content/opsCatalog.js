@@ -39,11 +39,11 @@ export const PROVEEDORES = [
   },
   {
     id: 'unit',
-    nombre: 'Unit Electronics',
-    tipo: 'Tienda de electrónica · CDMX',
-    entrega: 'Mostrador el mismo día · Rep. del Salvador, Centro',
-    nota: 'Para lo que se resuelve el mismo día: módulos, fuentes, cable, conectores, herramienta. Cuando falta una pieza en obra, es la que salva la instalación.',
-    ojo: 'No manejan marca de casa inteligente terminada. Aquí se compra el material, no el producto.',
+    nombre: 'UNIT Electronics',
+    tipo: 'Distribuidor oficial Sonoff · CDMX',
+    entrega: 'Mostrador el mismo día en el Centro · envío a toda la república',
+    nota: 'Distribuidor oficial de Sonoff en México, con la línea completa y precio de lista publicado. Es el primero al que se le pregunta por cualquier pieza Sonoff, y de paso resuelve el material de obra —módulos, fuentes, cable, conectores— el mismo día. También traen las tarjetas Matter/Thread que usamos en el taller de firmware.',
+    ojo: 'Precio de lista con IVA, sin cuenta mayorista de por medio; para volumen hay que pedirles cotización aparte. Algunas piezas dicen "consulta en nuestras sucursales": ésas no tienen precio en línea y hay que llamar.',
     buscar: (q) => `https://uelectronics.com/?s=${encodeURIComponent(q)}&post_type=product`,
     sitio: 'https://uelectronics.com',
   },
@@ -235,9 +235,16 @@ const POR_CANAL = {
   importacion: ['aliexpress', 'ml', 'amazon'],
 }
 
+/* Marcas con distribuidor formal en México. A ésas no se les busca en un
+   marketplace primero: se le pregunta a quien las distribuye, que es quien
+   tiene precio de lista, existencia real y a quién reclamarle la garantía. */
+const DISTRIBUYE = { Sonoff: ['unit', 'ml', 'amazon'] }
+
 /** Proveedores sugeridos para un dispositivo, en orden de a quién llamar primero. */
 export const proveedoresDe = (device) =>
-  (OPS[device.id]?.prov ?? POR_CANAL[canalDe(device)]).map((id) => PROVEEDOR_BY_ID[id]).filter(Boolean)
+  (OPS[device.id]?.prov ?? DISTRIBUYE[device.brand] ?? POR_CANAL[canalDe(device)])
+    .map((id) => PROVEEDOR_BY_ID[id])
+    .filter(Boolean)
 
 /** Enlaces de búsqueda listos para abrir. Los marketplaces bloquean el
  *  scrapeo automático, pero una búsqueda en el navegador funciona igual. */
@@ -269,8 +276,10 @@ export function consultaDe(device, proveedor) {
   const yaLaTrae = nombre.toLowerCase().startsWith(marca.toLowerCase()) ||
     (ultima.length >= 3 && nombre.toLowerCase().startsWith(ultima))
 
-  // en tienda de electrónica se busca la pieza, no la marca comercial
-  const conMarca = proveedor === 'unit' || proveedor === 'ag' ? false : !yaLaTrae
+  /* En AG se busca la pieza, no la marca comercial: su catálogo es de
+     componente y "Sonoff" no le dice nada. En UNIT es al revés —distribuyen
+     marca y su buscador la entiende—, así que ahí la marca ayuda. */
+  const conMarca = proveedor === 'ag' ? false : !yaLaTrae
 
   // el paréntesis se va entero: "(kit 9)" dejaba un "9" suelto que ensucia
   nombre = nombre.replace(/\([^)]*\)/g, ' ').replace(SIMBOLOS, ' ').replace(RELLENO, ' ')
@@ -293,3 +302,23 @@ export const linksDeCompra = (device) =>
     ...p,
     url: p.buscar(consultaDe(device, p.id)),
   }))
+
+/* ── precios que vimos con nuestros ojos ──────────────────────────
+   El catálogo trae rangos estimados; esta tabla dice cuáles ya se validaron
+   contra la lista de un proveedor, cuánto costaban y cuándo. Existe porque un
+   presupuesto armado sobre estimaciones y uno armado sobre precios de lista se
+   ven igual en pantalla, y solo uno se sostiene frente al cliente.
+
+   Cuando UNIT abra su API esto se llena solo; mientras tanto se captura a
+   mano y se anota la fecha, que es lo que permite saber cuándo ya envejeció. */
+export const PRECIOS_VISTOS = {
+  'sonoff-zbmini-l2': { prov: 'unit', precio: 221, como: 'ZBMINIL2 Interruptor Extreme Zigbee Sin Neutro', visto: '2026-08-22' },
+  'sonoff-m5': { prov: 'unit', precio: [311, 359], como: 'SwitchMan M5-120 US C2 y C3', visto: '2026-08-22' },
+  'sonoff-t6-120m': { prov: 'unit', precio: [352, 373], como: 'T6-120M 1C y 2C táctil Wi-Fi Matter', visto: '2026-08-22' },
+  'sonoff-nspanel-pro': { prov: 'unit', precio: [2074, 2374], como: 'NSPanel Pro Panel de Control Inteligente', visto: '2026-08-22' },
+  'sonoff-snzb-02p': { prov: 'unit', precio: 192, como: 'SNZB-02P Sensor de Humedad y Temperatura Zigbee', visto: '2026-08-22' },
+  'sonoff-garage': { prov: 'unit', precio: 174, como: 'SwitchMan 5V Interruptor WiFi Cerradura Portón', visto: '2026-08-22' },
+}
+
+/** Si el precio ya se validó contra una lista de proveedor, con quién y cuándo. */
+export const precioVisto = (device) => PRECIOS_VISTOS[device.id] ?? null

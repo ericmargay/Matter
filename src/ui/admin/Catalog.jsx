@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { CATEGORIES, DEVICES, LINK_LABEL, catalogStats, refPrice } from '../../content/catalog'
-import { CANALES, canalDe, linksDeCompra, notaDe } from '../../content/opsCatalog'
+import { CATEGORIES, DEVICES, LINK_LABEL, catalogStats, hayRango, refPrice } from '../../content/catalog'
+import { CANALES, PROVEEDOR_BY_ID, canalDe, linksDeCompra, notaDe, precioVisto } from '../../content/opsCatalog'
 import { PHOTOS } from '../../content/photos'
 import { LABOR_TIERS, laborTier } from '../../content/pricing'
 import { useProyecto, useSurvey } from '../../store/survey'
@@ -59,6 +59,22 @@ function Stepper({ device, cuarto }) {
   )
 }
 
+/** El sello de "este precio lo vimos", con fuente y fecha. */
+function Visto({ device }) {
+  const v = precioVisto(device)
+  if (!v) return null
+  const quien = PROVEEDOR_BY_ID[v.prov]?.nombre ?? v.prov
+  const cuanto = Array.isArray(v.precio)
+    ? `$${v.precio[0].toLocaleString('es-MX')} – $${v.precio[1].toLocaleString('es-MX')}`
+    : `$${v.precio.toLocaleString('es-MX')}`
+  return (
+    <p className="mt-2 rounded-lg border border-thread/40 bg-thread/5 px-2.5 py-1.5 text-[10.5px] leading-snug text-thread-2">
+      Precio de lista visto en <span className="text-cream-2">{quien}</span>: {cuanto} · {v.como} ·{' '}
+      {v.visto}
+    </p>
+  )
+}
+
 /* ── bloque de proveedores para la ficha ──────────────────────── */
 
 function Proveedores({ device }) {
@@ -70,6 +86,11 @@ function Proveedores({ device }) {
         <span className="text-[10.5px] text-cream-3">{canal.label}</span>
       </div>
       <p className="mt-1 text-[11px] text-cream-3">{canal.hint}</p>
+
+      {/* Si el precio ya se validó contra una lista, se dice con quién y
+          cuándo. Un rango estimado y un precio de lista se ven idénticos en
+          pantalla, y solo uno se sostiene frente al cliente. */}
+      <Visto device={device} />
 
       <div className="mt-2.5 space-y-1.5">
         {linksDeCompra(device).map((p) => (
@@ -292,7 +313,8 @@ export default function Catalog() {
                   <span className="ml-1.5 text-[11.5px] text-cream-3">instalado</span>
                 </p>
                 <p className="mt-0.5 text-[11.5px] text-cream-3">
-                  Equipo {money(refPrice(d))} ({money(d.price[0])}–{money(d.price[1])}) · {tier.label}{' '}
+                  Equipo {money(refPrice(d))}
+                  {hayRango(d) && ` (${money(d.price[0])}–${money(d.price[1])})`} · {tier.label}{' '}
                   {money(tier.price)} · {tier.mins} min
                 </p>
               </div>
