@@ -565,6 +565,38 @@ canvas {
   animation: siri-cursor 1.05s steps(1, end) infinite;
 }
 
+/* ── el borde de Siri ─────────────────────────────────────────────
+   Un cónico que da la vuelta, recortado a un anillo con dos máscaras que se
+   restan, y desenfocado para que se lea como luz y no como marco. El ángulo
+   va en una variable registrada: es lo único que deja animar un cónico. */
+@property --siri-ang {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.siri-bordes {
+  --siri-ang: 0deg;
+  padding: 24px; /* el grosor del anillo */
+  background: conic-gradient(from var(--siri-ang), #4d9fff, #8b5cf6, #f0a3c8, #5eead4, #4d9fff);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  filter: blur(15px);
+  animation: siri-vuelta 5.2s linear infinite;
+  transition: opacity 0.5s ease;
+}
+@keyframes siri-vuelta {
+  to {
+    --siri-ang: 360deg;
+  }
+}
+
 /* El teléfono llega subiendo y creciendo un pelo, como cuando uno lo levanta
    de la mesa, y se va por el mismo camino. */
 .siri-entra {
@@ -640,5 +672,8 @@ canvas {
   }
   .siri-sale {
     animation: siri-sale 0.01s both;
+  }
+  .siri-bordes {
+    animation: none;
   }
 }

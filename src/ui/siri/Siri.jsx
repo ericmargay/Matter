@@ -67,7 +67,10 @@ export default function Siri({ peticion, onHacer, conVoz = true }) {
     en(dictado + 260, () => setFase('pensando'))
     en(dictado + 900, () => {
       setFase('listo')
-      tonos.salida()
+      /* Aquí NO va tono de cierre. Ese "din-don" de terminado es de Alexa;
+         Siri cierra hablando y apagando el borde, y nada más. Ponerle el
+         sonido del otro es de las cosas que el cliente nota sin poder decir
+         qué le sonó mal. */
       if (conVoz) hablar(peticion.dice)
       onHacer?.()
     })
@@ -97,21 +100,31 @@ export default function Siri({ peticion, onHacer, conVoz = true }) {
 
   if (compacto) {
     return (
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] px-3 pb-5">
-        {/* Un velo que sube desde el canto. En el teléfono la onda cae encima
-            de lo que estuvieras haciendo, y sin el velo el texto blanco se
-            pierde contra cualquier cosa clara que hubiera abajo. */}
-        <div
-          className="absolute inset-x-0 bottom-0 -z-10 h-[360px]"
-          style={{
-            background: 'linear-gradient(to top, rgba(5,7,12,.96) 0%, rgba(5,7,12,.9) 40%, rgba(5,7,12,.6) 70%, transparent 100%)',
-          }}
-        />
-        <div className={`mx-auto max-w-md ${anim}`}>
-          {conversacion}
-          <OndaSiri abierto={1} energia={energia} brillo={brillo} className="h-[96px] w-full" />
+      <>
+        {/* El borde de la pantalla, encendido. En el teléfono de verdad ésta
+            es LA señal de que Siri está puesta: no hay ventana ni tarjeta, se
+            ilumina la orilla de todo lo que estés viendo. */}
+        <div className={`pointer-events-none fixed inset-0 z-[59] ${anim}`}>
+          <BordeVivo fase={vista} radio={34} className="absolute inset-0" />
         </div>
-      </div>
+
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] px-3 pb-5">
+          {/* Un velo que sube desde el canto. En el teléfono la onda cae
+              encima de lo que estuvieras haciendo, y sin el velo el texto
+              blanco se pierde contra cualquier cosa clara que hubiera abajo. */}
+          <div
+            className="absolute inset-x-0 bottom-0 -z-10 h-[360px]"
+            style={{
+              background:
+                'linear-gradient(to top, rgba(5,7,12,.96) 0%, rgba(5,7,12,.9) 40%, rgba(5,7,12,.6) 70%, transparent 100%)',
+            }}
+          />
+          <div className={`mx-auto max-w-md ${anim}`}>
+            {conversacion}
+            <OndaSiri abierto={1} energia={energia} brillo={brillo} className="h-[96px] w-full" />
+          </div>
+        </div>
+      </>
     )
   }
 
@@ -127,9 +140,37 @@ export default function Siri({ peticion, onHacer, conVoz = true }) {
             {conversacion}
           </div>
           <OndaSiri abierto={1} energia={energia} brillo={brillo} className="h-[110px] w-full shrink-0" />
+          <BordeVivo fase={vista} radio={44} className="absolute inset-0" />
         </Telefono>
       </div>
     </div>
+  )
+}
+
+/**
+ * El borde encendido.
+ *
+ * Es el aviso de Siri, y es lo que la separa de los demás: Alexa contesta con
+ * un anillo azul en la bocina y un sonido de cierre; Siri no suena al
+ * terminar —enciende la orilla de la pantalla y la apaga—. Por eso el tono de
+ * salida se quedó sólo del otro lado.
+ *
+ * Cómo está hecho: un degradado cónico que da la vuelta, recortado a un
+ * anillo con dos máscaras que se restan, y desenfocado para que se lea como
+ * luz y no como marco.
+ */
+function BordeVivo({ fase, radio, className = '' }) {
+  /* Fuerte mientras oye, más tranquilo —y más rápido— mientras piensa, y casi
+     apagado al contestar: el borde cuenta la misma historia que la onda. */
+  const fuerza = fase === 'oyendo' ? 0.92 : fase === 'pensando' ? 0.66 : 0.18
+  const vuelta = fase === 'pensando' ? 2.6 : 5.2
+
+  return (
+    <div
+      className={`siri-bordes pointer-events-none ${className}`}
+      style={{ borderRadius: radio, opacity: fuerza, animationDuration: `${vuelta}s` }}
+      aria-hidden="true"
+    />
   )
 }
 
