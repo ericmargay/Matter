@@ -131,6 +131,9 @@ export const OPS = {
   'thirdreality-vibration': { canal: 'retail', note: 'Avisa cuando termina la lavadora o si alguien mueve la caja fuerte.' },
   'aqara-tvoc': { canal: 'importacion', note: 'Calidad de aire con pantalla e-ink. Buen disparador para el purificador.' },
 
+  /* ── Energía ── */
+  'enchufe-matter-15a': { canal: 'retail', prov: ['amazon', 'ml'], note: 'Se pide de a cuatro o no sale la cuenta. Certificado Matter de verdad —hay clones con el logo impreso y sin certificar—, así que revisar que la caja traiga el código QR de emparejamiento Matter y no solo un QR de app.' },
+
   /* ── Acceso y seguridad ── */
   'yale-assure2': { canal: 'distribuidor', note: 'Teclado, llave física de respaldo y Thread. Medir espesor y preparación de puerta.' },
   'nuki-4': { canal: 'importacion', note: 'Se monta SOBRE la cerradura existente: la opción para quien renta y no puede hacer obra.' },
@@ -147,6 +150,8 @@ export const OPS = {
   'eufy-indoor': { canal: 'retail', note: 'Interior con seguimiento. Sin suscripción obligatoria; ojo con la política de privacidad.' },
   'aqara-g5pro': { canal: 'importacion', note: 'Cámara + hub Zigbee/Thread en un solo aparato. HomeKit Secure Video.' },
   'logitech-view': { canal: 'importacion', note: 'Solo Apple, pero es la mejor integración de HomeKit Secure Video que existe.' },
+
+  'tapo-tc70': { canal: 'retail', note: 'La cámara de entrada de gama. Graba en microSD: cotizar la tarjeta aparte, que es lo que se olvida y luego el cliente descubre que no guardó nada. No es Matter ni entra a Casa de Apple.' },
 
   /* ── Clima ── */
   'ecobee-premium': { canal: 'importacion', note: 'Para casa con calefacción/central. En la mayoría de las casas en México no aplica.' },
@@ -318,6 +323,19 @@ export const PRECIOS_VISTOS = {
   'sonoff-nspanel-pro': { prov: 'unit', precio: [2074, 2374], como: 'NSPanel Pro Panel de Control Inteligente', visto: '2026-08-22' },
   'sonoff-snzb-02p': { prov: 'unit', precio: 192, como: 'SNZB-02P Sensor de Humedad y Temperatura Zigbee', visto: '2026-08-22' },
   'sonoff-garage': { prov: 'unit', precio: 174, como: 'SwitchMan 5V Interruptor WiFi Cerradura Portón', visto: '2026-08-22' },
+
+  /* Amazon México. Aquí el precio depende del tamaño del paquete más que de
+     la marca: el foco Matter cuesta 158 comprado de a dos y 95 de a seis, y
+     esa diferencia decide una casa entera. El rango dice eso, no una
+     incertidumbre. */
+  'orein-a19-matter': { prov: 'amazon', precio: [95, 158], como: 'Orein Matter Focos Inteligentes — 95 en pack de 6, 118 de 4, 158 de 2', visto: '2026-08-22' },
+  'enchufe-matter-15a': { prov: 'amazon', precio: [157, 212], como: 'Matter Smart Plug Mini 15 A pack de 4 — 212 el Linkind de marca', visto: '2026-08-22' },
+  'tapo-tc70': { prov: 'amazon', precio: 499, como: 'Tapo TP-Link TC70 360° 1080p', visto: '2026-08-22' },
+  'sonoff-minir4m': { prov: 'amazon', precio: [274, 372], como: 'SONOFF Matter Smart Switch mini DIY — 274 en promoción de 2, 372 de lista', visto: '2026-08-22' },
+  'shelly-1mini': { prov: 'amazon', precio: 440, como: 'Shelly 1 Mini Gen4 Matter, Zigbee y Wi-Fi, 8 A', visto: '2026-08-22' },
+  'aqara-th': { prov: 'amazon', precio: 664, como: 'Aqara Zigbee sensor de temperatura y humedad', visto: '2026-08-22' },
+  'aqara-g5pro': { prov: 'amazon', precio: 4175, como: 'Aqara Hub cámara 4MP G5 Pro exterior', visto: '2026-08-22' },
+  'ultraloq-bolt': { prov: 'amazon', precio: [2618, 3213], como: 'ULTRALOQ Bolt SE Matter — 3213 la de huella WiFi', visto: '2026-08-22' },
 }
 
 /** Si el precio ya se validó contra una lista de proveedor, con quién y cuándo. */
