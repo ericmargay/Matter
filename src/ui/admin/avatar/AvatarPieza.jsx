@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 
-import Animalito from './Animalito'
+import Personaje from './Personaje'
 import { animalitoBase } from './aleatorio'
 
 /**
@@ -18,10 +18,9 @@ import { animalitoBase } from './aleatorio'
 export default function AvatarPieza({ avatar, pose, ...props }) {
   const config = useMemo(() => avatar ?? animalitoBase(), [avatar])
   return (
-    <Animalito
+    <Personaje
       config={config}
-      pose={pose ?? config.pose ?? 'reposo'}
-      estatura={config.estatura ?? 1.2}
+      estado={pose ?? config.pose ?? 'quieto'}
       {...props}
     />
   )

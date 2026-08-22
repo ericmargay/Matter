@@ -33,7 +33,8 @@ export function animalitoAlAzar() {
     sombrero: aVeces(0.35) ? alAzar(SOMBREROS.filter((s) => s.id !== 'nada')).id : 'nada',
     accesorio: aVeces(0.3) ? alAzar(ACCESORIOS.filter((a) => a.id !== 'nada')).id : 'nada',
     estatura: 1.15 + Math.random() * 0.15,
-    pose: 'reposo',
+    semilla: Math.floor(Math.random() * 1000),
+    pose: 'quieto',
   }
 }
 
@@ -51,6 +52,6 @@ export function animalitoBase() {
     sombrero: 'nada',
     accesorio: 'nada',
     estatura: 1.2,
-    pose: 'reposo',
+    pose: 'quieto',
   }
 }

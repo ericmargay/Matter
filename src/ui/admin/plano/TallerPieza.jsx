@@ -53,6 +53,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
   const esAvatar = item.tipo === 'avatar'
   const [avatar, setAvatar] = useState(item.avatar ?? animalitoBase())
   const [catAvatar, setCatAvatar] = useState(CATS_AVATAR[0].id)
+  const [invocando, setInvocando] = useState(false)
   const [parteSel, setParteSel] = useState(null)
   const [modoParte, setModoParte] = useState('mover')
   const escena = useRef()
@@ -238,7 +239,7 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
                 >
                 <Animar tipo={animacion} semilla={item.id?.length ?? 0}>
                   {esAvatar ? (
-                    <AvatarPieza avatar={avatar} pose={avatar.pose ?? 'reposo'} />
+                    <AvatarPieza avatar={avatar} pose={invocando ? 'poder' : (avatar.pose ?? 'quieto')} invocando={invocando} onFinPoder={() => setInvocando(false)} />
                   ) : pieza ? (
                     <PiezaPropia
                       pieza={pieza}
@@ -353,7 +354,14 @@ export default function TallerPieza({ item, onGuardar, onCerrar, puntos = [], re
             />
           )}
 
-          {seccion === 'pose' && <PanelPose avatar={avatar} onAvatar={setAvatar} />}
+          {seccion === 'pose' && (
+            <PanelPose
+              avatar={avatar}
+              onAvatar={setAvatar}
+              invocando={invocando}
+              onInvocar={() => setInvocando(true)}
+            />
+          )}
 
           {seccion === 'medidas' && (
             <div className="px-3 py-3">
@@ -792,14 +800,30 @@ function PanelAvatar({ avatar, onAvatar, cat, onCat }) {
  * por eso la respiración va en todas —un personaje que no respira se lee como
  * maniquí incluso quieto—.
  */
-function PanelPose({ avatar, onAvatar }) {
+function PanelPose({ avatar, onAvatar, invocando, onInvocar }) {
   return (
     <div className="px-3 py-3">
       <p className="text-[10.5px] leading-snug text-cream-3">
         Reposo para configurar; las demás para cuando ya está puesto en el cuarto. Uno quieto en una esquina se
         lee como maniquí; uno saludando desde la barra se lee como alguien que vive ahí.
       </p>
-      <div className="mt-2 grid grid-cols-2 gap-1">
+      {/* La invocación va aparte de las poses porque no es una pose: es una
+          secuencia que empieza, pasa y termina —y devuelve al personaje a
+          donde estaba—. Ponerla en la misma lista invitaría a dejarla puesta,
+          que es como se arruina un momento. */}
+      <button
+        onClick={onInvocar}
+        disabled={invocando}
+        className="mt-2.5 w-full rounded-lg border border-ember px-2 py-1.5 text-[12px] text-ember transition-colors hover:bg-ember hover:text-ink disabled:opacity-40"
+      >
+        {invocando ? 'Invocando…' : 'Invocar la joya'}
+      </button>
+      <p className="mt-1 text-[10px] leading-snug text-cream-3">
+        Anticipa, sube el brazo, abre la mano, aparece la joya, pulso de luz y aura. Cuatro segundos y medio, y
+        vuelve a lo que estaba haciendo.
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-1">
         {POSES_AVATAR.map((a) => (
           <button
             key={a.id}

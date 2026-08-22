@@ -21,7 +21,7 @@ import { ESPECIE_BY_ID, PROPORCION } from './especies'
  * grupos —la cabeza que asiente, la cola que se mueve, la panza que respira—
  * así que las poses no pesan nada y se pueden mezclar.
  */
-export default function Animalito({ config, pose = 'reposo', estatura = 1.2, ...props }) {
+export default function Animalito({ config, pose = 'reposo', estatura = 1.2, conMotor = false, ...props }) {
   const e = useEstilo()
   const esp = ESPECIE_BY_ID[config?.especie] ?? ESPECIE_BY_ID.gato
 
@@ -71,73 +71,87 @@ export default function Animalito({ config, pose = 'reposo', estatura = 1.2, ...
     const g = { cuerpo: cuerpo.current, cabeza: cabeza.current, raiz: raiz.current }
     if (!g.cuerpo || !g.cabeza) return
 
-    // la respiración va siempre, en todas las poses: es lo que lo hace vivo
-    const respira = 1 + Math.sin(t * 1.6) * 0.018
-    g.cuerpo.scale.set(1, respira, 1)
+    /* Con el motor puesto, el torso, la cabeza y la cola los lleva ÉL: aquí
+       solo quedan los brazos y las piernas. Escribir los dos sobre el mismo
+       hueso en el mismo cuadro es cómo se ve un personaje con epilepsia. */
+    if (!conMotor) {
+      const respira = 1 + Math.sin(t * 1.6) * 0.018
+      g.cuerpo.scale.set(1, respira, 1)
+    }
 
     const bi = brazoIzq.current
     const bd = brazoDer.current
     const pi = piernaIzq.current
     const pd = piernaDer.current
 
-    if (pose === 'camina') {
+    const p0 = { quieto: 'reposo', camina: 'camina', corre: 'camina', saluda: 'saludo', rie: 'contento', sorpresa: 'contento', baila: 'contento', duerme: 'dormido', despierta: 'reposo', sienta: 'pensando', poder: 'pensando' }[pose] ?? pose
+
+    if (p0 === 'camina') {
       const p = t * 6
       if (pi) pi.rotation.x = Math.sin(p) * 0.6
       if (pd) pd.rotation.x = -Math.sin(p) * 0.6
       if (bi) bi.rotation.x = -Math.sin(p) * 0.5
       if (bd) bd.rotation.x = Math.sin(p) * 0.5
       if (g.raiz) g.raiz.position.y = Math.abs(Math.sin(p)) * m.h * 0.012
-      g.cabeza.rotation.z = Math.sin(p * 0.5) * 0.05
-    } else if (pose === 'saludo') {
+      if (!conMotor) g.cabeza.rotation.z = Math.sin(p * 0.5) * 0.05
+    } else if (p0 === 'saludo') {
       if (bd) {
         bd.rotation.z = -2.2
         bd.rotation.x = Math.sin(t * 7) * 0.35
       }
       if (bi) bi.rotation.x = Math.sin(t * 1.2) * 0.06
-      g.cabeza.rotation.z = Math.sin(t * 1.4) * 0.07
-    } else if (pose === 'contento') {
+      if (!conMotor) g.cabeza.rotation.z = Math.sin(t * 1.4) * 0.07
+    } else if (p0 === 'contento') {
       const brinco = Math.abs(Math.sin(t * 3.4))
       if (g.raiz) g.raiz.position.y = brinco * m.h * 0.06
       if (bi) bi.rotation.z = 0.9 + brinco * 0.5
       if (bd) bd.rotation.z = -0.9 - brinco * 0.5
-      g.cabeza.rotation.x = -brinco * 0.12
-    } else if (pose === 'pensando') {
+      if (!conMotor) g.cabeza.rotation.x = -brinco * 0.12
+    } else if (p0 === 'pensando') {
       if (bd) {
         bd.rotation.z = -1.7
         bd.rotation.x = -0.9
       }
-      g.cabeza.rotation.z = 0.16
-      g.cabeza.rotation.y = Math.sin(t * 0.6) * 0.12
-    } else if (pose === 'dormido') {
+      if (!conMotor) {
+        g.cabeza.rotation.z = 0.16
+        g.cabeza.rotation.y = Math.sin(t * 0.6) * 0.12
+      }
+    } else if (p0 === 'dormido') {
       /* Dormido respira más hondo y más lento, y la cabeza se vence. Sin lo
          primero se ve apagado en vez de dormido. */
-      g.cuerpo.scale.set(1, 1 + Math.sin(t * 0.7) * 0.04, 1)
-      g.cabeza.rotation.x = 0.35
-      g.cabeza.rotation.z = 0.2
+      if (!conMotor) {
+        g.cuerpo.scale.set(1, 1 + Math.sin(t * 0.7) * 0.04, 1)
+        g.cabeza.rotation.x = 0.35
+        g.cabeza.rotation.z = 0.2
+      }
       if (bi) bi.rotation.x = 0.15
       if (bd) bd.rotation.x = 0.15
     } else {
       // reposo: asiente apenas y balancea los brazos
-      g.cabeza.rotation.y = Math.sin(t * 0.5) * 0.16
-      g.cabeza.rotation.x = Math.sin(t * 0.9) * 0.035
+      if (!conMotor) {
+        g.cabeza.rotation.y = Math.sin(t * 0.5) * 0.16
+        g.cabeza.rotation.x = Math.sin(t * 0.9) * 0.035
+      }
       if (bi) bi.rotation.x = Math.sin(t * 1.3) * 0.09
       if (bd) bd.rotation.x = -Math.sin(t * 1.3) * 0.09
       if (g.raiz) g.raiz.position.y = Math.sin(t * 1.6) * m.h * 0.004
     }
 
     // la cola va aparte: se mueve en todas las poses menos dormido
-    if (cola.current) cola.current.rotation.y = pose === 'dormido' ? 0 : Math.sin(t * 2.6) * 0.4
+    if (cola.current && !conMotor) cola.current.rotation.y = p0 === 'dormido' ? 0 : Math.sin(t * 2.6) * 0.4
   })
 
   const P = (props2) => <mesh castShadow receiveShadow {...props2} />
 
   return (
-    <group ref={raiz} {...props}>
+    <group ref={raiz} name="pelvis" userData={{ hueso: true }} {...props}>
       {/* patas */}
       {[-1, 1].map((s) => (
         <group
           key={s}
           ref={s < 0 ? piernaIzq : piernaDer}
+          name={s < 0 ? 'hips_l' : 'hips_r'}
+          userData={{ hueso: true }}
           position={[s * m.rCuerpo * 0.42, m.hPata, 0]}
         >
           <P geometry={capsula(m.rPata, m.hPata * 0.55, e.tono)} material={pelaje} position={[0, -m.hPata * 0.5, 0]} />
@@ -146,7 +160,10 @@ export default function Animalito({ config, pose = 'reposo', estatura = 1.2, ...
       ))}
 
       {/* cuerpo de pera y su panza */}
-      <group ref={cuerpo} position={[0, m.yCuerpo, 0]}>
+      {/* Nombres que el motor de personaje reconoce solos. Es el mismo
+          contrato que usa un GLB comprado: si el hueso se llama "chest", la
+          respiración lo encuentra sin que nadie los conecte a mano. */}
+      <group ref={cuerpo} name="chest" userData={{ hueso: true }} position={[0, m.yCuerpo, 0]}>
         <P
           geometry={esfera(m.rCuerpo, e.tono, 22)}
           material={pelaje}
@@ -162,7 +179,13 @@ export default function Animalito({ config, pose = 'reposo', estatura = 1.2, ...
 
         {/* brazos */}
         {[-1, 1].map((s) => (
-          <group key={s} ref={s < 0 ? brazoIzq : brazoDer} position={[s * m.rCuerpo * 0.92, m.hCuerpo * 0.16, 0]}>
+          <group
+            key={s}
+            ref={s < 0 ? brazoIzq : brazoDer}
+            name={s < 0 ? 'LeftHand' : 'RightHand'}
+            userData={{ hueso: true }}
+            position={[s * m.rCuerpo * 0.92, m.hCuerpo * 0.16, 0]}
+          >
             <P
               geometry={capsula(m.rBrazo, m.hCuerpo * 0.5, e.tono)}
               material={pelaje}
@@ -178,7 +201,7 @@ export default function Animalito({ config, pose = 'reposo', estatura = 1.2, ...
       </group>
 
       {/* cabeza */}
-      <group ref={cabeza} position={[0, m.yCabeza, 0]}>
+      <group ref={cabeza} name="head" userData={{ hueso: true }} position={[0, m.yCabeza, 0]}>
         <P geometry={esfera(m.rCabeza, e.tono, 26)} material={pelaje} scale={[1, 0.94, 0.96]} />
         <Cara esp={esp} config={config} m={m} e={e} pelaje={pelaje} panza={panza} oscuro={oscuro} />
         <Orejas esp={esp} m={m} e={e} pelaje={pelaje} panza={panza} />
@@ -345,7 +368,13 @@ function Orejas({ esp, m, e, pelaje, panza }) {
   if (!forma) return null
 
   return [-1, 1].map((s) => (
-    <group key={s} position={[s * r * forma.x, r * forma.y, 0]} rotation={[0, 0, -s * forma.rot]}>
+    <group
+      key={s}
+      name={`ear_${s < 0 ? 'l' : 'r'}`}
+      userData={{ hueso: true }}
+      position={[s * r * forma.x, r * forma.y, 0]}
+      rotation={[0, 0, -s * forma.rot]}
+    >
       <mesh geometry={forma.geo()} material={pelaje} castShadow />
       {/* el interior en el tono de la panza: sin esto la oreja es un bulto */}
       <mesh
@@ -408,7 +437,7 @@ function Cola({ ref: refCola, esp, m, e, pelaje, panza }) {
   }[esp.cola]
 
   return (
-    <group ref={refCola} position={[0, y, z]}>
+    <group ref={refCola} name="tail" userData={{ hueso: true }} position={[0, y, z]}>
       {cuerpo}
     </group>
   )

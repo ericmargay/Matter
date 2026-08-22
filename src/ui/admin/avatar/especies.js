@@ -204,12 +204,16 @@ export const OJOS = [
  * nada: un animalito son ocho movimientos de grupos, no ocho archivos.
  */
 export const POSES = [
-  { id: 'reposo', label: 'Reposo' },
-  { id: 'saludo', label: 'Saludando' },
+  { id: 'quieto', label: 'Quieto' },
   { id: 'camina', label: 'Caminando' },
-  { id: 'contento', label: 'Contento' },
-  { id: 'pensando', label: 'Pensando' },
-  { id: 'dormido', label: 'Dormido' },
+  { id: 'corre', label: 'Corriendo' },
+  { id: 'sienta', label: 'Sentado' },
+  { id: 'duerme', label: 'Dormido' },
+  { id: 'despierta', label: 'Despertando' },
+  { id: 'saluda', label: 'Saludando' },
+  { id: 'rie', label: 'Riendo' },
+  { id: 'sorpresa', label: 'Sorpresa' },
+  { id: 'baila', label: 'Bailando' },
 ]
 
 export const PALETAS = {
