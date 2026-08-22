@@ -558,6 +558,67 @@ canvas {
   box-shadow: 0 0 16px color-mix(in srgb, #4ade80 60%, transparent);
 }
 
+/* El cursor del dictado: parpadea como el del teléfono mientras la frase se
+   escribe sola. Sin él el texto que aparece por palabras se ve a error de
+   carga; con él se lee como dictado en curso. */
+.siri-cursor {
+  animation: siri-cursor 1.05s steps(1, end) infinite;
+}
+
+/* El teléfono llega subiendo y creciendo un pelo, como cuando uno lo levanta
+   de la mesa, y se va por el mismo camino. */
+.siri-entra {
+  animation: siri-entra 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.siri-sale {
+  animation: siri-sale 0.45s cubic-bezier(0.4, 0, 1, 1) both;
+}
+@keyframes siri-entra {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes siri-sale {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+}
+
+/* Cada aparato que se movió entra por su cuenta, con retraso. */
+.siri-tarjeta {
+  animation: siri-tarjeta 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes siri-tarjeta {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes siri-cursor {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .asistente-marco,
   .asistente-marco.trabajando,
@@ -566,5 +627,18 @@ canvas {
   .siri-haciendo,
   .siri-listo {
     animation: asistente-entra 0.01s both;
+  }
+  .siri-cursor {
+    animation: none;
+    opacity: 1;
+  }
+  .siri-tarjeta {
+    animation: none;
+  }
+  .siri-entra {
+    animation: none;
+  }
+  .siri-sale {
+    animation: siri-sale 0.01s both;
   }
 }

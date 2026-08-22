@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 
 import Asistente from '../../Asistente'
+import { DEVICE_BY_ID } from '../../../content/catalog'
 import GlifoAsistente from '../../GlifoAsistente'
+import Siri from '../../siri/Siri'
 import { ASISTENTES, agrupar, alcanceDe, asistentesDe, idsQueManda, porQueFuera } from './asistentes'
 import { escenasDe } from './escenas'
 
@@ -53,6 +55,7 @@ export default function Ambientaciones({ items, onCorrer, bloqueo, espacio }) {
       voz: frase(esc, asistente),
       dice: asistente?.responde ?? 'Listo',
       acciones,
+      detalle: loQueMueve(acciones, items),
       n: Date.now(),
     })
   }
@@ -189,8 +192,19 @@ export default function Ambientaciones({ items, onCorrer, bloqueo, espacio }) {
         </div>
       </div>
 
-      {/* El cuarto cambia cuando el asistente termina de responder, no antes. */}
-      <Asistente peticion={peticion} onHacer={() => onCorrer(peticion.acciones)} />
+      {/* El cuarto cambia cuando el asistente termina de responder, no antes.
+
+          Siri se demuestra con el teléfono entero porque es el que el cliente
+          ya trae en la bolsa: reconoce la forma antes de leer una palabra.
+          Alexa y Google no viven en una pantalla —viven en una bocina— y
+          fingirles un teléfono sería enseñar algo que no existe; para ésos
+          queda el aviso sencillo hasta que cada uno tenga su propia piel. */}
+      {peticion &&
+        (asistente?.id === 'apple' ? (
+          <Siri peticion={peticion} onHacer={() => onCorrer(peticion.acciones)} />
+        ) : (
+          <Asistente peticion={peticion} onHacer={() => onCorrer(peticion.acciones)} />
+        ))}
     </>
   )
 }
@@ -202,4 +216,53 @@ function frase(escena, asistente) {
   const orden = escena.voz.replace(/^(oye siri|alexa|oye google|hey siri)[,\s]+/i, '')
   const inv = asistente?.invocar ?? ASISTENTES.apple.invocar
   return `${inv}, ${orden}`
+}
+
+/* ── lo que se movió, aparato por aparato ──────────────────────────
+   El teléfono lo enseña después de contestar, y ésa es media demostración:
+   una orden de voz que apaga "las luces" no dice nada, pero ver los cuatro
+   renglones con marca y modelo —y que sean los que están en el muro de este
+   cuarto— es lo que convierte la maqueta en presupuesto. */
+function loQueMueve(acciones, items) {
+  /* Primero lo que le toca a cada pieza… */
+  const porPieza = new Map()
+  for (const a of acciones) {
+    const it = items.find((i) => i.id === a.objetivo)
+    const d = it && DEVICE_BY_ID[it.deviceId]
+    if (!d) continue
+    const antes = porPieza.get(a.objetivo)
+    if (antes) antes.hace.push(comoSeDice(a))
+    else porPieza.set(a.objetivo, { d, hace: [comoSeDice(a)] })
+  }
+
+  /* …y luego se juntan las iguales. Cuatro renglones que dicen "Foco A19" no
+     informan más que uno que dice "Foco A19 ×4", y sí ocupan la pantalla que
+     necesita el resto de la casa. */
+  const grupos = new Map()
+  for (const { d, hace } of porPieza.values()) {
+    const dice = [...new Set(hace)].join(' · ')
+    const k = `${d.id}|${dice}`
+    const g = grupos.get(k)
+    if (g) g.n += 1
+    else grupos.set(k, { id: k, nombre: d.name, marca: d.brand, hace: dice, n: 1 })
+  }
+  return [...grupos.values()]
+}
+
+/* En unidades de casa, no de protocolo: nadie pide "atenuar valor 65". */
+function comoSeDice(a) {
+  switch (a.accion) {
+    case 'atenuar':
+      return a.valor === 0 ? 'apagada' : `al ${a.valor}%`
+    case 'tono':
+      return a.valor <= 2700 ? 'cálida' : a.valor >= 4500 ? 'fría' : 'neutra'
+    case 'abrir':
+      return a.valor === 0 ? 'cerrar' : a.valor >= 100 ? 'abrir' : `abrir ${a.valor}%`
+    case 'apagar':
+      return 'apagar'
+    case 'encender':
+      return 'encender'
+    default:
+      return a.accion
+  }
 }
