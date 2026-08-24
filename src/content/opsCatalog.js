@@ -19,6 +19,7 @@
 export const PROVEEDORES = [
   {
     id: 'amazon',
+    mayoreo: 'No publica escalas. Lo más cercano son las promociones de dos piezas y la cuenta de Amazon Business, que a veces enseña precio por volumen en la misma ficha.',
     nombre: 'Amazon México',
     tipo: 'Marketplace',
     entrega: '1–3 días en CDMX',
@@ -29,6 +30,7 @@ export const PROVEEDORES = [
   },
   {
     id: 'ml',
+    mayoreo: 'No hay escalas. Algunos vendedores publican paquetes de 2, 3 o 4 y ahí está todo el descuento por cantidad que va a haber.',
     nombre: 'MercadoLibre',
     tipo: 'Marketplace',
     entrega: '1–4 días, mismo día en zona centro',
@@ -39,6 +41,7 @@ export const PROVEEDORES = [
   },
   {
     id: 'unit',
+    mayoreo: 'Sí, y publicadas en la propia ficha: se ven los cortes a 10, 15 y 25 piezas sin pedir cuenta ni cotización. Es el único de la lista que lo enseña abierto.',
     nombre: 'UNIT Electronics',
     tipo: 'Distribuidor oficial Sonoff · CDMX',
     entrega: 'Mostrador el mismo día en el Centro · envío a toda la república',
@@ -49,6 +52,7 @@ export const PROVEEDORES = [
   },
   {
     id: 'ag',
+    mayoreo: 'Tienen lista de mayoreo por número de parte, pero pide cuenta y no está publicada. FALTA abrirla y capturar los cortes.',
     nombre: 'AG Electrónica',
     tipo: 'Tienda de electrónica · CDMX',
     entrega: 'Mostrador el mismo día · Centro',
@@ -59,6 +63,7 @@ export const PROVEEDORES = [
   },
   {
     id: 'aliexpress',
+    mayoreo: 'Baja por cantidad desde piezas sueltas, y por eso sirve para probar. Los cortes de verdad empiezan donde AliExpress termina.',
     nombre: 'AliExpress',
     tipo: 'Importación directa · pieza',
     entrega: '12–25 días con envío estándar · 7–10 con el rápido',
@@ -69,6 +74,7 @@ export const PROVEEDORES = [
   },
   {
     id: 'alibaba',
+    mayoreo: 'Es el único donde el precio es de fábrica y la escala es el trato completo: MOQ, muestra, molde y empaque propio. Aquí la escala no es un descuento, es el modelo.',
     nombre: 'Alibaba',
     tipo: 'Importación por volumen · serie',
     entrega: '30–60 días marítimo · 10–15 aéreo',
@@ -340,3 +346,94 @@ export const PRECIOS_VISTOS = {
 
 /** Si el precio ya se validó contra una lista de proveedor, con quién y cuándo. */
 export const precioVisto = (device) => PRECIOS_VISTOS[device.id] ?? null
+
+/* ── lo que cuesta según cuántas se pidan ─────────────────────────
+   El precio de una pieza no es un número, es una escala. El SwitchMan M5-120
+   cuesta 311 sueltas y 255 si se piden 25 —dieciocho por ciento— y esa
+   diferencia no aparece en ninguna cotización nuestra porque hoy compramos de
+   a una. Anotar la escala es el primer paso para dejar de hacerlo.
+
+   Cada corte es { desde, precio }: el precio unitario a partir de esa
+   cantidad. `iva` dice si el número ya lo trae —en tienda mexicana casi
+   siempre sí, pero en una lista de mayoreo casi nunca, y confundirlo mueve el
+   dieciséis por ciento del análisis—. Cuando no se sabe, se dice 'por
+   confirmar' y no se adivina.
+
+   ⚠️ Capturado a mano de la ficha del proveedor. Cuando UNIT abra su API esto
+   se llena solo; mientras tanto, la fecha es lo que dice si ya envejeció. */
+export const ESCALAS = {
+  'sonoff-m5': {
+    prov: 'unit',
+    sku: 'AR4333',
+    variante: '2 CH',
+    iva: 'por confirmar',
+    visto: '2026-08-24',
+    cortes: [
+      { desde: 1, precio: 311.0 },
+      { desde: 10, precio: 289.76 },
+      { desde: 15, precio: 271.35 },
+      { desde: 25, precio: 255.15 },
+    ],
+    nota: 'Existencia en las cuatro sucursales en cero: sale de bodega, no de mostrador. Para obra de un día eso importa más que el precio.',
+  },
+
+  /* En Amazon la escala no viene por cantidad sino por tamaño de paquete, que
+     es la misma idea con otro nombre: el foco cuesta 158 comprado de a dos y
+     95 de a seis. */
+  'orein-a19-matter': {
+    prov: 'amazon',
+    iva: 'incluido',
+    visto: '2026-08-24',
+    cortes: [
+      { desde: 2, precio: 157.52 },
+      { desde: 4, precio: 118.45 },
+      { desde: 6, precio: 94.64 },
+    ],
+    nota: 'El de seis estaba en oferta Prime: la lista es 729 el paquete, o sea 121.50 el foco. La escala real hay que leerla contra 121.50, no contra 94.64.',
+  },
+}
+
+/** Los cortes de precio por cantidad de un aparato, si se conocen. */
+export const escalasDe = (device) => ESCALAS[device.id] ?? null
+
+/**
+ * Cuánto costaría la pieza si pidiéramos `cantidad`.
+ *
+ * Devuelve el corte que aplica, no una interpolación: los proveedores no
+ * interpolan, cobran el escalón.
+ */
+export function precioPorCantidad(device, cantidad = 1) {
+  const e = ESCALAS[device.id]
+  if (!e) return null
+  const corte = [...e.cortes].reverse().find((c) => cantidad >= c.desde) ?? e.cortes[0]
+  return { ...corte, prov: e.prov, iva: e.iva, ahorro: e.cortes[0].precio - corte.precio }
+}
+
+/* ── de dónde sale de verdad ──────────────────────────────────────
+   Un aparato de Amazon o de UNIT ya pasó por dos o tres manos: alguien lo
+   fabricó, alguien lo importó y alguien lo puso en un anaquel. Saber en qué
+   escalón compramos nosotros es lo que decide si el equipo deja margen o solo
+   pasa por nuestras manos al mismo precio.
+
+   Los precios de fábrica son de listado público en Alibaba y NO son una
+   cotización: sirven para dimensionar la brecha, no para cerrar un pedido. */
+export const RAIZ = {
+  'sonoff-m5': {
+    fabrica: 'ITEAD / SONOFF (Shenzhen)',
+    fob: [10.9, 13.5],
+    moneda: 'USD',
+    moq: '1–5 piezas en listado; 10,000 para empaque propio',
+    fuente: 'listados de Alibaba, 2026-08-24',
+    ojo: 'SONOFF tiene programa de distribuidor propio. Antes de ir a un intermediario de Alibaba conviene tocar la puerta de la marca.',
+  },
+  'orein-a19-matter': {
+    fabrica: 'Sin marca — OREIN es marca de vendedor, no de fábrica',
+    fob: [2.68, 4.5],
+    moneda: 'USD',
+    moq: '2 a 1,000 piezas según proveedor',
+    fuente: 'listados de Alibaba para foco inteligente 9 W, 2026-08-24',
+    ojo: 'El rango bajo es de foco Tuya sin certificar. Matter certificado cuesta más y hay clones con el logo impreso: la certificación se pide por número de VID/PID, no por foto.',
+  },
+}
+
+export const raizDe = (device) => RAIZ[device.id] ?? null
