@@ -364,8 +364,23 @@ export default function PlanoCuarto({ room, onCerrar }) {
       tocados += 1
       return { ...it, ancla }
     })
-    if (!tocados) return
-    guardar({ items }, `Pegó ${tocados} ${tocados === 1 ? 'pieza' : 'piezas'} a su muro o su mueble`)
+    if (tocados) {
+      guardar({ items }, `Pegó ${tocados} ${tocados === 1 ? 'pieza' : 'piezas'} a su muro o su mueble`)
+      return
+    }
+
+    /* Y aunque no haya nada que pegar, se vuelve a resolver una vez con las
+       alturas ya MEDIDAS de la geometría. Al abrir, la primera resolución usa
+       el número del catálogo porque los muebles todavía no se han dibujado; un
+       instante después ya se sabe dónde quedó cada tapa, y es entonces cuando
+       lo que va encima se sienta de verdad. */
+    const t = setTimeout(() => {
+      const puestos = resolverAnclas(plano)
+      if (puestos !== plano.items) {
+        guardar({ items: puestos }, 'Asentó lo que va sobre un mueble')
+      }
+    }, 600)
+    return () => clearTimeout(t)
     // sólo al abrir el cuarto: es una puesta al día, no una regla de cada render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.id, plano?.items?.length])

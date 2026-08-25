@@ -73,7 +73,7 @@ export const MUEBLES = {
     V('modularBajo', 'Modular bajo', 'Bajo y de tres metros. La pieza de una sala grande y despejada.', { v: 'bajo', w: 3.0 }),
     V('chaiseGrande', 'Chaise grande', '3.00 con chaise. La configuración más común de sala familiar.', { v: 'chaise', w: 3.0, d: 1.7 }),
   ] },
-  mesaCentro: { ...(AN('Mesa de centro', N.MesaCentro, 1.1, 0.62, 0.45, { w: 1.1, d: 0.62 })), variantes: [
+  mesaCentro: { ...(AN('Mesa de centro', N.MesaCentro, 1.1, 0.62, 0.45, { w: 1.1, d: 0.62, cubierta: 0.41 })), variantes: [
     V('dosNiveles', 'Dos niveles', 'Tablero y entrepaño. Ahí viven los controles y las revistas.', { v: 'dosNiveles' }),
     V('simple', 'Tablero simple', 'Un solo tablero sobre cuatro patas. Se ve más ligera.', { v: 'simple' }),
     V('costados', 'Costados macizos', 'Dos tablones en vez de patas. Ancla la sala.', { v: 'costados' }),
@@ -85,7 +85,7 @@ export const MUEBLES = {
     V('chica', 'Chica', '0.80 de frente. Para sala de dos plazas.', { v: 'simple', w: 0.8, d: 0.5 }),
     V('nido', 'Nido redondo', 'Redonda y baja, se mueve con una mano. Libera la sala cuando llega gente.', { v: 'redonda', w: 0.62, d: 0.62 }),
   ] },
-  mueble_tv: { ...(AN('Mueble de TV', N.MuebleTv, 1.9, 0.42, 0.5, { w: 1.9, d: 0.42 })), variantes: [
+  mueble_tv: { ...(AN('Mueble de TV', N.MuebleTv, 1.9, 0.42, 0.5, { w: 1.9, d: 0.42, cubierta: 0.49 })), variantes: [
     V('puertas', 'Con puertas', 'Cierra lo que hay dentro. El módem respira mal aquí: ojo.', { v: 'puertas' }),
     V('abierto', 'Abierto', 'Repisa a la vista. Es donde de verdad debe ir el módem y el Apple TV.', { v: 'abierto' }),
     V('patas', 'Con patas', 'Levantado 20 cm. Se limpia debajo y el cable pasa por atrás sin doblarse.', { v: 'patas' }),
@@ -170,7 +170,7 @@ export const MUEBLES = {
     V('conCajones', 'Base con cajones', 'Guardado bajo el colchón. OJO: tapa el contacto de abajo, hay que subirlo antes.', { v: 'conCajones' }),
     V('king', 'King size', '1.90 × 2.00. Pide 70 cm libres de cada lado para poder tender.', { v: 'king', w: 1.9 }),
   ] },
-  buro: { ...(AN('Buró', N.Buro, 0.46, 0.4, 0.54, { w: 0.46, alto: 0.52 })), variantes: [
+  buro: { ...(AN('Buró', N.Buro, 0.46, 0.4, 0.54, { w: 0.46, alto: 0.52, cubierta: 0.44 })), variantes: [
     V('cajones', 'Dos cajones', 'El de siempre. Superficie completa para lámpara y despertador.', { v: 'cajones' }),
     V('repisa', 'Cajón y repisa', 'Un cajón arriba y hueco abierto abajo. Ahí caben libros y el cargador.', { v: 'repisa' }),
     V('patasAltas', 'Patas altas', 'Cuerpo chico sobre patas de madera. Se ve más ligero y se limpia debajo.', { v: 'patasAltas' }),

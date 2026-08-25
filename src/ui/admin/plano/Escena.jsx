@@ -852,6 +852,7 @@ function useSombras(ref) {
 function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = true }) {
   const g = useRef()
   useSombras(g)
+
   const def = MUEBLES[item.tipo]
   /* Una pieza propia no tiene componente: son sus partes. Puede venir sola
      —dada de alta desde cero— o de haber horneado una del catálogo, y en los

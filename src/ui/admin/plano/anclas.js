@@ -47,7 +47,13 @@ export function altoDe(item) {
   if (!def) return 0.4
   const va = def.variantes?.find((v) => v.id === item.variante)
   const props = { ...def.props, ...(va?.props ?? {}), ...(item.ajustes ?? {}) }
-  return props.alto ?? props.h ?? item.huella?.alto ?? def.alto ?? 0.4
+  /* `cubierta` es dónde queda la TAPA, que no es lo mismo que la altura
+     nominal: el buró se declara de 52 y su cuerpo se dibuja de 2 a 44 porque
+     el modelo le resta patas y remate. Ocho centímetros, y todo lo que se le
+     ponía encima quedaba flotando. Se declara pieza por pieza porque cada
+     modelo la resuelve a su manera; donde no está, la altura nominal es una
+     aproximación buena. */
+  return props.cubierta ?? def.cubierta ?? props.alto ?? props.h ?? item.huella?.alto ?? def.alto ?? 0.4
 }
 
 /** Media pieza, para saber dónde termina. */
