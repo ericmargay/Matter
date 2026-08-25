@@ -342,6 +342,13 @@ export const PRECIOS_VISTOS = {
   'aqara-th': { prov: 'amazon', precio: 664, como: 'Aqara Zigbee sensor de temperatura y humedad', visto: '2026-08-22' },
   'aqara-g5pro': { prov: 'amazon', precio: 4175, como: 'Aqara Hub cámara 4MP G5 Pro exterior', visto: '2026-08-22' },
   'ultraloq-bolt': { prov: 'amazon', precio: [2618, 3213], como: 'ULTRALOQ Bolt SE Matter — 3213 la de huella WiFi', visto: '2026-08-22' },
+
+  /* Las dos piezas que se repiten en todos los espacios y que seguíamos
+     cotizando de memoria. Ninguna de las dos la vende UNIT: su línea es
+     componente y Sonoff, no tira decorativa ni multicontacto. */
+  'tapo-l930': { prov: 'amazon', precio: 801, como: 'TP-Link Tapo L930-5 tira 5 m RGBW', visto: '2026-08-24' },
+  'kasa-kp303': { prov: 'amazon', precio: 627, como: 'Kasa KP303 regleta 3 tomas inteligentes + 2 USB', visto: '2026-08-24' },
+  'regleta-smart': { prov: 'amazon', precio: [498, 873], como: 'de la EASYTAO con USB a la meross de 4 tomas y 4 USB', visto: '2026-08-24' },
 }
 
 /** Si el precio ya se validó contra una lista de proveedor, con quién y cuándo. */
