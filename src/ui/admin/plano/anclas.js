@@ -69,9 +69,17 @@ export function muroDe(item, plano) {
      hacía que el ancla se la devolviera: los burós quedaban flotando a cuarenta
      centímetros, que es justo su propia altura mal usada. */
   const cuelga = MUEBLES_DE_MURO.has(item.tipo) || item.clase === 'punto' || item.clase === 'equipo'
+  /* El avance por el muro se guarda en METROS desde la esquina, no en
+     proporción. Con proporción, estirar el cuarto medio metro corría el clóset
+     veinticinco centímetros hacia el centro, y un clóset no se mueve porque el
+     cuarto crezca: sigue a sesenta de su esquina. La proporción sólo tiene
+     sentido en el plafón, donde los empotrados sí se reparten. */
+  const eje = MUROS[muro].eje
+  const d = eje === 'x' ? item.z + hz : item.x + hx
   return {
     a: 'muro',
     muro,
+    d: Math.round(d * 1000) / 1000,
     t: Math.min(1, Math.max(0, t)),
     ...(cuelga ? { y: item.y ?? 0.4 } : {}),
     sep: dist,
@@ -105,8 +113,16 @@ export function anclaEnMuro(item, plano, muro) {
   const m = MUROS[muro]
   if (!m) return null
   const sep = Math.abs(m.eje === 'x' ? item.x - hx * m.signo : item.z - hz * m.signo)
+  const d = m.eje === 'x' ? item.z + hz : item.x + hx
   const t = m.eje === 'x' ? (item.z + hz) / (hz * 2) : (item.x + hx) / (hx * 2)
-  return { a: 'muro', muro, t: Math.min(1, Math.max(0, t)), y: item.y ?? 0.4, sep }
+  return {
+    a: 'muro',
+    muro,
+    d: Math.round(d * 1000) / 1000,
+    t: Math.min(1, Math.max(0, t)),
+    y: item.y ?? 0.4,
+    sep,
+  }
 }
 
 /**
@@ -217,7 +233,11 @@ export function resolverAnclas(plano) {
       const sep = a.sep ?? 0
       // sobre el muro: la coordenada del eje la fija el muro, la otra el avance
       const fijo = (m.eje === 'x' ? hx : hz) * m.signo - m.signo * sep
-      const corre = (m.eje === 'x' ? hz : hx) * (a.t * 2 - 1)
+      const largoMuro = (m.eje === 'x' ? hz : hx) * 2
+      /* Distancia desde la esquina si la hay; si es un plano viejo que sólo
+         guardó proporción, se usa ésa. */
+      const avance = a.d != null ? a.d : (a.t ?? 0.5) * largoMuro
+      const corre = Math.max(-largoMuro / 2, Math.min(largoMuro / 2, avance - largoMuro / 2))
       const x = m.eje === 'x' ? fijo : corre
       const z = m.eje === 'x' ? corre : fijo
       if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005) return it

@@ -525,14 +525,35 @@ function semillaDe(id = '') {
  * lejos del centro es el muro donde están. No se guarda su giro en el plano y
  * tampoco hace falta: la geometría lo dice sola.
  */
+const MIRA_MURO = {
+  'x-': new THREE.Vector3(1, 0, 0),
+  'x+': new THREE.Vector3(-1, 0, 0),
+  'z-': new THREE.Vector3(0, 0, 1),
+  'z+': new THREE.Vector3(0, 0, -1),
+}
+
 function haciaAdentro(p) {
+  /* Si el contacto sabe en qué muro vive, ése manda. Adivinar por la geometría
+     falla justo en los cuartos alargados: un contacto en el muro del fondo pero
+     muy hacia un costado tiene más |x| que |z|, así que se le calculaba el muro
+     equivocado y salía mirando de lado — con su clavija y su cable apuntando a
+     ninguna parte. */
+  const m = p.ancla?.a === 'muro' ? MIRA_MURO[p.ancla.muro] : null
+  if (m) return m.clone()
   return Math.abs(p.x) >= Math.abs(p.z)
     ? new THREE.Vector3(-Math.sign(p.x) || 1, 0, 0)
     : new THREE.Vector3(0, 0, -Math.sign(p.z) || 1)
 }
 
-/* Las tres entradas del adaptador, medidas sobre el ancho de la pieza. */
-const BOCAS = [-0.021, 0, 0.021]
+/* Las tres entradas del adaptador. Dos ven al cuarto y la tercera sale de
+   CANTO, que es la gracia de esta pieza: con el sofá pegado al muro, la
+   clavija que estorba es la que sale de frente, y ésta sale de lado.
+   { a: cuánto se corre sobre el ancho, lateral: si mira al costado } */
+const BOCAS = [
+  { a: -0.021, lateral: false },
+  { a: 0.021, lateral: false },
+  { a: 0.033, lateral: true },
+]
 
 /**
  * El adaptador plano de tres vías que va en cada contacto de la casa.
@@ -558,10 +579,14 @@ function Adaptador({ punto }) {
         <meshStandardMaterial color="#e8e6e1" roughness={0.55} />
       </mesh>
       {/* las tres bocas, hundidas */}
-      {BOCAS.map((x) => (
-        <group key={x} position={[x, 0, 0.0072]}>
+      {BOCAS.map((b) => (
+        <group
+          key={b.a}
+          position={b.lateral ? [b.a, 0, 0] : [b.a, 0, 0.0072]}
+          rotation={b.lateral ? [0, Math.PI / 2, 0] : [0, 0, 0]}
+        >
           {[-0.005, 0.005].map((d) => (
-            <mesh key={d} position={[d, 0, 0]}>
+            <mesh key={d} position={[d, 0, b.lateral ? 0.0055 : 0]}>
               <boxGeometry args={[0.0022, 0.011, 0.002]} />
               <meshStandardMaterial color="#2a2e38" />
             </mesh>
@@ -636,10 +661,16 @@ function Cables({ items, cuarto, enMano, onTomarClavija, onGuiarCable, onAgarrar
         /* La clavija queda EN su boca del adaptador, con las patas metidas.
            Antes salía a ocho centímetros del contacto en la dirección de su
            aparato, y con dos cables al mismo contacto se encimaban. */
+        const b = BOCAS[boca]
+        /* En la boca lateral la clavija sale de canto y pegada al muro: es la
+           que deja arrimar el mueble. En las de frente sale hacia el cuarto. */
         const clavija = new THREE.Vector3(destino.x, destino.y ?? 0.4, destino.z)
-          .addScaledVector(dentro, 0.045)
-          .addScaledVector(ancho, BOCAS[boca])
-        const quat = new THREE.Quaternion().setFromUnitVectors(ARRIBA, dentro.clone().negate())
+          .addScaledVector(dentro, b.lateral ? 0.022 : 0.045)
+          .addScaledVector(ancho, b.lateral ? b.a + 0.03 : b.a)
+        const quat = new THREE.Quaternion().setFromUnitVectors(
+          ARRIBA,
+          b.lateral ? ancho.clone().negate() : dentro.clone().negate(),
+        )
 
         const desde = puntoSalida(it, null, cable.salida)
         /* Si el cable no da, se dibuja en rojo. Es la conversación que hay que
