@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "models": "node scripts/fetch-models.mjs",
     "photos": "node scripts/fetch-photos.mjs",
+    "plano:base": "node scripts/plano-base.mjs",
     "assets": "/Applications/Blender.app/Contents/MacOS/Blender --background --python blender/build_assets.py",
     "build:admin": "VITE_ADMIN=on BASE_PATH=/panel/ vite build --outDir dist-admin",
     "build:all": "BASE_PATH=/ VITE_ADMIN=off vite build && npm run build:admin",
