@@ -6,7 +6,15 @@ import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, ID_MUROS, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
 import { MUROS_ACABADO, PISOS } from './acabados'
 import { cableDeMueble, cablePorDefecto, llevaCable } from './cables'
-import { anclaAuto, anclaEnMuro, comoSeLlama, murosCerca, ponerEnMuro, resolverAnclas } from './anclas'
+import {
+  agrandarSiNoCabe,
+  anclaAuto,
+  anclaEnMuro,
+  comoSeLlama,
+  murosCerca,
+  ponerEnMuro,
+  resolverAnclas,
+} from './anclas'
 import { comoAloja, dispositivosDe } from './aloja'
 import { ESPACIOS } from '../../../content/espacios'
 import { DISPOSICIONES } from './paneles'
@@ -497,7 +505,11 @@ export default function PlanoCuarto({ room, onCerrar }) {
        contacto, al mueble que tenga debajo si es un aparato. Después ya no se
        adivina sola — se cambia a mano desde su ficha. */
     const ancla = item.ancla ?? anclaAuto(item, plano, plano.items)
-    setItems([...plano.items, ancla ? { ...item, ancla } : item], que)
+    const items = [...plano.items, ancla ? { ...item, ancla } : item]
+    /* Y si la pieza ya no cabe contra ese muro, el cuarto crece. Es una regla
+       de obra: si va un clóset de 1.80 contra esa pared, la pared mide por lo
+       menos 1.80. */
+    guardar({ items, ...agrandarSiNoCabe({ ...plano, items }) }, que)
     setSeleccion(item.id)
     setColocando(null)
   }
@@ -885,7 +897,10 @@ export default function PlanoCuarto({ room, onCerrar }) {
                 const items = plano.items.map((it) =>
                   it.id === seleccion ? conAncla(it) : it,
                 )
-                guardar({ items }, `Acomodó una pieza en ${room.nombre}`)
+                guardar(
+                  { items, ...agrandarSiNoCabe({ ...plano, items }) },
+                  `Acomodó una pieza en ${room.nombre}`,
+                )
               }}
               enMano={enMano}
               onTomarClavija={setEnMano}

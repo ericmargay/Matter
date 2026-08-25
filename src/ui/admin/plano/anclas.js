@@ -64,7 +64,18 @@ export function muroDe(item, plano) {
      la pared" de "está cerca de la pared", que son dos cosas distintas. */
   const limite = MUEBLES_DE_MURO.has(item.tipo) || item.clase === 'punto' ? 0.3 : canto + 0.25
   if (dist > limite) return null
-  return { a: 'muro', muro, t: Math.min(1, Math.max(0, t)), y: item.y ?? 0.4, sep: dist }
+  /* La altura sólo la fija el muro para lo que de verdad cuelga de él. Un buró
+     arrimado a la pared sigue estando en el suelo, y guardarle una altura
+     hacía que el ancla se la devolviera: los burós quedaban flotando a cuarenta
+     centímetros, que es justo su propia altura mal usada. */
+  const cuelga = MUEBLES_DE_MURO.has(item.tipo) || item.clase === 'punto' || item.clase === 'equipo'
+  return {
+    a: 'muro',
+    muro,
+    t: Math.min(1, Math.max(0, t)),
+    ...(cuelga ? { y: item.y ?? 0.4 } : {}),
+    sep: dist,
+  }
 }
 
 /**
@@ -105,7 +116,13 @@ export function anclaEnMuro(item, plano, muro) {
  * cubierta. Un Apple TV a un metro sobre el buró no está EN el buró, está
  * colgado del muro de atrás, y anclarlo al buró lo haría bajarse solo.
  */
+/* Lo que va POR DEBAJO de los muebles y nunca encima de ellos. Un tapete
+   anclado a la mesa de centro se subía a la cubierta, que es lo contrario de
+   un tapete. */
+const NUNCA_ENCIMA = new Set(['tapete', 'cuadroPiso'])
+
 export function muebleBajo(item, items) {
+  if (NUNCA_ENCIMA.has(item.tipo)) return null
   const y = item.y ?? 0
   let mejor = null
   for (const otro of items) {
@@ -204,7 +221,7 @@ export function resolverAnclas(plano) {
       const x = m.eje === 'x' ? fijo : corre
       const z = m.eje === 'x' ? corre : fijo
       if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005) return it
-      return { ...it, x, z, y: a.y ?? it.y }
+      return { ...it, x, z, ...(a.y != null ? { y: a.y } : {}) }
     }
 
     if (a.a === 'techo') {
@@ -279,4 +296,34 @@ export function ponerEnMuro(item, plano) {
     rot: GIRO_MURO[cerca.muro] ?? 0,
   }
   return { ...puesto, ancla: anclaEnMuro(puesto, plano, cerca.muro) }
+}
+
+/**
+ * Agranda el cuarto si algo ya no cabe.
+ *
+ * La regla es de obra, no de dibujo: si el cliente quiere un clóset de 1.80
+ * contra ese muro, el muro mide por lo menos 1.80. Antes el mueble se salía
+ * por la pared y quedaba medio flotando en el patio, que no le sirve a nadie.
+ *
+ * Sólo CRECE, nunca encoge: achicar el cuarto es una decisión de quien mide, y
+ * un editor que te devuelve las medidas cada vez que mueves algo es
+ * insoportable. Y sólo se llama al colocar o al soltar una pieza, no al
+ * escribir una medida a mano — ahí manda quien escribe.
+ */
+export function agrandarSiNoCabe(plano) {
+  let ancho = plano.ancho ?? 4
+  let largo = plano.largo ?? 4
+  for (const it of plano.items ?? []) {
+    if (it.clase !== 'mueble') continue
+    const def = MUEBLES[it.tipo]
+    if (!def || MUEBLES_DE_MURO.has(it.tipo)) continue
+    const c = Math.abs(Math.cos(it.rot ?? 0))
+    const s = Math.abs(Math.sin(it.rot ?? 0))
+    const ew = ((def.w ?? 0.4) * c + (def.d ?? 0.4) * s) / 2
+    const ed = ((def.w ?? 0.4) * s + (def.d ?? 0.4) * c) / 2
+    ancho = Math.max(ancho, (Math.abs(it.x) + ew) * 2 + 0.06)
+    largo = Math.max(largo, (Math.abs(it.z) + ed) * 2 + 0.06)
+  }
+  const redondo = (n) => Math.round(n * 100) / 100
+  return { ancho: redondo(ancho), largo: redondo(largo) }
 }
