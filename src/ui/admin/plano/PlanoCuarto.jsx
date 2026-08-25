@@ -301,6 +301,11 @@ export default function PlanoCuarto({ room, onCerrar }) {
     )
   }
 
+  /** Contactos normales del cuarto: cada uno lleva su adaptador. */
+  const cuantosEnchufes = plano.items.filter(
+    (i) => i.clase === 'punto' && i.tipo === 'enchufe',
+  ).length
+
   /** Cuántos cables hay y cuántos ya están acomodados. */
   const cuentaCables = plano.items.reduce(
     (a, it) => {
@@ -669,6 +674,28 @@ export default function PlanoCuarto({ room, onCerrar }) {
                 <p className="mt-2 text-[10.5px] leading-snug text-cream-3">
                   Canaleta pegada y pintada del color del muro, con grapas donde no la amerita. Sin
                   obra y reversible: se cotiza por punto y entra el material del catálogo.
+                </p>
+              </div>
+            )}
+
+            {/* ── el adaptador de tres vías ──
+                Va en todos los contactos y por eso se cuenta solo. Es de las
+                piezas que nadie cotiza y que arreglan medio cuarto: la
+                clavija se pliega, así que el mueble vuelve a quedar pegado al
+                muro en vez de separado por un cable doblado. */}
+            {cuantosEnchufes > 0 && (
+              <div className="mt-2 rounded-lg border border-line p-2">
+                <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">
+                  Adaptadores de 3 vías
+                </p>
+                <p className="mt-1 text-[10.5px] leading-snug text-cream-3">
+                  Uno por contacto: <span className="text-cream">{cuantosEnchufes}</span> en este
+                  espacio. Ya salen dibujados en el plano.
+                </p>
+                <p className="mt-1 text-[10.5px] leading-snug text-cream-3">
+                  Dan la tercera toma que siempre falta y su clavija se pliega, que es lo que deja
+                  arrimar el mueble al muro. Se piden de Amazon Estados Unidos, con una semana de
+                  espera.
                 </p>
               </div>
             )}

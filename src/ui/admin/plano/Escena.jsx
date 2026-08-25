@@ -475,7 +475,68 @@ function Seleccion({ item, modo, onParchar, onFin }) {
  */
 const ARRIBA = new THREE.Vector3(0, 1, 0)
 
-function Cables({ items, enMano, onTomarClavija, onGuiarCable, onSoltarCable }) {
+/** Un número estable entre 0 y 1 a partir del id. Mismo cable, mismo azar. */
+function semillaDe(id = '') {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 100000
+  return (h % 1000) / 1000
+}
+
+/**
+ * Hacia dónde mira un contacto: hacia adentro del cuarto.
+ *
+ * Los contactos van pegados a un muro, así que el eje en el que están más
+ * lejos del centro es el muro donde están. No se guarda su giro en el plano y
+ * tampoco hace falta: la geometría lo dice sola.
+ */
+function haciaAdentro(p) {
+  return Math.abs(p.x) >= Math.abs(p.z)
+    ? new THREE.Vector3(-Math.sign(p.x) || 1, 0, 0)
+    : new THREE.Vector3(0, 0, -Math.sign(p.z) || 1)
+}
+
+/* Las tres entradas del adaptador, medidas sobre el ancho de la pieza. */
+const BOCAS = [-0.021, 0, 0.021]
+
+/**
+ * El adaptador plano de tres vías que va en cada contacto de la casa.
+ *
+ * Es de las piezas más útiles y de las que nadie se acuerda de cotizar: un
+ * contacto da dos tomas y siempre hacen falta tres, y sobre todo, la clavija
+ * de este adaptador se pliega. Eso es lo que permite que un mueble o un sofá
+ * queden pegados al muro sin doblar cables ni separarlo diez centímetros.
+ *
+ * Se dibuja en TODOS los contactos y no sólo donde hay algo enchufado: es como
+ * entregamos la instalación, y verlo en el plano es lo que hace que se cotice.
+ */
+function Adaptador({ punto }) {
+  const dentro = haciaAdentro(punto)
+  const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dentro)
+  const pos = new THREE.Vector3(punto.x, punto.y ?? 0.4, punto.z).addScaledVector(dentro, 0.023)
+
+  return (
+    <group position={pos.toArray()} quaternion={quat.toArray()}>
+      {/* el cuerpo: 6.6 × 4.3 × 1.4 cm, como el de verdad */}
+      <mesh castShadow>
+        <boxGeometry args={[0.066, 0.043, 0.014]} />
+        <meshStandardMaterial color="#e8e6e1" roughness={0.55} />
+      </mesh>
+      {/* las tres bocas, hundidas */}
+      {BOCAS.map((x) => (
+        <group key={x} position={[x, 0, 0.0072]}>
+          {[-0.005, 0.005].map((d) => (
+            <mesh key={d} position={[d, 0, 0]}>
+              <boxGeometry args={[0.0022, 0.011, 0.002]} />
+              <meshStandardMaterial color="#2a2e38" />
+            </mesh>
+          ))}
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function Cables({ items, enMano, onTomarClavija, onGuiarCable, onAgarrarCable, onSoltarCable }) {
   const enchufes = useMemo(
     () => items.filter((i) => i.clase === 'punto' && (i.tipo === 'enchufe' || i.tipo === 'salida')),
     [items],
@@ -500,30 +561,49 @@ function Cables({ items, enMano, onTomarClavija, onGuiarCable, onSoltarCable }) 
         .filter(Boolean),
     [items],
   )
-  if (conCable.length === 0 || enchufes.length === 0) return null
+
+  /* A qué contacto va cada cable y en qué boca del adaptador queda.
+     Sin repartirlos, tres clavijas del mismo contacto se dibujaban una encima
+     de otra y parecía una sola. */
+  const destinos = useMemo(() => {
+    const usados = new Map()
+    return conCable.map(({ it, cable }) => {
+      const destino =
+        enchufes.find((e) => e.id === cable.enchufe) ??
+        (enchufes.length
+          ? enchufes.reduce((a, b) =>
+              Math.hypot(b.x - it.x, b.z - it.z) < Math.hypot(a.x - it.x, a.z - it.z) ? b : a,
+            )
+          : null)
+      if (!destino) return { it, cable, destino: null, boca: 0 }
+      const n = usados.get(destino.id) ?? 0
+      usados.set(destino.id, n + 1)
+      return { it, cable, destino, boca: n % BOCAS.length }
+    })
+  }, [conCable, enchufes])
+
+  if (enchufes.length === 0) return null
 
   return (
     <>
-      {conCable.map(({ it, cable }) => {
-        const destino =
-          enchufes.find((e) => e.id === cable.enchufe) ??
-          enchufes.reduce((a, b) =>
-            Math.hypot(b.x - it.x, b.z - it.z) < Math.hypot(a.x - it.x, a.z - it.z) ? b : a,
-          )
-        /* La clavija SALE del contacto, no vive dentro de él: ocho centímetros
-           hacia donde está su aparato, que es lo que hace una clavija puesta.
-           Y de paso deja de pelearse el clic con el contacto. */
-        const hacia = new THREE.Vector3(it.x - destino.x, 0, it.z - destino.z)
-        if (hacia.lengthSq() > 0.0001) hacia.normalize().multiplyScalar(0.08)
-        else hacia.set(0, 0, 0.08)
-        const clavija = new THREE.Vector3(destino.x, destino.y ?? 0.4, destino.z).add(hacia)
-        /* Las patas de la clavija apuntan AL contacto. Sin esto todas salían
-           viendo hacia arriba y se leían como una pieza suelta junto al
-           enchufe en vez de una clavija metida en él. */
-        const quat = new THREE.Quaternion().setFromUnitVectors(
-          ARRIBA,
-          hacia.clone().negate().normalize(),
-        )
+      {enchufes
+        .filter((e) => e.tipo === 'enchufe')
+        .map((e) => (
+          <Adaptador key={`ad-${e.id}`} punto={e} />
+        ))}
+
+      {destinos.map(({ it, cable, destino, boca }) => {
+        if (!destino) return null
+        const dentro = haciaAdentro(destino)
+        // el ancho del adaptador corre perpendicular al muro, sobre el piso
+        const ancho = new THREE.Vector3(-dentro.z, 0, dentro.x)
+        /* La clavija queda EN su boca del adaptador, con las patas metidas.
+           Antes salía a ocho centímetros del contacto en la dirección de su
+           aparato, y con dos cables al mismo contacto se encimaban. */
+        const clavija = new THREE.Vector3(destino.x, destino.y ?? 0.4, destino.z)
+          .addScaledVector(dentro, 0.045)
+          .addScaledVector(ancho, BOCAS[boca])
+        const quat = new THREE.Quaternion().setFromUnitVectors(ARRIBA, dentro.clone().negate())
 
         const desde = puntoSalida(it, null, cable.salida)
         /* Si el cable no da, se dibuja en rojo. Es la conversación que hay que
@@ -539,7 +619,9 @@ function Cables({ items, enMano, onTomarClavija, onGuiarCable, onSoltarCable }) 
               ruta={cable.ruta}
               alcanza={alcanza}
               guia={cable.guia ?? null}
+              semilla={semillaDe(it.id)}
               onGuiar={onGuiarCable ? (x, z) => onGuiarCable(it.id, x, z) : undefined}
+              onAgarrar={onAgarrarCable}
               onSoltar={onSoltarCable}
             />
             <Clavija
@@ -1817,6 +1899,9 @@ export default function Escena({
 }) {
   const { ancho, largo, alto } = plano
   const [arrastrando, setArrastrando] = useState(null)
+  /* Mientras se acomoda un cable la cámara no se mueve: es el mismo estorbo
+     que ya tenía la cota del muro y se resuelve igual. */
+  const [acomodando, setAcomodando] = useState(false)
   const [encima, setEncima] = useState(null)
   const [cam, setCam] = useState([1, 1])
   const camX = cam[0]
@@ -1832,8 +1917,8 @@ export default function Escena({
      canvas, no el raycaster— así que jalar la cota giraba la escena al mismo
      tiempo y no había forma de atinarle a la medida. */
   useEffect(() => {
-    if (orbita.current) orbita.current.enabled = !midiendo
-  }, [midiendo])
+    if (orbita.current) orbita.current.enabled = !midiendo && !acomodando
+  }, [midiendo, acomodando])
 
   /* Como en Spline: el primer clic SELECCIONA y nada más. Solo lo que ya está
      seleccionado se puede arrastrar. Antes cualquier roce movía la pieza que
@@ -2050,7 +2135,11 @@ export default function Escena({
         enMano={enMano}
         onTomarClavija={onTomarClavija}
         onGuiarCable={onGuiarCable}
-        onSoltarCable={onSoltarCable}
+        onAgarrarCable={() => setAcomodando(true)}
+        onSoltarCable={() => {
+          setAcomodando(false)
+          onSoltarCable?.()
+        }}
       />
       {/* El hover se suelta en cuanto su pieza deja de existir: si no, se
           queda apuntando a un fantasma hasta que el puntero se mueva. */}

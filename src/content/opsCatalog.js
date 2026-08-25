@@ -138,6 +138,7 @@ export const OPS = {
   'aqara-tvoc': { canal: 'importacion', note: 'Calidad de aire con pantalla e-ink. Buen disparador para el purificador.' },
 
   /* ── Energía ── */
+  'adaptador-3-vias': { canal: 'retail', prov: ['amazon', 'ml'], note: 'Viene de Amazon Estados Unidos: hay que sumarle envío y una semana. Se pide de a varios porque va uno en cada contacto, y conviene tener repuesto en la camioneta.' },
   'enchufe-matter-15a': { canal: 'retail', prov: ['amazon', 'ml'], note: 'Se pide de a cuatro o no sale la cuenta. Certificado Matter de verdad —hay clones con el logo impreso y sin certificar—, así que revisar que la caja traiga el código QR de emparejamiento Matter y no solo un QR de app.' },
 
   /* ── Acceso y seguridad ── */
@@ -349,6 +350,7 @@ export const PRECIOS_VISTOS = {
   'tapo-l930': { prov: 'amazon', precio: 801, como: 'TP-Link Tapo L930-5 tira 5 m RGBW', visto: '2026-08-24' },
   'kasa-kp303': { prov: 'amazon', precio: 627, como: 'Kasa KP303 regleta 3 tomas inteligentes + 2 USB', visto: '2026-08-24' },
   'regleta-smart': { prov: 'amazon', precio: [498, 873], como: 'de la EASYTAO con USB a la meross de 4 tomas y 4 USB', visto: '2026-08-24' },
+  'adaptador-3-vias': { prov: 'amazon', precio: [85, 171], promo: 51, como: 'Extensor de Pared Plano de 3 Vías, giratorio 180° — 85 en paquete de 3, 171 el de tierra física; el de 2 estaba a 51 con 53% de descuento', visto: '2026-08-25' },
 }
 
 /* `promo` guarda lo que costaba el día que se vio con descuento. El catálogo

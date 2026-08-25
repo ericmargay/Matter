@@ -267,6 +267,14 @@ export const GRUPOS = [
           'Cada módulo, cada cable del rack y cada breaker etiquetado. Es lo que hace que el siguiente que abra —o uno mismo en dos años— entienda en un minuto.',
       }),
       T('velcro', 'Cincho de velcro en rollo', { precio: [90, 250], unidad: 'rollo', donde: ['unit', 'amazon'], porque: 'En vez de cincho de plástico: se abre y se vuelve a cerrar sin cortar nada.' }),
+      T('adaptador-3-vias', 'Adaptador plano de 3 vías, clavija plegable', {
+        precio: [85, 171],
+        unidad: 'pieza',
+        donde: ['amazon'],
+        porque:
+          'Uno en cada contacto de la casa. Da la tercera toma que siempre falta y, sobre todo, su clavija se pliega: el mueble vuelve a quedar pegado al muro en vez de separado por un cable doblado.',
+        ojo: 'Viene de Amazon Estados Unidos: envío aparte y una semana de espera, así que se pide con tiempo. El de dos patas alcanza para lámparas y cargadores; donde va tele o computadora hay que llevar el de tierra física, que cuesta el doble.',
+      }),
       T('bolsas', 'Bolsas con cierre y marcador', { precio: [40, 120], unidad: 'paquete', donde: ['ferreteria'], porque: 'Para los tornillos de cada placa que se quita. Un tornillo perdido detiene la entrega.' }),
     ],
   },
