@@ -12,7 +12,7 @@ import { GROSOR_MURO, piezaSeVe } from './muros'
 import Animar from './animacion.jsx'
 import PiezaPropia from './PiezaPropia'
 import { Cable, Clavija } from './cables.jsx'
-import { cablePorDefecto, llevaCable } from './cables'
+import { cableDeMueble, cablePorDefecto, llevaCable } from './cables'
 import { puntoSalida } from './cables'
 import Conexiones from './Conexiones'
 import { DISPOSICION_BY_ID, DISPOSICIONES, LADO, posicionesDe, trianguloPanel } from './paneles'
@@ -473,18 +473,29 @@ function Seleccion({ item, modo, onParchar, onFin }) {
  * centímetros en perspectiva es puntería, y esto se usa con un trackpad en la
  * sala de alguien.
  */
-function Cables({ items, enMano, onTomarClavija }) {
+const ARRIBA = new THREE.Vector3(0, 1, 0)
+
+function Cables({ items, enMano, onTomarClavija, onGuiarCable, onSoltarCable }) {
   const enchufes = useMemo(
     () => items.filter((i) => i.clase === 'punto' && (i.tipo === 'enchufe' || i.tipo === 'salida')),
     [items],
   )
+  /* Todo lo que se enchufa lleva cable, sea nuestro o no.
+     La mitad de los cables de una casa no salen de un aparato que vendimos:
+     salen de la lámpara, de la tele y del refri, y van a un contacto normal o
+     a un multicontacto de los de toda la vida. Dibujar sólo los de lo
+     instalado enseñaba una casa que no existe, y escondía justo el desorden
+     que el cliente nos paga por resolver. */
   const conCable = useMemo(
     () =>
       items
         .map((i) => {
           if (i.cable) return { it: i, cable: i.cable }
-          const d = i.clase === 'equipo' ? DEVICE_BY_ID[i.deviceId] : null
-          return llevaCable(d) ? { it: i, cable: cablePorDefecto(d) } : null
+          if (i.clase === 'equipo') {
+            const d = DEVICE_BY_ID[i.deviceId]
+            return llevaCable(d) ? { it: i, cable: cablePorDefecto(d) } : null
+          }
+          return MUEBLES[i.tipo]?.enchufa ? { it: i, cable: cableDeMueble(i.tipo) } : null
         })
         .filter(Boolean),
     [items],
@@ -504,7 +515,15 @@ function Cables({ items, enMano, onTomarClavija }) {
            Y de paso deja de pelearse el clic con el contacto. */
         const hacia = new THREE.Vector3(it.x - destino.x, 0, it.z - destino.z)
         if (hacia.lengthSq() > 0.0001) hacia.normalize().multiplyScalar(0.08)
+        else hacia.set(0, 0, 0.08)
         const clavija = new THREE.Vector3(destino.x, destino.y ?? 0.4, destino.z).add(hacia)
+        /* Las patas de la clavija apuntan AL contacto. Sin esto todas salían
+           viendo hacia arriba y se leían como una pieza suelta junto al
+           enchufe en vez de una clavija metida en él. */
+        const quat = new THREE.Quaternion().setFromUnitVectors(
+          ARRIBA,
+          hacia.clone().negate().normalize(),
+        )
 
         const desde = puntoSalida(it, null, cable.salida)
         /* Si el cable no da, se dibuja en rojo. Es la conversación que hay que
@@ -513,9 +532,19 @@ function Cables({ items, enMano, onTomarClavija }) {
 
         return (
           <group key={it.id}>
-            <Cable desde={desde} hasta={clavija} largo={cable.largo} ruta={cable.ruta} alcanza={alcanza} />
+            <Cable
+              desde={desde}
+              hasta={clavija}
+              largo={cable.largo}
+              ruta={cable.ruta}
+              alcanza={alcanza}
+              guia={cable.guia ?? null}
+              onGuiar={onGuiarCable ? (x, z) => onGuiarCable(it.id, x, z) : undefined}
+              onSoltar={onSoltarCable}
+            />
             <Clavija
               pos={[clavija.x, clavija.y, clavija.z]}
+              quat={quat.toArray()}
               enMano={enMano === it.id}
               onTomar={() => onTomarClavija?.(enMano === it.id ? null : it.id)}
             />
@@ -1782,6 +1811,8 @@ export default function Escena({
   onDisuelto,
   enMano,
   onTomarClavija,
+  onGuiarCable,
+  onSoltarCable,
   onEnchufar,
 }) {
   const { ancho, largo, alto } = plano
@@ -2014,7 +2045,13 @@ export default function Escena({
       <Realce item={(encima && encima !== seleccion && plano.items.find((i) => i.id === encima)) || null} />
 
       {/* Los cables de alimentación, de cada aparato a su contacto. */}
-      <Cables items={plano.items} enMano={enMano} onTomarClavija={onTomarClavija} />
+      <Cables
+        items={plano.items}
+        enMano={enMano}
+        onTomarClavija={onTomarClavija}
+        onGuiarCable={onGuiarCable}
+        onSoltarCable={onSoltarCable}
+      />
       {/* El hover se suelta en cuanto su pieza deja de existir: si no, se
           queda apuntando a un fantasma hasta que el puntero se mueva. */}
       <SoltarFantasma id={encima} items={plano.items} onSoltar={() => setEncima(null)} />

@@ -5,7 +5,7 @@ import { uid, planoVacio } from '../../../sync/eventos'
 import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, ID_MUROS, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
 import { MUROS_ACABADO, PISOS } from './acabados'
-import { cablePorDefecto } from './cables'
+import { cableDeMueble, cablePorDefecto, llevaCable } from './cables'
 import { comoAloja, dispositivosDe } from './aloja'
 import { ESPACIOS } from '../../../content/espacios'
 import { DISPOSICIONES } from './paneles'
@@ -260,6 +260,56 @@ export default function PlanoCuarto({ room, onCerrar }) {
     historia.anotar(plano, que)
     setPlano(room.id, { ...plano, ...patch }, que)
   }
+
+  /** El cable que hoy tiene una pieza: el suyo, o el que trae de fábrica. */
+  const cableDe = (it) => {
+    if (it.cable) return it.cable
+    if (it.clase === 'equipo') {
+      const d = DEVICE_BY_ID[it.deviceId]
+      return llevaCable(d) ? cablePorDefecto(d) : null
+    }
+    return MUEBLES[it.tipo]?.enchufa ? cableDeMueble(it.tipo) : null
+  }
+
+  /**
+   * Acomodar todos los cables por el muro, o devolverlos al piso.
+   *
+   * Es un servicio que damos y por eso es un botón y no una casilla escondida
+   * en cada pieza: en la visita se decide para el cuarto entero —"esto lo
+   * dejamos ordenado"— y se cotiza por punto. La canaleta se pega, se pinta
+   * del color del muro y es reversible, que es lo que la hace la opción
+   * correcta en departamento rentado.
+   *
+   * Se materializa el cable en la pieza que no lo tenía: mientras vive como
+   * valor de fábrica no se puede acomodar nada, porque no hay dónde guardar la
+   * decisión.
+   */
+  const acomodarCables = (ruta) => {
+    let tocados = 0
+    const items = plano.items.map((it) => {
+      const c = cableDe(it)
+      if (!c || c.ruta === ruta) return it
+      tocados += 1
+      return { ...it, cable: { ...c, ruta } }
+    })
+    if (!tocados) return
+    guardar(
+      { items },
+      ruta === 'muro'
+        ? `Acomodó ${tocados} ${tocados === 1 ? 'cable' : 'cables'} en el muro`
+        : `Regresó ${tocados} ${tocados === 1 ? 'cable' : 'cables'} al piso`,
+    )
+  }
+
+  /** Cuántos cables hay y cuántos ya están acomodados. */
+  const cuentaCables = plano.items.reduce(
+    (a, it) => {
+      const c = cableDe(it)
+      if (!c) return a
+      return { total: a.total + 1, enMuro: a.enMuro + (c.ruta === 'muro' ? 1 : 0) }
+    },
+    { total: 0, enMuro: 0 },
+  )
 
   /**
    * Trazar cable: se elige un punto, luego otro, y queda el tramo.
@@ -588,6 +638,40 @@ export default function PlanoCuarto({ room, onCerrar }) {
             <p className="mt-2 text-[10.5px] leading-snug text-cream-3">
               Las líneas se trazan seleccionando dos puntos y usando “Unir con cable”.
             </p>
+
+            {/* ── acomodo de cable ──
+                El desorden de cables es de las primeras cosas que el cliente
+                nota y de las últimas que alguien le ofrece resolver. Aquí se
+                enseña antes de cotizarlo: se ve el cuarto con los cables por
+                el piso, se aprieta el botón, y se ve con los cables subidos al
+                muro. Esa comparación vende el servicio sola. */}
+            {cuentaCables.total > 0 && (
+              <div className="mt-3 rounded-lg border border-line p-2">
+                <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">
+                  Acomodo de cable
+                </p>
+                <p className="mt-1 text-[10.5px] leading-snug text-cream-3">
+                  {cuentaCables.enMuro === 0
+                    ? `${cuentaCables.total} ${cuentaCables.total === 1 ? 'cable cae' : 'cables caen'} por el piso, como queda si nadie lo pide.`
+                    : `${cuentaCables.enMuro} de ${cuentaCables.total} van por canaleta en el muro.`}
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-1">
+                  <Chip
+                    activo={cuentaCables.enMuro === cuentaCables.total}
+                    onClick={() => acomodarCables('muro')}
+                  >
+                    Subir al muro
+                  </Chip>
+                  <Chip activo={cuentaCables.enMuro === 0} onClick={() => acomodarCables('piso')}>
+                    Dejar en el piso
+                  </Chip>
+                </div>
+                <p className="mt-2 text-[10.5px] leading-snug text-cream-3">
+                  Canaleta pegada y pintada del color del muro, con grapas donde no la amerita. Sin
+                  obra y reversible: se cotiza por punto y entra el material del catálogo.
+                </p>
+              </div>
+            )}
           </Grupo>
 
           <Objetos
@@ -654,12 +738,35 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onFinGizmo={() => guardar({ items: plano.items }, `Acomodó una pieza en ${room.nombre}`)}
               enMano={enMano}
               onTomarClavija={setEnMano}
+              /* Arrastrar el cable con el ratón. El rótulo va SIEMPRE igual a
+                 propósito: la historia junta los cambios seguidos que se
+                 llaman igual, así que un arrastre de dos segundos deja una
+                 sola entrada de deshacer en vez de cien. */
+              onGuiarCable={(id, x, z) => {
+                const it = plano.items.find((i) => i.id === id)
+                const base = it && (it.cable ?? cableDe(it))
+                if (!base) return
+                /* El piso por el que se arrastra no tiene orillas, así que hay
+                   que ponérselas: sin esto el cable se iba por fuera del muro
+                   y quedaba acomodado en la calle. Y de paso empujar hacia la
+                   esquina lo deja pegado a ella, que es lo que uno quiere. */
+                const dentro = (v, mitad) => Math.max(-mitad + 0.06, Math.min(mitad - 0.06, v))
+                parchar(
+                  id,
+                  {
+                    cable: {
+                      ...base,
+                      guia: { x: dentro(x, plano.ancho / 2), z: dentro(z, plano.largo / 2) },
+                    },
+                  },
+                  'Acomodó un cable',
+                )
+              }}
               onEnchufar={(itemId, enchufeId) => {
                 setEnMano(null)
                 const it = plano.items.find((x) => x.id === itemId)
                 if (!it) return
-                const dev = DEVICE_BY_ID[it.deviceId]
-                const base = it.cable ?? cablePorDefecto(dev)
+                const base = it.cable ?? cableDe(it) ?? cablePorDefecto(DEVICE_BY_ID[it.deviceId])
                 parchar(itemId, { cable: { ...base, enchufe: enchufeId } }, 'Conectó un aparato a otro contacto')
               }}
               enfoque={enfoque}

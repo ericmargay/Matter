@@ -27,6 +27,9 @@ export const RATES = { ...DEMO_RATES, ...(local?.RATES ?? {}) }
 
 /** Reglas por categoría; ganan sobre la inferencia por alimentación. */
 const LABOR_BY_CAT = {
+  /* El material de acomodo no cobra mano de obra propia: se instala dentro del
+     acomodo de cable, que ya se cobra por punto. */
+  cableado: 'material',
   cortinas: 'alto',
   acceso: 'alto',
   camaras: 'alto',

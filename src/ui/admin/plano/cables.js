@@ -93,3 +93,48 @@ export function puntoSalida(item, caja, salida = 'atras') {
   local.applyAxisAngle(new THREE.Vector3(0, 1, 0), item.rot ?? 0)
   return new THREE.Vector3(item.x + local.x, (item.y ?? 0) + local.y, item.z + local.z)
 }
+
+/**
+ * El cable de un mueble que se enchufa.
+ *
+ * La mitad de los cables de una casa no salen de un aparato inteligente:
+ * salen de la lámpara, de la tele y del refri, y van a un contacto normal o a
+ * un multicontacto de los de toda la vida. Un plano que sólo dibuja los cables
+ * de lo que vendimos enseña una casa que no existe —y peor, esconde justo el
+ * desorden que el cliente nos está pagando por resolver.
+ *
+ * Las medidas son las de fábrica: la tele trae 1.2 m y por eso nunca alcanza,
+ * la lámpara de piso trae 1.8, y lo de línea blanca 1.5.
+ */
+const LARGO_MUEBLE = {
+  tv: 1.2,
+  monitor: 1.5,
+  monitorCurvo: 1.5,
+  refri: 1.5,
+  lavadora: 1.5,
+  secadora: 1.5,
+  lavavajillas: 1.5,
+  microondas: 1.2,
+  campana: 1.2,
+  rack: 1.8,
+  bocina: 1.8,
+  chimenea: 1.5,
+}
+
+const SALIDA_MUEBLE = {
+  // las lámparas sueltan el cable por el pie; lo demás, por atrás
+  lamparaPie: 'abajo',
+  lamparaArco: 'abajo',
+  lamparaTripode: 'abajo',
+  lamparaEscritorio: 'abajo',
+  lamparaBuro: 'abajo',
+}
+
+export function cableDeMueble(tipo) {
+  return {
+    largo: LARGO_MUEBLE[tipo] ?? 1.8,
+    salida: SALIDA_MUEBLE[tipo] ?? 'atras',
+    ruta: 'piso',
+    enchufe: null,
+  }
+}

@@ -19,6 +19,10 @@ export const DEMO = true
  * una persiana barata se instala igual de lento que una cara.
  */
 export const LABOR_TIERS = {
+  /* El material de acomodo no cobra instalación propia: se pone DENTRO del
+     acomodo de cable, que ya se cobra por punto. Cobrarle mano de obra a una
+     canaleta de cincuenta pesos infla la cotización sin que nadie trabaje más. */
+  material: { label: 'Material', price: 0, mins: 0, hint: 'Va incluido en el acomodo. Canaleta, grapas, velcro.' },
   plug: { label: 'Enchufar', price: 150, mins: 10, hint: 'Se conecta y se empareja. Contactos, bocinas, hubs.' },
   simple: { label: 'Simple', price: 300, mins: 25, hint: 'Adherible o de rosca. Focos, sensores de pila, tiras.' },
   medio: { label: 'Medio', price: 600, mins: 50, hint: 'Abrir caja y cablear. Dimmers, botoneras, módulos.' },

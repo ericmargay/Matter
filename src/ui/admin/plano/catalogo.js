@@ -108,7 +108,7 @@ export const MUEBLES = {
     V('m65', '65\u2033', '1.45 de ancho. Pide 2.60 de distancia para verse bien.', { v: 'muro', w: 1.45 }),
     V('m75', '75\u2033', '1.67 de ancho. Pide 3.00 de distancia y muro reforzado.', { v: 'muro', w: 1.67 }),
     V('m85base', '85\u2033 con base', '1.90 de ancho apoyada. El mueble tiene que medir 1.90 o más.', { v: 'base', w: 1.9 }),
-  ] },
+  ], enchufa: true },
   tapete: { ...(AN('Tapete', N.Tapete, 2.6, 1.8, 0.03, { w: 2.6, d: 1.8 })), variantes: [
     V('cenefa', 'Con cenefa', 'Marco de un tono y campo de otro. El más común.', { v: 'cenefa' }),
     V('liso', 'Liso', 'Un solo tono. Deja que hablen los muebles.', { v: 'liso' }),
@@ -156,7 +156,7 @@ export const MUEBLES = {
     V('portatil', 'Portátil', 'Se lleva a la azotehuela. No cuenta como instalación.', { w: 0.09, alto: 0.2, d: 0.09 }),
     V('techo', 'De plafón 20 cm', 'Empotrada. Se decide antes del plafón, no después.', { w: 0.22, alto: 0.1, d: 0.22 }),
     V('subwoofer', 'Subwoofer 32 cm', 'Contacto propio y de preferencia en esquina.', { w: 0.32, alto: 0.36, d: 0.32 }),
-  ] },
+  ], enchufa: true },
   /* ── recámara ── */
   cama: { ...(AN('Cama', N.Cama, 1.62, 2.05, 0.95, { w: 1.6, largo: 2.0 })), variantes: [
     V('plataforma', 'Plataforma', 'Base baja y cabecera de tabla. La más común y la que menos estorba.', { v: 'plataforma' }),
@@ -245,7 +245,7 @@ export const MUEBLES = {
     V('bajoBarra', 'Bajo barra · 60 cm', 'Frigobar bajo la cubierta. Para barra o cuarto de TV.', { w: 0.6, alto: 0.85, d: 0.6 }),
     V('doble', 'Torre doble · 1.20', 'Refri y congelador juntos. Dos contactos.', { w: 1.2, alto: 1.9, d: 0.72 }),
     V('congelador', 'Congelador vertical · 60', 'Aparte del refri. Azotehuela o despensa.', { w: 0.6, alto: 1.7, d: 0.65 }),
-  ] },
+  ], enchufa: true },
   /* ── baño ── */
   wc: { ...(A('WC', F.Toilet, 0.4, 0.7, 0.75)), variantes: [
     V('alargado', 'Alargado', '68 cm de fondo. El cómodo, si el baño lo permite.', { w: 0.38, d: 0.68 }),
@@ -331,7 +331,7 @@ export const MUEBLES = {
     V('doble', 'Doble 27″', '1.25 en total. Dos contactos y dos cables de video.', { w: 1.25, alto: 0.52, d: 0.22 }),
     V('triple', 'Triple 24″', '1.70 en total. Ya es una tarjeta de video, no un puerto.', { w: 1.7, alto: 0.5, d: 0.22 }),
     V('m49', '49″ ultrapanorámico', '1.19 de ancho. No cabe en un escritorio de 1.20.', { w: 1.19, alto: 0.53, d: 0.24 }),
-  ] },
+  ], enchufa: true },
   monitorCurvo: { ...(A('Monitor curvo', X.MonitorCurvo, 0.82, 0.28, 0.52)), variantes: [
     V('ultra34', 'Ultrapanorámico 34\u2033', '80 cm de ancho, curvatura 1500R. El más usado para trabajar.', { v: 'ultra34' }),
     V('plano27', 'Plano 27\u2033', 'Recto, 60 cm. Cabe en cualquier escritorio y es el más barato.', { v: 'plano27' }),
@@ -343,7 +343,7 @@ export const MUEBLES = {
     V('dobleUltra', 'Doble ultrapanorámico', 'Dos de 34\u2033. Necesita 1.70 de escritorio y dos contactos.', { v: 'doble27', w: 1.7 }),
     V('tv43', 'Pantalla de 43\u2033 como monitor', '1.00 de ancho. Se usa de monitor y de tele: un aparato menos.', { v: 'ultra49' }),
     V('vertical', 'Vertical', 'Girado 90\u00b0. Para código o para leer; ocupa 35 cm de frente.', { v: 'plano27', w: 0.36 }),
-  ] },
+  ], enchufa: true },
   silla: { ...(A('Silla', P.OfficeChair, 0.6, 0.6, 1.0)), variantes: [
     V('oficina', 'De oficina', '50 × 95, base de estrella. Pide 1.20 de retiro.', { w: 0.5, alto: 0.95, d: 0.5 }),
     V('ergonomica', 'Ergonómica alta', 'Respaldo de malla a 1.20. La de ocho horas.', { w: 0.55, alto: 1.2, d: 0.55 }),
@@ -367,7 +367,7 @@ export const MUEBLES = {
     V('mini', 'Mini 4 UR', 'En el clóset del pasillo. Lo mínimo digno.', { w: 0.45, alto: 0.35, d: 0.4 }),
     V('profundo', '12 UR profundo 80', 'Cabe un NVR y un UPS de verdad.', { w: 0.6, alto: 1.2, d: 0.8 }),
     V('doble', 'Doble 24 UR', 'Dos torres. Casa con automatización y video.', { w: 1.2, alto: 1.9, d: 0.7 }),
-  ] },
+  ], enchufa: true },
   /* ── lo que hace que se vea habitado ──
      Sin esto un plano se ve a maqueta de inmobiliaria. Los libros de canto, la
      maceta del rincón y el gato dormido son lo que lo vuelven la casa de
@@ -545,7 +545,7 @@ export const MUEBLES = {
     V('plato', 'Plato al techo', 'Rebota toda la luz en el plafón. La más suave, y la peor para leer.', { v: 'plato' }),
     V('tresLuces', 'Tres luces', 'Tres pantallas en un mismo poste. Se pueden encender por separado si van en circuitos distintos.', { v: 'tresLuces' }),
     V('invertido', 'Cono invertido', 'Abre hacia arriba y se estrecha abajo. Luz indirecta con un remate más marcado.', { v: 'invertido' }),
-  ] },
+  ], enchufa: true },
   chimenea: { ...(A('Chimenea', X.Chimenea, 1.7, 0.45, 1.2)), variantes: [
     V('c130', '1.30 empotrada', 'La de siempre, en el muro de la sala.', { w: 1.3, alto: 1.1, d: 0.4 }),
     V('c100', '1.00', 'Para sala chica.', { w: 1.0, alto: 1.0, d: 0.35 }),
@@ -557,7 +557,7 @@ export const MUEBLES = {
     V('leña', 'De leña 1.40', 'Ducto de verdad y obra. No se automatiza.', { w: 1.4, alto: 1.3, d: 0.5 }),
     V('esquina', 'De esquina 1.10', 'Aprovecha el rincón; el ducto sube por él.', { w: 1.1, alto: 1.1, d: 1.1 }),
     V('doble', 'Doble cara 1.60', 'Se ve de dos cuartos. Ducto al centro de la casa.', { w: 1.6, alto: 1.2, d: 0.6 }),
-  ] },
+  ], enchufa: true },
   relojPared: { ...(A('Reloj de pared', X.RelojPared, 0.34, 0.05, 0.34)), variantes: [
     V('r034', '34 cm', 'El de siempre.', { d: 0.34 }),
     V('r025', '25 cm', 'De cocina o pasillo.', { d: 0.25 }),
@@ -629,7 +629,7 @@ export const MUEBLES = {
     V('gaveta90', 'De gaveta · 90', 'La misma, para estufa ancha.', { w: 0.9, tipo: 'gaveta' }),
     V('compacta', 'Compacta 60', 'Para parrilla de 60 en cocina chica.', { w: 0.6, tipo: 'recta' }),
     V('grande', 'Grande 1.20', 'Pirámide de 1.20. Pide motor externo o suena como avión.', { w: 1.2, tipo: 'piramide' }),
-  ] },
+  ], enchufa: true },
   estufa: { ...(A('Estufa', X.Estufa, 0.78, 0.64, 0.95)), variantes: [
     V('gas4', 'Gas · 4 quemadores', '76 cm. La de siempre. Pide sensor de fuga cerca del PISO: el LP se acumula abajo.', { w: 0.76, quemadores: 4 }),
     V('gas6', 'Gas · 6 quemadores', '91 cm. No cabe en el hueco de 76 que suele dejar el albañil: mídelo.', { w: 0.91, quemadores: 6 }),
@@ -653,7 +653,7 @@ export const MUEBLES = {
     V('compacto', 'Compacto', '44 cm. Para cocineta o cuarto de servicio.', { w: 0.44, alto: 0.26, d: 0.32 }),
     V('torre', 'En torre con horno', 'Empotrado sobre el horno. Dos circuitos, no uno.', { w: 0.6, alto: 0.45, d: 0.55 }),
     V('grande', 'Grande 1.10 pies', '62 cm. El de una familia grande.', { w: 0.62, alto: 0.36, d: 0.46 }),
-  ] },
+  ], enchufa: true },
   lavavajillas: { ...(A('Lavavajillas', X.Lavavajillas, 0.6, 0.6, 0.85)), variantes: [
     V('l60', '60 cm', 'El estándar, 12 servicios. Toma de agua, drenaje y contacto.', { w: 0.6 }),
     V('l45', '45 cm', 'Angosto, 9 servicios. Para cocina chica.', { w: 0.45 }),
@@ -665,7 +665,7 @@ export const MUEBLES = {
     V('sobreBarra', 'De barra', '55 cm, encima. Sin obra: se conecta a la llave del fregadero.', { w: 0.55 }),
     V('compacto', 'Compacto', '45 cm y bajo. Para departamento sin lugar.', { w: 0.45 }),
     V('doble', 'Doble 60', 'Dos equipos de 60. Cocina de casa grande o de renta corta.', { w: 1.2 }),
-  ] },
+  ], enchufa: true },
   comoda: { ...(AN('Cómoda', N.Comoda, 1.1, 0.45, 0.82, { w: 1.1, alto: 0.82, d: 0.45 })), variantes: [
     V('tres', 'Tres cajones', 'La de recámara. 82 cm de alto, buena superficie encima.', { v: 'tres' }),
     V('cuatro', 'Cuatro cajones', 'Más guardado en el mismo ancho. Cajones más bajos.', { v: 'cuatro' }),
@@ -737,7 +737,7 @@ export const MUEBLES = {
     V('doble', 'Doble 1.20', 'Dos equipos lado a lado. Dos contactos y dos tomas.', { w: 1.2, alto: 0.85, d: 0.6 }),
     V('industrial', 'Semiindustrial 75', 'Para renta corta o casa grande. 220 V.', { w: 0.75, alto: 1.0, d: 0.75 }),
     V('portatil', 'Portátil 45', 'Se conecta a la llave del lavadero. Sin obra.', { w: 0.45, alto: 0.7, d: 0.45 }),
-  ] },
+  ], enchufa: true },
   secadora: { ...(A('Secadora', X.Secadora, 0.64, 0.64, 0.88)), variantes: [
     V('gas60', 'De gas 60', 'La más barata de operar. Necesita línea de gas Y ducto al exterior.', { w: 0.6, alto: 0.85, d: 0.6 }),
     V('electrica60', 'Eléctrica 60', 'Sin gas, pero 220 V y circuito propio.', { w: 0.6, alto: 0.85, d: 0.6 }),
@@ -749,7 +749,7 @@ export const MUEBLES = {
     V('doble', 'Doble 1.20', 'Dos equipos. Dos ductos, no uno.', { w: 1.2, alto: 0.85, d: 0.6 }),
     V('bombaCalor', 'Bomba de calor 60', 'La que menos gasta. Tarda el doble y no lleva ducto.', { w: 0.6, alto: 0.85, d: 0.64 }),
     V('industrial', 'Semiindustrial 75', 'Ducto de 15 cm y gas de verdad.', { w: 0.75, alto: 1.0, d: 0.75 }),
-  ] },
+  ], enchufa: true },
   boiler: { ...(A('Boiler', X.Boiler, 0.42, 0.25, 0.7)), variantes: [
     V('paso6', 'De paso 6 L', 'Para un baño. Gas y ducto de tiro.', { w: 0.35, alto: 0.6, d: 0.22 }),
     V('paso11', 'De paso 11 L', 'Dos baños si no se usan a la vez.', { w: 0.42, alto: 0.7, d: 0.25 }),
@@ -907,7 +907,7 @@ export const MUEBLES = {
     V('gran', 'Gran arco', '1.90 de vuelo. Necesita 60 kg de base y 2.20 de muro libre.', { alcance: 1.9, altura: 1.6 }),
     V('esquina', 'De esquina', 'Vuelo corto y mucha altura: cae desde el rincón sin estorbar el paso.', { alcance: 0.7, altura: 1.7 }),
     V('cama', 'Sobre la cama', 'Alcance de 1.30 a 1.40 de alto. Sustituye a las dos lámparas de buró.', { alcance: 1.3, altura: 1.4 }),
-  ] },
+  ], enchufa: true },
   lamparaColgante: { ...(L('Colgante', X.LamparaColgante, 0.24, 0.24, 1.5)), variantes: [
     V('campana', 'Campana', 'Cono cerrado. Manda la luz abajo, sobre la mesa. Cuelga a 75 cm del tablero.', { v: 'campana', caida: 1.24 }),
     V('campanaAlta', 'Campana alta', 'La misma en un techo de 3.00. El cable de 1.90 hay que pedirlo.', { v: 'campana', caida: 1.9 }),
@@ -943,7 +943,7 @@ export const MUEBLES = {
     V('esbelta', 'Esbelta', 'Alta y de base cerrada. Para un hueco angosto.', { alto: 1.5, abre: 0.16, pantalla: 0.2 }),
     V('robusta', 'Robusta', 'Baja, abierta y de pantalla ancha. Ancla un rincón.', { alto: 1.1, abre: 0.32, pantalla: 0.3 }),
     V('lectura', 'De lectura', 'Alta con pantalla chica: el cono cae sobre el libro y no sobre la tele.', { alto: 1.45, abre: 0.2, pantalla: 0.16 }),
-  ] },
+  ], enchufa: true },
   lamparaEscritorio: { ...(L('Lámpara de escritorio', X.LamparaEscritorio, 0.45, 0.2, 0.62)), variantes: [
     V('estandar', 'Estándar', 'Base de disco, brazo normal. La de siempre.', { brazo: 1 }),
     V('larga', 'Brazo largo', 'Alcanza el centro de un escritorio de 80 de fondo.', { brazo: 1.35 }),
@@ -955,7 +955,7 @@ export const MUEBLES = {
     V('pinzaAlta', 'De pinza alta', 'Pinza y brazo alto. La de un escritorio contra el muro.', { pinza: true, brazo: 1.6 }),
     V('compacta', 'Compacta', 'Todo chico. Para buró que se usa de escritorio.', { brazo: 0.6 }),
     V('extendida', 'Extendida', 'Brazo de 1.8. Cubre un escritorio de esquina desde un solo punto.', { brazo: 1.8 }),
-  ] },
+  ], enchufa: true },
   lamparaBuro: { ...({ ...AN('Lámpara de buró', N.LamparaBuro, 0.3, 0.3, 0.44, { alto: 0.42 }), portafoco: true }), variantes: [
     V('cono', 'Pantalla cónica', 'La de siempre. Luz al libro y al buró, no al techo.', { v: 'cono' }),
     V('globo', 'Globo', 'Esfera opalina. Ambienta el cuarto entero; para leer se queda corta.', { v: 'globo' }),
@@ -967,7 +967,7 @@ export const MUEBLES = {
     V('hongoAlto', 'Hongo alto', 'Media esfera a 55 cm. Cubre los dos lados de la cama desde un solo buró.', { v: 'hongo', alto: 0.55 }),
     V('tuboLargo', 'Tubo largo', 'Cilindro de 60 cm. Se lee como una columna, no como una lámpara.', { v: 'tubo', alto: 0.6 }),
     V('articuladaLarga', 'Articulada larga', 'Brazo que alcanza el centro de la cama sin moverla de sitio.', { v: 'articulada', alto: 0.55 }),
-  ] },
+  ], enchufa: true },
   /* ── envolvente ── */
   puerta: {
     ...AN('Puerta', N.Puerta, 0.9, 0.24, 2.1, { w: 0.9, alto: 2.1 }),
