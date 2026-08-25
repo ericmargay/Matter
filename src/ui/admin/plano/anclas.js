@@ -1,0 +1,153 @@
+import { MUEBLES } from './catalogo'
+
+/**
+ * A qué está pegada cada cosa.
+ *
+ * Un plano donde las piezas guardan solo su x y su z miente en cuanto algo se
+ * mueve: se estira el cuarto medio metro y los contactos se quedan flotando en
+ * medio de la sala, porque nadie les dijo que viven DENTRO de un muro. Lo
+ * mismo con el Apple TV que estaba sobre el buró y queda en el aire cuando el
+ * buró se corre.
+ *
+ * Así que las piezas dejan de guardar un lugar y pasan a guardar una relación:
+ *
+ *   { a: 'muro', muro: 'x-', t: 0.35, y: 0.4 }   pegado a un muro
+ *   { a: 'mueble', id: 'i1234' }                 encima de un mueble
+ *
+ * El lugar se calcula cada vez a partir de la relación, así que estirar el
+ * cuarto o correr el buró arrastra lo que va encima. Es la diferencia entre un
+ * dibujo y un plano.
+ *
+ * ⚠️ La relación no se adivina cada rato: se fija cuando la pieza se coloca o
+ * se suelta, y se puede quitar a mano. Recalcularla en cada render haría que
+ * una pieza se "pegue" sola a lo que pase por debajo, que es de las cosas más
+ * molestas que puede hacer un editor.
+ */
+
+/** Los cuatro muros, con el eje y el signo de cada uno. */
+export const MUROS = {
+  'x-': { eje: 'x', signo: -1, label: 'muro izquierdo' },
+  'x+': { eje: 'x', signo: 1, label: 'muro derecho' },
+  'z-': { eje: 'z', signo: -1, label: 'muro del fondo' },
+  'z+': { eje: 'z', signo: 1, label: 'muro de enfrente' },
+}
+
+/** Media pieza, para saber dónde termina. */
+const medio = (m) => ({ w: (m?.w ?? 0.4) / 2, d: (m?.d ?? 0.4) / 2, alto: m?.alto ?? 0.4 })
+
+/**
+ * ¿A qué muro está pegada esta pieza, si es que a alguno?
+ *
+ * Se mide contra los cuatro y gana el más cercano, siempre que esté a menos de
+ * 25 cm: más lejos ya no es "está en el muro", es "está cerca del muro", y
+ * pegarla sería decidir por quien la puso.
+ */
+export function muroDe(item, plano) {
+  const hx = (plano.ancho ?? 4) / 2
+  const hz = (plano.largo ?? 4) / 2
+  const cand = [
+    ['x-', Math.abs(item.x + hx), (item.z + hz) / (hz * 2)],
+    ['x+', Math.abs(item.x - hx), (item.z + hz) / (hz * 2)],
+    ['z-', Math.abs(item.z + hz), (item.x + hx) / (hx * 2)],
+    ['z+', Math.abs(item.z - hz), (item.x + hx) / (hx * 2)],
+  ]
+  const [muro, dist, t] = cand.reduce((a, b) => (b[1] < a[1] ? b : a))
+  if (dist > 0.25) return null
+  return { a: 'muro', muro, t: Math.min(1, Math.max(0, t)), y: item.y ?? 0.4, sep: dist }
+}
+
+/**
+ * ¿Sobre qué mueble está apoyada esta pieza?
+ *
+ * Tiene que caer dentro de su huella y a una altura que se parezca a la de su
+ * cubierta. Un Apple TV a un metro sobre el buró no está EN el buró, está
+ * colgado del muro de atrás, y anclarlo al buró lo haría bajarse solo.
+ */
+export function muebleBajo(item, items) {
+  const y = item.y ?? 0
+  let mejor = null
+  for (const otro of items) {
+    if (otro.id === item.id || otro.clase !== 'mueble') continue
+    const def = MUEBLES[otro.tipo]
+    if (!def) continue
+    const { w, d, alto } = medio(def)
+    // la huella gira con el mueble
+    const rot = -(otro.rot ?? 0)
+    const dx = item.x - otro.x
+    const dz = item.z - otro.z
+    const lx = dx * Math.cos(rot) - dz * Math.sin(rot)
+    const lz = dx * Math.sin(rot) + dz * Math.cos(rot)
+    if (Math.abs(lx) > w + 0.06 || Math.abs(lz) > d + 0.06) continue
+    const separacion = y - alto
+    if (separacion < -0.08 || separacion > 0.35) continue
+    if (!mejor || alto > mejor.alto) mejor = { id: otro.id, alto, lx, lz }
+  }
+  if (!mejor) return null
+  /* Se apoya en la cubierta, no a dos centímetros de ella. Un aparato que
+     flota sobre el buró es de las cosas que más delatan un render, y si de
+     verdad va colgado más arriba, para eso está "despegar". */
+  return { a: 'mueble', id: mejor.id, lx: mejor.lx, lz: mejor.lz, sobre: 0 }
+}
+
+/**
+ * La relación que le toca a una pieza recién puesta o recién soltada.
+ *
+ * Primero el mueble y luego el muro: si algo está sobre el buró Y pegado a la
+ * pared, lo que manda es el buró — es lo que se va a mover primero.
+ */
+export function anclaAuto(item, plano, items) {
+  if (item.clase === 'punto') return muroDe(item, plano)
+  return muebleBajo(item, items) ?? muroDe(item, plano)
+}
+
+/** Cómo se le dice al usuario a qué está pegada una pieza. */
+export function comoSeLlama(ancla, items) {
+  if (!ancla) return null
+  if (ancla.a === 'muro') return MUROS[ancla.muro]?.label ?? 'un muro'
+  const m = items.find((i) => i.id === ancla.id)
+  return MUEBLES[m?.tipo]?.label ?? 'un mueble'
+}
+
+/**
+ * Recalcula dónde va cada pieza anclada.
+ *
+ * Se corre después de cualquier cambio de medidas o de acomodo. Los muebles se
+ * resuelven antes que lo que llevan encima —y sólo un nivel: nadie apila una
+ * repisa sobre una lámpara sobre un buró, y perseguir cadenas aquí sería
+ * resolver un problema que no existe.
+ */
+export function resolverAnclas(plano) {
+  const items = plano.items ?? []
+  const hx = (plano.ancho ?? 4) / 2
+  const hz = (plano.largo ?? 4) / 2
+  const porId = new Map(items.map((i) => [i.id, i]))
+
+  return items.map((it) => {
+    const a = it.ancla
+    if (!a) return it
+
+    if (a.a === 'muro') {
+      const m = MUROS[a.muro]
+      if (!m) return it
+      const sep = a.sep ?? 0
+      // sobre el muro: la coordenada del eje la fija el muro, la otra el avance
+      const fijo = (m.eje === 'x' ? hx : hz) * m.signo - m.signo * sep
+      const corre = (m.eje === 'x' ? hz : hx) * (a.t * 2 - 1)
+      const x = m.eje === 'x' ? fijo : corre
+      const z = m.eje === 'x' ? corre : fijo
+      if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005) return it
+      return { ...it, x, z, y: a.y ?? it.y }
+    }
+
+    const base = porId.get(a.id)
+    if (!base) return it
+    const rot = base.rot ?? 0
+    const x = base.x + (a.lx ?? 0) * Math.cos(rot) + (a.lz ?? 0) * Math.sin(rot)
+    const z = base.z - (a.lx ?? 0) * Math.sin(rot) + (a.lz ?? 0) * Math.cos(rot)
+    const y = (MUEBLES[base.tipo]?.alto ?? 0.4) + (a.sobre ?? 0)
+    if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005 && Math.abs(y - (it.y ?? 0)) < 0.0005) {
+      return it
+    }
+    return { ...it, x, z, y }
+  })
+}

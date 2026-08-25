@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
 
@@ -171,7 +170,6 @@ export function Cable({
   const agarre = useRef()
   const [encima, setEncima] = useState(false)
   const arrastrando = useRef(false)
-  const fase = useRef(semilla * 6.283)
 
   const base = useMemo(
     () => trazo(desde.clone(), hasta.clone(), largo, ruta, guia, semilla),
@@ -191,10 +189,6 @@ export function Cable({
     return new THREE.CatmullRomCurve3(ps, false, 'catmullrom', 0.3)
   }, [base, ruta])
 
-  /* El meneo se calcula contra los puntos de ESTA curva, no contra los del
-     trazo: después de suavizar y levantar del piso ya no son los mismos ni son
-     los mismos cuántos. */
-  const reposo = useMemo(() => curva.points.map((p) => p.clone()), [curva])
 
   /* La geometría la posee ESTE componente, no React.
      Con `geometry={...}` como prop o como hijo de JSX, React la vuelve a poner
@@ -222,35 +216,12 @@ export function Cable({
     return () => g.geometry?.dispose()
   }, [curva])
 
-  /* Se mece al pasar por encima, como si lo hubieran rozado. No es adorno: es
-     lo que lo hace leer como objeto físico y no como una línea de diagrama, y
-     de paso avisa que se puede tocar. Solo se mueven los puntos de en medio —
-     los dos extremos están enchufados y ésos no se mueven nunca. */
-  useFrame((_, dt) => {
-    const m = malla.current
-    if (!m) return
-    fase.current += dt * 0.8
-    /* Pasar el ratón por encima YA NO lo deforma: sólo se ilumina.
-       Menearlo al acercarse se veía a truco y estorbaba justo cuando uno está
-       tratando de agarrarlo. Queda un vaivén mínimo, el de un cable que está
-       ahí, y ése también se apaga mientras se arrastra: el cable tiene que ir
-       exactamente debajo del dedo o se siente que se resiste. */
-    const amp = arrastrando.current ? 0 : 0.005 * (ruta === 'piso' ? 1 : 0.4)
-    const ps = curva.points
-    for (let i = 1; i < ps.length - 1; i++) {
-      const b = reposo[i]
-      if (!b) break
-      const t = fase.current + i * 0.9
-      ps[i].set(
-        b.x + Math.sin(t) * amp,
-        Math.max(0.012, b.y + Math.sin(t * 1.7) * amp * 0.6),
-        b.z + Math.cos(t * 1.1) * amp,
-      )
-    }
-    const nueva = new THREE.TubeGeometry(curva, 40, 0.009, 7, false)
-    m.geometry?.dispose()
-    m.geometry = nueva
-  })
+  /* Ya NO se mece.
+     Tenía un vaivén mínimo para que se leyera como objeto físico y no como
+     línea de diagrama, pero un cable quieto en el piso está quieto: moverse
+     solo es lo que lo delataba. Sin el vaivén tampoco hay que rehacer la
+     geometría cada cuadro, así que además cuesta menos. Lo único que cambia al
+     pasar el ratón es que se ilumina. */
 
   return (
     <group>

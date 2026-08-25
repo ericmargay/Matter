@@ -473,6 +473,42 @@ function Seleccion({ item, modo, onParchar, onFin }) {
  * centímetros en perspectiva es puntería, y esto se usa con un trackpad en la
  * sala de alguien.
  */
+/**
+ * Cuál de las piezas apiladas bajo el puntero se selecciona.
+ *
+ * Un clic sobre el monitor también atraviesa el panel que tiene detrás, pero
+ * gana el que está más cerca de la cámara y el de atrás se vuelve
+ * inseleccionable: había que orbitar hasta encontrar un ángulo donde asomara.
+ *
+ * Así que picar dos veces en el mismo lugar va PASANDO por lo que hay debajo,
+ * como en cualquier editor 3D. Si el puntero se movió, se empieza otra vez por
+ * el de enfrente, que es lo que uno espera al picar en otro lado.
+ */
+const apilado = { x: -99, y: -99, ids: '', i: 0 }
+
+function elegirBajoPuntero(e, propio) {
+  const ids = []
+  for (const golpe of e.intersections ?? []) {
+    let o = golpe.object
+    let ayuda = false
+    while (o && !o.userData?.pieza) {
+      if (o.userData?.ayuda) ayuda = true
+      o = o.parent
+    }
+    const id = o?.userData?.pieza
+    if (!ayuda && id && !ids.includes(id)) ids.push(id)
+  }
+  if (ids.length <= 1) return propio
+
+  const firma = ids.join('|')
+  const mismoSitio = Math.hypot(e.clientX - apilado.x, e.clientY - apilado.y) < 8
+  apilado.i = mismoSitio && apilado.ids === firma ? (apilado.i + 1) % ids.length : 0
+  apilado.x = e.clientX
+  apilado.y = e.clientY
+  apilado.ids = firma
+  return ids[apilado.i]
+}
+
 const ARRIBA = new THREE.Vector3(0, 1, 0)
 
 /** Un número estable entre 0 y 1 a partir del id. Mismo cable, mismo azar. */
@@ -807,6 +843,7 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = t
   return (
     <group
       name={item.id}
+      userData={{ pieza: item.id }}
       ref={g}
       /* Lo que cuelga de un muro se va con su muro. Mirando desde el sur, la
          ventana del sur queda entre la cámara y el cuarto: dibujarla ahí es un
@@ -826,7 +863,7 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = t
            —uno ya decidió qué poner y dónde. */
         if (colocando) return
         e.stopPropagation()
-        onTomar(item.id)
+        onTomar(elegirBajoPuntero(e, item.id))
       }}
     >
       {/* Las piezas del sistema nuevo se dibujan sin `position`/`rotation`:
@@ -1242,11 +1279,21 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
   })
 
   const esFoco = !!p
-  const dirigido = esFoco && p.haz < 140
+  const forma = p?.forma ?? 'punto'
+  /* Solo un foco de haz cerrado se dibuja como reflector. Un PANEL o una TIRA
+     no tiran un cono: iluminan la pared que tienen enfrente. Dibujarlos con
+     spot les colgaba una campana de luz hacia abajo —el "foco fantasma" que se
+     veía encima de los Nanoleaf— porque el destino por omisión de un spot es
+     el suelo de su propio grupo. */
+  const dirigido = esFoco && p.haz < 140 && forma === 'punto'
+  /* Y la fuente se despega del muro lo que mide la pieza, para que la luz
+     salga DE la pieza hacia el cuarto y no desde dentro de la pared. */
+  const salida = forma === 'punto' ? [0, 0, 0] : [0, 0, 0.12]
 
   return (
     <group
       name={item.id}
+      userData={{ pieza: item.id }}
       position={[item.x, item.y ?? 0, item.z]}
       rotation={[0, item.rot ?? 0, 0]}
       scale={item.esc ?? 1}
@@ -1261,7 +1308,7 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
            —uno ya decidió qué poner y dónde. */
         if (colocando) return
         e.stopPropagation()
-        onTomar(item.id)
+        onTomar(elegirBajoPuntero(e, item.id))
       }}
     >
       {/* La forma del aparato, no una esfera para todo.
@@ -1302,7 +1349,7 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
             shadow-mapSize={[512, 512]}
           />
         ) : (
-          <pointLight ref={luz} distance={0} decay={2} castShadow={false} />
+          <pointLight ref={luz} position={salida} distance={0} decay={2} castShadow={false} />
         ))}
 
       {/* Varilla hasta el plafón: dice a qué altura está una pieza que flota.
@@ -1349,6 +1396,7 @@ function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colo
   return (
     <group
       name={item.id}
+      userData={{ pieza: item.id }}
       visible={aLaVista}
       position={[item.x, item.y ?? 0.4, item.z]}
       onPointerOver={(e) => {
@@ -1367,7 +1415,7 @@ function Punto({ item, seleccionado, onTomar, activo, onAccionar, controla, colo
           return
         }
         desde.current = [e.clientX, e.clientY]
-        onTomar(item.id)
+        onTomar(elegirBajoPuntero(e, item.id))
       }}
       onPointerUp={(e) => {
         if (!esApagador || !controla || !desde.current) return

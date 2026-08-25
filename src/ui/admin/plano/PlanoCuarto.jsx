@@ -6,6 +6,7 @@ import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, ID_MUROS, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
 import { MUROS_ACABADO, PISOS } from './acabados'
 import { cableDeMueble, cablePorDefecto, llevaCable } from './cables'
+import { anclaAuto, comoSeLlama, resolverAnclas } from './anclas'
 import { comoAloja, dispositivosDe } from './aloja'
 import { ESPACIOS } from '../../../content/espacios'
 import { DISPOSICIONES } from './paneles'
@@ -246,6 +247,50 @@ export default function PlanoCuarto({ room, onCerrar }) {
       if (e.key === 'g') setModoGizmo('mover')
       if (e.key === 'r') setModoGizmo('girar')
       if (e.key === 's') setModoGizmo('escalar')
+
+      /* Y las flechas hacen lo que diga el modo, sobre lo que esté
+         seleccionado. El gizmo sirve para acomodar a ojo; las flechas para el
+         último centímetro, que es donde el ratón siempre se pasa. Con Shift
+         van diez veces más rápido y con Alt diez veces más fino, que es la
+         convención de todos los editores.
+
+         En mover, las flechas corren la pieza por el piso —izquierda y derecha
+         en X, arriba y abajo en Z, que es como se lee un plano— y la altura va
+         en Re Pág y Av Pág, porque es la que menos se toca. */
+      const esFlecha = e.key.startsWith('Arrow') || e.key === 'PageUp' || e.key === 'PageDown'
+      if (seleccion && seleccion !== ID_MUROS && esFlecha) {
+        const it = plano.items.find((i) => i.id === seleccion)
+        if (!it) return
+        e.preventDefault()
+        const factor = e.shiftKey ? 10 : e.altKey ? 0.1 : 1
+        const horiz = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+        const vert = e.key === 'ArrowUp' ? 1 : e.key === 'ArrowDown' ? -1 : 0
+
+        if (modoGizmo === 'girar') {
+          const paso = ((horiz || vert) * 5 * factor * Math.PI) / 180
+          parchar(seleccion, { rot: (it.rot ?? 0) + paso }, 'Giró una pieza')
+          return
+        }
+        if (modoGizmo === 'escalar') {
+          const paso = (horiz || vert) * 0.02 * factor
+          const esc = Math.max(0.2, Math.min(4, (it.esc ?? 1) + paso))
+          parchar(seleccion, { esc: Number(esc.toFixed(3)) }, 'Escaló una pieza')
+          return
+        }
+        /* Mover. La pieza se vuelve a pegar a lo que quede debajo después de
+           cada paso, así que correr el Apple TV dos centímetros sobre el buró
+           lo deja sobre el buró, y sacarlo del buró lo despega solo. */
+        const paso = 0.01 * factor
+        const alto = e.key === 'PageUp' ? 1 : e.key === 'PageDown' ? -1 : 0
+        const movida = {
+          ...it,
+          x: Number((it.x + horiz * paso).toFixed(3)),
+          z: Number((it.z - vert * paso).toFixed(3)),
+          y: Number(Math.max(0, (it.y ?? 0) + alto * paso).toFixed(3)),
+        }
+        const items = plano.items.map((x) => (x.id === seleccion ? conAncla(movida) : x))
+        guardar({ items }, 'Movió una pieza')
+      }
     }
     document.addEventListener('keydown', onKey)
     return () => {
@@ -256,9 +301,51 @@ export default function PlanoCuarto({ room, onCerrar }) {
 
   const historia = useHistoria(plano, (viejo, que) => setPlano(room.id, viejo, que))
 
+  /**
+   * Guardar, resolviendo antes lo que está pegado a algo.
+   *
+   * Va aquí y no en cada llamada porque es una regla del plano, no de quien lo
+   * edita: si el cuarto cambió de medidas o un mueble se corrió, lo que estaba
+   * encima o dentro del muro tiene que haberse movido con él ANTES de que esto
+   * se guarde. Si no, el contacto se queda flotando en media sala y el Apple
+   * TV en el aire donde estaba el buró.
+   */
   const guardar = (patch, que) => {
     historia.anotar(plano, que)
-    setPlano(room.id, { ...plano, ...patch }, que)
+    const siguiente = { ...plano, ...patch }
+    const items = resolverAnclas(siguiente)
+    setPlano(room.id, items === siguiente.items ? siguiente : { ...siguiente, items }, que)
+  }
+
+  /* ── una sola vez por cuarto: pegar lo que nunca se pegó ──
+     Los planos dibujados antes de que existieran los vínculos traen aparatos
+     flotando sobre los burós y contactos que no saben en qué muro viven. Se
+     resuelve al abrir, una vez, y sólo si de verdad cambia algo. Después ya no
+     se toca: adivinar el vínculo en cada apertura movería piezas que alguien
+     puso a mano donde quería. */
+  const anclado = useRef(null)
+  useEffect(() => {
+    if (!plano?.items?.length || anclado.current === room.id) return
+    anclado.current = room.id
+    let tocados = 0
+    const items = plano.items.map((it) => {
+      if (it.ancla || it.suelta) return it
+      const ancla = anclaAuto(it, plano, plano.items)
+      if (!ancla) return it
+      tocados += 1
+      return { ...it, ancla }
+    })
+    if (!tocados) return
+    guardar({ items }, `Pegó ${tocados} ${tocados === 1 ? 'pieza' : 'piezas'} a su muro o su mueble`)
+    // sólo al abrir el cuarto: es una puesta al día, no una regla de cada render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.id, plano?.items?.length])
+
+  /** Vuelve a calcular a qué está pegada una pieza, respetando que la hayan soltado a mano. */
+  const conAncla = (it) => {
+    if (it.suelta) return it
+    const ancla = anclaAuto(it, plano, plano.items)
+    return ancla ? { ...it, ancla } : { ...it, ancla: undefined }
   }
 
   /** El cable que hoy tiene una pieza: el suyo, o el que trae de fábrica. */
@@ -382,7 +469,11 @@ export default function PlanoCuarto({ room, onCerrar }) {
       que = `Colocó un ${colocando.tipo}`
     }
 
-    setItems([...plano.items, item], que)
+    /* Se pega a lo que le toca en el momento de ponerla: al muro si es un
+       contacto, al mueble que tenga debajo si es un aparato. Después ya no se
+       adivina sola — se cambia a mano desde su ficha. */
+    const ancla = anclaAuto(item, plano, plano.items)
+    setItems([...plano.items, ancla ? { ...item, ancla } : item], que)
     setSeleccion(item.id)
     setColocando(null)
   }
@@ -762,7 +853,16 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onMidiendo={setMidiendo}
               modoGizmo={modoGizmo}
               onParchar={parchar}
-              onFinGizmo={() => guardar({ items: plano.items }, `Acomodó una pieza en ${room.nombre}`)}
+              onFinGizmo={() => {
+                /* Al soltar, la pieza se vuelve a pegar a lo que quedó debajo.
+                   Es lo que hace que mover el buró a otro muro se lleve el
+                   Apple TV, y que arrastrar un contacto de un muro a otro lo
+                   deje anclado al nuevo. */
+                const items = plano.items.map((it) =>
+                  it.id === seleccion ? conAncla(it) : it,
+                )
+                guardar({ items }, `Acomodó una pieza en ${room.nombre}`)
+              }}
               enMano={enMano}
               onTomarClavija={setEnMano}
               /* Arrastrar el cable con el ratón. El rótulo va SIEMPRE igual a
@@ -1761,6 +1861,57 @@ const COLORES = [
 
 /* ── inspector de la pieza seleccionada ───────────────────────── */
 
+/**
+ * A qué está pegada la pieza, y el botón para despegarla.
+ *
+ * Se enseña siempre, aunque no esté pegada a nada: saber que algo NO está
+ * anclado importa tanto como saber a qué lo está — es la diferencia entre
+ * "se va a mover con el buró" y "se va a quedar flotando".
+ */
+function Vinculo({ item, items, onParchar, onSeleccionar }) {
+  const a = item.ancla
+  const nombre = comoSeLlama(a, items)
+  const suelta = !!item.suelta
+
+  return (
+    <div className="mt-2 rounded-lg border border-line px-2 py-2">
+      <p className="text-[10px] tracking-[0.12em] text-cream-3 uppercase">Va pegada a</p>
+      <p className="mt-1 text-[11.5px] leading-snug text-cream-2">
+        {suelta ? (
+          <>Nada. Se queda donde está aunque se mueva lo de alrededor.</>
+        ) : a ? (
+          <>
+            <span className="text-cream">{nombre}</span>. Si eso se mueve o el cuarto cambia de
+            medidas, se va con él.
+          </>
+        ) : (
+          <>Nada todavía. Suéltala encima de un mueble o contra un muro y se pega sola.</>
+        )}
+      </p>
+      <div className="mt-2 flex gap-1.5">
+        {(a || suelta) && (
+          <button
+            onClick={() =>
+              onParchar(item.id, suelta ? { suelta: undefined } : { ancla: undefined, suelta: true })
+            }
+            className="flex-1 rounded-lg border border-line px-2 py-1 text-[11px] text-cream-2 hover:border-cream/35"
+          >
+            {suelta ? 'Volver a pegar' : 'Despegar'}
+          </button>
+        )}
+        {a?.a === 'mueble' && (
+          <button
+            onClick={() => onSeleccionar?.(a.id)}
+            className="rounded-lg border border-line px-2 py-1 text-[11px] text-cream-3 hover:border-cream/35"
+          >
+            ver el mueble
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function Inspector({
   item,
   onParchar,
@@ -1808,6 +1959,12 @@ function Inspector({
           Girar 22°
         </button>
       </div>
+
+      {/* ── a qué está pegada ──
+          Lo importante no es el dato, es poder soltarla: una pieza que se
+          pega sola a lo que pase por debajo y no se puede despegar es peor
+          que una que no se pega a nada. */}
+      <Vinculo item={item} items={items} onParchar={onParchar} onSeleccionar={onSeleccionar} />
 
       {/* Todo a mano además del gizmo: cuando el cliente da una medida
           exacta —"el buró va a 40 cm de la pared"— hay que poder escribirla. */}
