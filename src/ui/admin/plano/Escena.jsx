@@ -572,7 +572,7 @@ function Adaptador({ punto }) {
   )
 }
 
-function Cables({ items, enMano, onTomarClavija, onGuiarCable, onAgarrarCable, onSoltarCable }) {
+function Cables({ items, cuarto, enMano, onTomarClavija, onGuiarCable, onAgarrarCable, onSoltarCable }) {
   const enchufes = useMemo(
     () => items.filter((i) => i.clase === 'punto' && (i.tipo === 'enchufe' || i.tipo === 'salida')),
     [items],
@@ -656,6 +656,7 @@ function Cables({ items, enMano, onTomarClavija, onGuiarCable, onAgarrarCable, o
               alcanza={alcanza}
               guia={cable.guia ?? null}
               semilla={semillaDe(it.id)}
+              cuarto={cuarto}
               onGuiar={onGuiarCable ? (x, z) => onGuiarCable(it.id, x, z) : undefined}
               onAgarrar={onAgarrarCable}
               onSoltar={onSoltarCable}
@@ -1953,6 +1954,10 @@ export default function Escena({
   onEnchufar,
 }) {
   const { ancho, largo, alto } = plano
+  /* Las medidas se pasan como un objeto estable: los cables las usan para
+     trazar la canaleta y rehacer su geometría en cada render sería tirar el
+     cuarto entero por un cambio de selección. */
+  const medidas = useMemo(() => ({ ancho, largo }), [ancho, largo])
   const [arrastrando, setArrastrando] = useState(null)
   /* Mientras se acomoda un cable la cámara no se mueve: es el mismo estorbo
      que ya tenía la cota del muro y se resuelve igual. */
@@ -2094,7 +2099,14 @@ export default function Escena({
         arrastrando={arrastrando}
         colocando={colocando && !midiendo}
         onTocar={midiendo ? undefined : () => onSeleccionar(ID_MUROS)}
-        onFuera={midiendo ? undefined : () => onSeleccionar(null)}
+        /* Picar fuera del cuarto cierra lo que esté abierto: primero el modo
+           medida y si no, la selección. Antes, midiendo, este manejador se
+           desconectaba entero y no había forma de salir más que el botón
+           "Listo" — y uno ya terminó de medir en el momento en que mira a otro
+           lado. El clic perdido del lienzo no sirve aquí: este plano mide tres
+           veces el cuarto porque hace de mesa de arrastre, así que se traga
+           todos los clics de afuera. */
+        onFuera={() => (midiendo ? onMidiendo(null) : onSeleccionar(null))}
       />
 
       {plano.items.map((it) => {
@@ -2191,6 +2203,7 @@ export default function Escena({
       {/* Los cables de alimentación, de cada aparato a su contacto. */}
       <Cables
         items={plano.items}
+        cuarto={medidas}
         enMano={enMano}
         onTomarClavija={onTomarClavija}
         onGuiarCable={onGuiarCable}

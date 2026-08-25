@@ -137,14 +137,27 @@ export function muebleBajo(item, items) {
  * Primero el mueble y luego el muro: si algo está sobre el buró Y pegado a la
  * pared, lo que manda es el buró — es lo que se va a mover primero.
  */
+/* Lo que cuelga del techo no se apoya en el piso por más que esté encima de
+   él: una lámpara colgante a dos metros no está en el suelo. */
+const DEL_TECHO = new Set(['lamparaColgante', 'lamparaEsfera'])
+
 export function anclaAuto(item, plano, items) {
   if (item.clase === 'punto') return muroDe(item, plano)
-  return muebleBajo(item, items) ?? muroDe(item, plano)
+  const encima = muebleBajo(item, items) ?? muroDe(item, plano)
+  if (encima) return encima
+  /* Y si no está sobre nada ni contra nada, está en el piso — que también es
+     una relación, no una casualidad. Sin esto quedaban muebles flotando a
+     dos centímetros del suelo sin que nada los bajara. */
+  if (item.clase === 'mueble' && !MUEBLES_DE_MURO.has(item.tipo) && !DEL_TECHO.has(item.tipo)) {
+    return { a: 'piso' }
+  }
+  return null
 }
 
 /** Cómo se le dice al usuario a qué está pegada una pieza. */
 export function comoSeLlama(ancla, items) {
   if (!ancla) return null
+  if (ancla.a === 'piso') return 'el piso'
   if (ancla.a === 'muro') return MUROS[ancla.muro]?.label ?? 'un muro'
   const m = items.find((i) => i.id === ancla.id)
   return MUEBLES[m?.tipo]?.label ?? 'un mueble'
@@ -179,6 +192,11 @@ export function resolverAnclas(plano) {
       const z = m.eje === 'x' ? corre : fijo
       if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005) return it
       return { ...it, x, z, y: a.y ?? it.y }
+    }
+
+    if (a.a === 'piso') {
+      if ((it.y ?? 0) === 0) return it
+      return { ...it, y: 0 }
     }
 
     const base = porId.get(a.id)

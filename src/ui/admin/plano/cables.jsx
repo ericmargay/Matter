@@ -20,57 +20,156 @@ const COLOR = { piso: '#3b3f4a', muro: '#4a505e', oculto: '#6f5a86' }
  *           Sin esto, tres cables juntos se veían como un solo cable calcado
  *           tres veces, que es de lo primero que delata a un render.
  */
-function trazo(desde, hasta, largo, ruta, guia, s = 0.5) {
+function trazo(desde, hasta, largo, ruta, guia, s = 0.5, cuarto = null) {
   const recta = desde.distanceTo(hasta)
   // lo que sobra se cuelga o se enrosca; si falta, el cable va tenso
   const sobra = Math.max(0, largo - recta)
   const pts = []
 
   if (ruta === 'muro') {
-    /* Por canaleta: baja o sube pegado al muro y corre horizontal. Dos
-       quiebres rectos, que es exactamente como se ve una canaleta. */
-    const codo = new THREE.Vector3(desde.x, hasta.y + 0.02 + s * 0.05, desde.z)
-    pts.push(desde, desde.clone().lerp(codo, 0.5), codo, codo.clone().lerp(hasta, 0.5), hasta)
-  } else if (ruta === 'oculto') {
+    /* Por canaleta: no es una diagonal disimulada, es una ruta de verdad —baja
+       perpendicular al muro, corre por el rodapié doblando en las esquinas y
+       sube al contacto—. Es exactamente lo que se instala y lo que se cobra,
+       así que dibujarlo de otra forma sería enseñar algo que no vamos a hacer. */
+    return redondear(rutaPorMuro(desde, hasta, cuarto), 0.09)
+  }
+
+  if (ruta === 'oculto') {
     // por dentro: la ruta más corta, en escuadra
     const codo = new THREE.Vector3(desde.x, hasta.y, desde.z)
     pts.push(desde, codo, hasta)
-  } else {
-    // por el piso: cae, se arrastra y hace una lazada con lo que sobra
-    const pie = new THREE.Vector3(desde.x, 0.012, desde.z)
-    /* Si alguien lo arrastró a un rincón, ése es el punto por el que pasa.
-       Un cable no va del aparato al contacto en línea recta cruzando el
-       cuarto: va por la orilla, y por dónde exactamente es una decisión de
-       quien instala, no un cálculo. Por eso se arrastra a mano. */
-    const medio = guia
-      ? new THREE.Vector3(guia.x, 0.012, guia.z)
-      : (() => {
-          const m = pie.clone().lerp(hasta, 0.42 + s * 0.16)
-          m.y = 0.012
-          /* La lazada se abre hacia un lado, proporcional a lo que sobra, y
-             cuánto y hacia dónde depende de la semilla. */
-          const lado = new THREE.Vector3().subVectors(hasta, pie).normalize()
-          const giro = (s < 0.5 ? -1 : 1) * (0.5 + s * 0.8)
-          m.addScaledVector(new THREE.Vector3(-lado.z, 0, lado.x), Math.min(sobra * 0.5 * giro, 0.7))
-          return m
-        })()
-    /* Y sube al contacto pegado al muro, no en diagonal desde media
-       habitación. Un cable no despega del piso: se arrastra hasta debajo del
-       enchufe y ahí sube. Sin este punto, todos salían volando hacia el
-       contacto y el piso se veía vacío, que es justo lo contrario de lo que
-       hay que enseñar. */
-    const alPie = new THREE.Vector3(hasta.x, 0.012, hasta.z)
-    pts.push(
-      desde,
-      desde.clone().lerp(pie, 0.45 + s * 0.14).setY(desde.y * (0.34 + s * 0.24)),
-      pie,
-      medio,
-      alPie,
-      alPie.clone().lerp(hasta, 0.6),
-      hasta,
-    )
+    return pts
   }
+
+  // por el piso: cae, se arrastra y hace una lazada con lo que sobra
+  const pie = new THREE.Vector3(desde.x, 0.012, desde.z)
+  /* Si alguien lo arrastró a un rincón, ése es el punto por el que pasa.
+     Un cable no va del aparato al contacto en línea recta cruzando el
+     cuarto: va por la orilla, y por dónde exactamente es una decisión de
+     quien instala, no un cálculo. Por eso se arrastra a mano. */
+  const medio = guia
+    ? new THREE.Vector3(guia.x, 0.012, guia.z)
+    : (() => {
+        const m = pie.clone().lerp(hasta, 0.42 + s * 0.16)
+        m.y = 0.012
+        /* La lazada se abre hacia un lado, proporcional a lo que sobra, y
+           cuánto y hacia dónde depende de la semilla. */
+        const lado = new THREE.Vector3().subVectors(hasta, pie).normalize()
+        const giro = (s < 0.5 ? -1 : 1) * (0.5 + s * 0.8)
+        m.addScaledVector(new THREE.Vector3(-lado.z, 0, lado.x), Math.min(sobra * 0.5 * giro, 0.7))
+        return m
+      })()
+  /* Y sube al contacto pegado al muro, no en diagonal desde media
+     habitación. Un cable no despega del piso: se arrastra hasta debajo del
+     enchufe y ahí sube. */
+  const alPie = new THREE.Vector3(hasta.x, 0.012, hasta.z)
+  pts.push(
+    desde,
+    desde.clone().lerp(pie, 0.45 + s * 0.14).setY(desde.y * (0.34 + s * 0.24)),
+    pie,
+    medio,
+    alPie,
+    alPie.clone().lerp(hasta, 0.6),
+    hasta,
+  )
   return pts
+}
+
+/* ── la ruta por canaleta ─────────────────────────────────────────
+   Tres tramos y ninguno en diagonal: se baja o se sube perpendicular al muro
+   donde está el aparato, se corre por el rodapié dando la vuelta por las
+   esquinas que haga falta, y se sube al contacto. La vuelta se da por el lado
+   corto, que es lo que hace que la ruta sea la más barata en metros de
+   canaleta — que es como se cotiza. */
+
+const SEP = 0.03 // cuánto se despega la canaleta del muro
+const ZOCLO = 0.075 // la altura a la que corre, sobre el rodapié
+
+/** El punto del perímetro más cercano, con el muro y la posición en él. */
+function alMuro(p, hx, hz) {
+  const cand = [
+    { lado: 'z-', d: Math.abs(p.z + hz), x: p.x, z: -hz + SEP },
+    { lado: 'z+', d: Math.abs(p.z - hz), x: p.x, z: hz - SEP },
+    { lado: 'x-', d: Math.abs(p.x + hx), x: -hx + SEP, z: p.z },
+    { lado: 'x+', d: Math.abs(p.x - hx), x: hx - SEP, z: p.z },
+  ]
+  const g = cand.reduce((a, b) => (b.d < a.d ? b : a))
+  return {
+    lado: g.lado,
+    x: Math.max(-hx + SEP, Math.min(hx - SEP, g.x)),
+    z: Math.max(-hz + SEP, Math.min(hz - SEP, g.z)),
+  }
+}
+
+const ESQUINAS = ['z-', 'x+', 'z+', 'x-'] // en orden, dando la vuelta al cuarto
+
+/** La esquina entre dos muros contiguos. */
+function esquina(a, b, hx, hz) {
+  const ejeX = a === 'x-' || b === 'x-' ? -hx + SEP : hx - SEP
+  const ejeZ = a === 'z-' || b === 'z-' ? -hz + SEP : hz - SEP
+  return { x: ejeX, z: ejeZ }
+}
+
+function rutaPorMuro(desde, hasta, cuarto) {
+  const hx = (cuarto?.ancho ?? 4) / 2
+  const hz = (cuarto?.largo ?? 4) / 2
+  const a = alMuro(desde, hx, hz)
+  const b = alMuro(hasta, hx, hz)
+  const pts = [desde.clone()]
+
+  // 1. del aparato a su muro, en horizontal
+  pts.push(new THREE.Vector3(a.x, desde.y, a.z))
+  // 2. baja al rodapié
+  pts.push(new THREE.Vector3(a.x, ZOCLO, a.z))
+
+  // 3. la vuelta por las esquinas, si están en muros distintos
+  if (a.lado !== b.lado) {
+    const i = ESQUINAS.indexOf(a.lado)
+    const j = ESQUINAS.indexOf(b.lado)
+    const adelante = (j - i + 4) % 4
+    const paso = adelante <= 2 ? 1 : -1
+    for (let k = i; k !== j; k = (k + paso + 4) % 4) {
+      const sig = (k + paso + 4) % 4
+      const e = esquina(ESQUINAS[k], ESQUINAS[sig], hx, hz)
+      pts.push(new THREE.Vector3(e.x, ZOCLO, e.z))
+    }
+  }
+
+  // 4. hasta debajo del contacto, y sube
+  pts.push(new THREE.Vector3(b.x, ZOCLO, b.z))
+  pts.push(new THREE.Vector3(b.x, hasta.y, b.z))
+  pts.push(hasta.clone())
+  return pts
+}
+
+/**
+ * Redondea las esquinas de una polilínea.
+ *
+ * Una canaleta no dobla en pico: lleva su codo, y el cable de adentro lo dobla
+ * con radio. Cada vértice se cambia por dos puntos a `r` de distancia sobre
+ * cada tramo, y el suavizado de la curva hace el resto. Sin esto la ruta se
+ * veía a diagrama de metro.
+ */
+function redondear(pts, r = 0.09) {
+  if (pts.length < 3) return pts
+  const out = [pts[0].clone()]
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p = pts[i]
+    const antes = pts[i - 1]
+    const luego = pts[i + 1]
+    const da = new THREE.Vector3().subVectors(antes, p)
+    const dl = new THREE.Vector3().subVectors(luego, p)
+    const ra = Math.min(r, da.length() * 0.45)
+    const rl = Math.min(r, dl.length() * 0.45)
+    if (ra < 0.005 || rl < 0.005) {
+      out.push(p.clone())
+      continue
+    }
+    out.push(p.clone().addScaledVector(da.normalize(), ra))
+    out.push(p.clone().addScaledVector(dl.normalize(), rl))
+  }
+  out.push(pts[pts.length - 1].clone())
+  return out
 }
 
 /**
@@ -162,6 +261,7 @@ export function Cable({
   interactivo = true,
   guia = null,
   semilla = 0.5,
+  cuarto = null,
   onGuiar,
   onAgarrar,
   onSoltar,
@@ -172,8 +272,8 @@ export function Cable({
   const arrastrando = useRef(false)
 
   const base = useMemo(
-    () => trazo(desde.clone(), hasta.clone(), largo, ruta, guia, semilla),
-    [desde, hasta, largo, ruta, guia, semilla],
+    () => trazo(desde.clone(), hasta.clone(), largo, ruta, guia, semilla, cuarto),
+    [desde, hasta, largo, ruta, guia, semilla, cuarto],
   )
   /* La curva se suaviza y luego se le pone piso.
      Un Catmull-Rom que pasa por puntos a distinta altura se pasa de la raya
@@ -183,7 +283,7 @@ export function Cable({
      como se ve un cable de verdad —arrastrado, no tirante—. */
   const curva = useMemo(() => {
     const suave = new THREE.CatmullRomCurve3(base.map((p) => p.clone()))
-    if (ruta !== 'piso') return suave
+    if (ruta === 'oculto') return suave
     const ps = suave.getPoints(48)
     for (const q of ps) if (q.y < 0.012) q.y = 0.012
     return new THREE.CatmullRomCurve3(ps, false, 'catmullrom', 0.3)
