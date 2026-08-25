@@ -71,6 +71,14 @@ function Visto({ device }) {
     <p className="mt-2 rounded-lg border border-thread/40 bg-thread/5 px-2.5 py-1.5 text-[10.5px] leading-snug text-thread-2">
       Precio de lista visto en <span className="text-cream-2">{quien}</span>: {cuanto} · {v.como} ·{' '}
       {v.visto}
+      {/* La promoción se enseña aparte y nunca es la base de la cotización:
+          se acaba, y el compromiso con el cliente no. */}
+      {v.promo != null && (
+        <span className="mt-1 block text-ember-2">
+          Ese día estaba en oferta a ${v.promo.toLocaleString('es-MX')} — si la alcanzamos, es ganancia
+          nuestra, no descuento prometido.
+        </span>
+      )}
     </p>
   )
 }

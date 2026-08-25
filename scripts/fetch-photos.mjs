@@ -98,6 +98,7 @@ const FUENTES = {
   'sonoff-minirbs': { shop: 'sonoff.tech', q: 'Roller Shutter Switch' },
   'sonoff-mini-pm': { shop: 'sonoff.tech', q: 'MINI PM' },
   'sonoff-m5': { shop: 'sonoff.tech', q: 'SwitchMan' },
+  'sonoff-t6-120m': { shop: 'sonoff.tech', q: 'T6' },
   'sonoff-s60-matter': { shop: 'sonoff.tech', q: 'S60' },
   'sonoff-nspanel-pro': { shop: 'sonoff.tech', q: 'NSPanel Pro' },
   'sonoff-ihost': { shop: 'sonoff.tech', q: 'iHost' },
@@ -137,7 +138,17 @@ const FUENTES = {
   'int-basurero-bano': { sinFoto: 'sin fabricante único' },
   'int-cesto-ropa': { sinFoto: 'pieza de taller: cada una es distinta' },
 
+  /* ── TP-Link ──
+     No es Shopify, pero su CDN publica la foto oficial y la página la declara
+     en og:image. Se apunta a mano porque es la única forma de asegurar que la
+     foto sea de ESE modelo y no del hermano de la misma familia. */
+  'tapo-l930': { url: 'https://static.tp-link.com/upload/image-line/Tapo-L930-5_overview_01_large_20250523062414d_large_20251028222715y.jpg', credito: 'TP-Link' },
+  'kasa-kp303': { url: 'https://static.tp-link.com/KP303_Set-up-Images_01_large_1571309610330o.png', credito: 'TP-Link' },
+  'tapo-tc70': { sinFoto: 'tp-link.com no publica ficha del TC70 en México; la foto del C200 es otro modelo' },
+
   /* ── lo genérico ── */
+  'orein-a19-matter': { sinFoto: 'OREIN es marca de vendedor de Amazon: no tiene sitio de fabricante' },
+  'enchufe-matter-15a': { sinFoto: 'genérico sin marca: la foto sería del paquete de un vendedor' },
   'nfc-tags': { sinFoto: 'etiqueta blanca sin marca' },
   'regleta-smart': { sinFoto: 'marca variable según lo que haya en el canal' },
   'gas-detector-lp': { sinFoto: 'marca variable; la foto se pone cuando se cierre el modelo' },

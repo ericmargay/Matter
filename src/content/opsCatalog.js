@@ -334,14 +334,14 @@ export const PRECIOS_VISTOS = {
      la marca: el foco Matter cuesta 158 comprado de a dos y 95 de a seis, y
      esa diferencia decide una casa entera. El rango dice eso, no una
      incertidumbre. */
-  'orein-a19-matter': { prov: 'amazon', precio: [95, 158], como: 'Orein Matter Focos Inteligentes — 95 en pack de 6, 118 de 4, 158 de 2', visto: '2026-08-22' },
-  'enchufe-matter-15a': { prov: 'amazon', precio: [157, 212], como: 'Matter Smart Plug Mini 15 A pack de 4 — 212 el Linkind de marca', visto: '2026-08-22' },
-  'tapo-tc70': { prov: 'amazon', precio: 499, como: 'Tapo TP-Link TC70 360° 1080p', visto: '2026-08-22' },
-  'sonoff-minir4m': { prov: 'amazon', precio: [274, 372], como: 'SONOFF Matter Smart Switch mini DIY — 274 en promoción de 2, 372 de lista', visto: '2026-08-22' },
+  'orein-a19-matter': { prov: 'amazon', precio: [122, 179], promo: 95, como: 'Orein Matter Focos Inteligentes — lista: 121.50 en pack de 6, 150 de 4, 179 de 2', visto: '2026-08-22' },
+  'enchufe-matter-15a': { prov: 'amazon', precio: [165, 212], promo: 157, como: 'Matter Smart Plug Mini 15 A pack de 4, lista 164.75 — 212 el Linkind de marca', visto: '2026-08-22' },
+  'tapo-tc70': { prov: 'amazon', precio: 529, promo: 499, como: 'Tapo TP-Link TC70 360° 1080p', visto: '2026-08-22' },
+  'sonoff-minir4m': { prov: 'amazon', precio: 372, promo: 274, como: 'SONOFF Matter Smart Switch mini DIY, lista 372 — 274 en promoción de dos', visto: '2026-08-22' },
   'shelly-1mini': { prov: 'amazon', precio: 440, como: 'Shelly 1 Mini Gen4 Matter, Zigbee y Wi-Fi, 8 A', visto: '2026-08-22' },
   'aqara-th': { prov: 'amazon', precio: 664, como: 'Aqara Zigbee sensor de temperatura y humedad', visto: '2026-08-22' },
   'aqara-g5pro': { prov: 'amazon', precio: 4175, como: 'Aqara Hub cámara 4MP G5 Pro exterior', visto: '2026-08-22' },
-  'ultraloq-bolt': { prov: 'amazon', precio: [2618, 3213], como: 'ULTRALOQ Bolt SE Matter — 3213 la de huella WiFi', visto: '2026-08-22' },
+  'ultraloq-bolt': { prov: 'amazon', precio: [2975, 3570], promo: 2618, como: 'ULTRALOQ Bolt SE Matter lista 2,975 — 3,570 la de huella WiFi', visto: '2026-08-22' },
 
   /* Las dos piezas que se repiten en todos los espacios y que seguíamos
      cotizando de memoria. Ninguna de las dos la vende UNIT: su línea es
@@ -350,6 +350,11 @@ export const PRECIOS_VISTOS = {
   'kasa-kp303': { prov: 'amazon', precio: 627, como: 'Kasa KP303 regleta 3 tomas inteligentes + 2 USB', visto: '2026-08-24' },
   'regleta-smart': { prov: 'amazon', precio: [498, 873], como: 'de la EASYTAO con USB a la meross de 4 tomas y 4 USB', visto: '2026-08-24' },
 }
+
+/* `promo` guarda lo que costaba el día que se vio con descuento. El catálogo
+   cotiza SIEMPRE con el precio de lista: la promoción se acaba, el compromiso
+   con el cliente no. Que la oferta exista es una ganancia nuestra si la
+   alcanzamos, no un descuento que ya prometimos. */
 
 /** Si el precio ya se validó contra una lista de proveedor, con quién y cuándo. */
 export const precioVisto = (device) => PRECIOS_VISTOS[device.id] ?? null
