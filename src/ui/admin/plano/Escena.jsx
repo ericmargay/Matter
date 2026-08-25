@@ -1262,7 +1262,14 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
     // `escala` es el diafragma de la cámara (ver exposicionDe). No cambia la
     // proporción entre piezas —una de 1600 lm sigue dando el doble que una de
     // 800— solo el nivel al que se revela el conjunto.
-    luz.current.power = p.lm * factor * escala
+    /* Un panel reparte sus lúmenes en medio metro cuadrado; un punto los
+       concentra en un punto. Meterle los 900 lm completos a una luz puntual a
+       doce centímetros del muro dejaba una mancha blanca en el centro de la
+       pieza —el "foco en medio de los triángulos"— por pura caída cuadrática.
+       Se reparte: la mitad de potencia, más lejos de la pieza, y el resto de
+       la lectura la pone el material encendido, que es el que de verdad se ve. */
+    const reparto = p.forma === 'punto' ? 1 : 0.45
+    luz.current.power = p.lm * factor * escala * reparto
     /* Los paneles tiran su propio color al muro, no blanco. La luz salía del
        color "de fábrica" del aparato —un blanco cálido— mientras las nueve
        piezas corrían su secuencia de verdes y azules: el halo sobre la pared
@@ -1288,7 +1295,7 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
   const dirigido = esFoco && p.haz < 140 && forma === 'punto'
   /* Y la fuente se despega del muro lo que mide la pieza, para que la luz
      salga DE la pieza hacia el cuarto y no desde dentro de la pared. */
-  const salida = forma === 'punto' ? [0, 0, 0] : [0, 0, 0.12]
+  const salida = forma === 'punto' ? [0, 0, 0] : [0, 0, 0.45]
 
   return (
     <group
@@ -2034,7 +2041,11 @@ export default function Escena({
          el encuadre justo al cuarto, en un espacio chico la medida quedaba
          cortada — que es justo lo que uno va a mirar. */
       camera={{ position: [encuadre * 0.8, encuadre * 0.85, encuadre * 0.8], fov: 42 }}
-      onPointerMissed={() => !midiendo && onSeleccionar(null)}
+      /* Picar fuera del cuarto cierra lo que esté abierto: primero el modo
+         medida, y si no hay ninguno, deselecciona. Tener que ir hasta el botón
+         "Listo" para poder seguir trabajando era un callejón: uno ya terminó
+         de medir en el momento en que mira a otro lado. */
+      onPointerMissed={() => (midiendo ? onMidiendo(null) : onSeleccionar(null))}
       onPointerUp={soltar}
     >
       {/* el fondo toma el muro de la paleta: es lo que hace que el cuarto se

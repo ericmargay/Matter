@@ -6,7 +6,7 @@ import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, ID_MUROS, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
 import { MUROS_ACABADO, PISOS } from './acabados'
 import { cableDeMueble, cablePorDefecto, llevaCable } from './cables'
-import { anclaAuto, comoSeLlama, resolverAnclas } from './anclas'
+import { anclaAuto, anclaEnMuro, comoSeLlama, murosCerca, ponerEnMuro, resolverAnclas } from './anclas'
 import { comoAloja, dispositivosDe } from './aloja'
 import { ESPACIOS } from '../../../content/espacios'
 import { DISPOSICIONES } from './paneles'
@@ -312,7 +312,28 @@ export default function PlanoCuarto({ room, onCerrar }) {
    */
   const guardar = (patch, que) => {
     historia.anotar(plano, que)
-    const siguiente = { ...plano, ...patch }
+    let siguiente = { ...plano, ...patch }
+
+    /* Si lo que cambia son las MEDIDAS, primero se amarra lo que todavía no lo
+       estaba —contra las medidas viejas, que son las que dicen qué toca qué— y
+       hasta entonces se estira. Así no hace falta que el cuarto se haya abierto
+       antes con esta versión: cualquier plano viejo se pone al día en el
+       momento en que se le mueve una pared, que es justo cuando importa. */
+    const cambiaMedida =
+      (patch.ancho != null && patch.ancho !== plano.ancho) ||
+      (patch.largo != null && patch.largo !== plano.largo)
+    if (cambiaMedida) {
+      const base = patch.items ?? plano.items
+      siguiente = {
+        ...siguiente,
+        items: base.map((it) => {
+          if (it.ancla || it.suelta) return it
+          const ancla = anclaAuto(it, plano, base)
+          return ancla ? { ...it, ancla } : it
+        }),
+      }
+    }
+
     const items = resolverAnclas(siguiente)
     setPlano(room.id, items === siguiente.items ? siguiente : { ...siguiente, items }, que)
   }
@@ -451,7 +472,10 @@ export default function PlanoCuarto({ room, onCerrar }) {
     let item, que
 
     if (colocando.clase === 'mueble') {
-      item = { ...base, clase: 'mueble', tipo: colocando.tipo }
+      /* Lo que va colgado o embebido en el muro se va al muro más cercano al
+         punto donde se picó, a su altura y mirando al cuarto. Una ventana en
+         el piso no es una ventana. */
+      item = ponerEnMuro({ ...base, clase: 'mueble', tipo: colocando.tipo }, plano)
       que = `Colocó ${MUEBLES[colocando.tipo]?.label?.toLowerCase() ?? 'un mueble'}`
     } else if (colocando.clase === 'equipo') {
       const dev = DEVICE_BY_ID[colocando.deviceId]
@@ -472,7 +496,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
     /* Se pega a lo que le toca en el momento de ponerla: al muro si es un
        contacto, al mueble que tenga debajo si es un aparato. Después ya no se
        adivina sola — se cambia a mano desde su ficha. */
-    const ancla = anclaAuto(item, plano, plano.items)
+    const ancla = item.ancla ?? anclaAuto(item, plano, plano.items)
     setItems([...plano.items, ancla ? { ...item, ancla } : item], que)
     setSeleccion(item.id)
     setColocando(null)
@@ -1108,6 +1132,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
           ) : seleccionado ? (
             <Inspector
               item={seleccionado}
+              plano={plano}
               onParchar={parchar}
               onGirar={girar}
               onQuitar={quitar}
@@ -1868,7 +1893,7 @@ const COLORES = [
  * anclado importa tanto como saber a qué lo está — es la diferencia entre
  * "se va a mover con el buró" y "se va a quedar flotando".
  */
-function Vinculo({ item, items, onParchar, onSeleccionar }) {
+function Vinculo({ item, items, plano, onParchar, onSeleccionar }) {
   const a = item.ancla
   const nombre = comoSeLlama(a, items)
   const suelta = !!item.suelta
@@ -1888,6 +1913,28 @@ function Vinculo({ item, items, onParchar, onSeleccionar }) {
           <>Nada todavía. Suéltala encima de un mueble o contra un muro y se pega sola.</>
         )}
       </p>
+      {/* Esquinado: está pegado a dos muros y hay que poder decir a cuál. Se
+          enseñan los dos más cercanos, con el que manda marcado. */}
+      {!suelta && a?.a === 'muro' && plano && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {murosCerca(item, plano)
+            .slice(0, 2)
+            .map((m) => (
+              <button
+                key={m.muro}
+                onClick={() => onParchar(item.id, { ancla: anclaEnMuro(item, plano, m.muro) })}
+                className={`rounded-full border px-2 py-0.5 text-[10.5px] transition-colors ${
+                  a.muro === m.muro
+                    ? 'border-ember bg-ember/12 text-cream'
+                    : 'border-line text-cream-3 hover:bg-cream/6'
+                }`}
+              >
+                {m.label} · {Math.round(m.dist * 100)} cm
+              </button>
+            ))}
+        </div>
+      )}
+
       <div className="mt-2 flex gap-1.5">
         {(a || suelta) && (
           <button
@@ -1914,6 +1961,7 @@ function Vinculo({ item, items, onParchar, onSeleccionar }) {
 
 function Inspector({
   item,
+  plano,
   onParchar,
   onGirar,
   onQuitar,
@@ -1964,7 +2012,7 @@ function Inspector({
           Lo importante no es el dato, es poder soltarla: una pieza que se
           pega sola a lo que pase por debajo y no se puede despegar es peor
           que una que no se pega a nada. */}
-      <Vinculo item={item} items={items} onParchar={onParchar} onSeleccionar={onSeleccionar} />
+      <Vinculo item={item} items={items} plano={plano} onParchar={onParchar} onSeleccionar={onSeleccionar} />
 
       {/* Todo a mano además del gizmo: cuando el cliente da una medida
           exacta —"el buró va a 40 cm de la pared"— hay que poder escribirla. */}

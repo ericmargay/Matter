@@ -1,4 +1,5 @@
 import { MUEBLES } from './catalogo'
+import { MUEBLES_DE_MURO } from './muros'
 
 /**
  * A qué está pegada cada cosa.
@@ -45,6 +46,12 @@ const medio = (m) => ({ w: (m?.w ?? 0.4) / 2, d: (m?.d ?? 0.4) / 2, alto: m?.alt
 export function muroDe(item, plano) {
   const hx = (plano.ancho ?? 4) / 2
   const hz = (plano.largo ?? 4) / 2
+  /* La distancia se mide desde el CANTO de la pieza, no desde su centro. Un
+     sofá de noventa de fondo pegado a la pared tiene el centro a cuarenta y
+     cinco centímetros de ella; midiendo desde el centro, ningún mueble estaba
+     nunca "en el muro" y ninguno se movía al estirar el cuarto. */
+  const def = item.clase === 'mueble' ? MUEBLES[item.tipo] : null
+  const canto = def ? Math.min(def.w ?? 0.4, def.d ?? 0.4) / 2 : 0
   const cand = [
     ['x-', Math.abs(item.x + hx), (item.z + hz) / (hz * 2)],
     ['x+', Math.abs(item.x - hx), (item.z + hz) / (hz * 2)],
@@ -52,8 +59,43 @@ export function muroDe(item, plano) {
     ['z+', Math.abs(item.z - hz), (item.x + hx) / (hx * 2)],
   ]
   const [muro, dist, t] = cand.reduce((a, b) => (b[1] < a[1] ? b : a))
-  if (dist > 0.25) return null
+  /* Lo que va colgado del muro se pega siempre; un mueble de piso, sólo si de
+     verdad está arrimado. Medio metro de holgura es lo que separa "está contra
+     la pared" de "está cerca de la pared", que son dos cosas distintas. */
+  const limite = MUEBLES_DE_MURO.has(item.tipo) || item.clase === 'punto' ? 0.3 : canto + 0.25
+  if (dist > limite) return null
   return { a: 'muro', muro, t: Math.min(1, Math.max(0, t)), y: item.y ?? 0.4, sep: dist }
+}
+
+/**
+ * Los cuatro muros, ordenados por cercanía a una pieza.
+ *
+ * Sirve para el mueble esquinado: está pegado a dos y hay que poder decir a
+ * cuál se amarra. La lista sale ordenada para que el panel pueda enseñar
+ * primero el que se eligió solo.
+ */
+export function murosCerca(item, plano) {
+  const hx = (plano.ancho ?? 4) / 2
+  const hz = (plano.largo ?? 4) / 2
+  return [
+    ['x-', Math.abs(item.x + hx)],
+    ['x+', Math.abs(item.x - hx)],
+    ['z-', Math.abs(item.z + hz)],
+    ['z+', Math.abs(item.z - hz)],
+  ]
+    .sort((a, b) => a[1] - b[1])
+    .map(([muro, dist]) => ({ muro, dist, label: MUROS[muro].label }))
+}
+
+/** El ancla de muro que le tocaría a una pieza si la amarramos a ESE muro. */
+export function anclaEnMuro(item, plano, muro) {
+  const hx = (plano.ancho ?? 4) / 2
+  const hz = (plano.largo ?? 4) / 2
+  const m = MUROS[muro]
+  if (!m) return null
+  const sep = Math.abs(m.eje === 'x' ? item.x - hx * m.signo : item.z - hz * m.signo)
+  const t = m.eje === 'x' ? (item.z + hz) / (hz * 2) : (item.x + hx) / (hx * 2)
+  return { a: 'muro', muro, t: Math.min(1, Math.max(0, t)), y: item.y ?? 0.4, sep }
 }
 
 /**
@@ -150,4 +192,53 @@ export function resolverAnclas(plano) {
     }
     return { ...it, x, z, y }
   })
+}
+
+/* A qué altura cuelga cada cosa de muro. Son las de la casa, no las de un
+   catálogo: una ventana empieza a un metro, un cuadro se cuelga con su centro
+   a la altura de los ojos, un reloj más arriba que la puerta. */
+const ALTO_EN_MURO = {
+  ventana: 1.5,
+  ventanalCorredizo: 1.2,
+  persiana: 2.0,
+  puerta: 1.05,
+  cuadro: 1.55,
+  cuadroSolo: 1.55,
+  cuadroArte: 1.55,
+  cuadroGrande: 1.5,
+  triptico: 1.55,
+  muroCuadros: 1.5,
+  relojPared: 2.05,
+  espejo: 1.5,
+  toallero: 1.1,
+}
+
+/** El giro que deja la pieza viendo hacia adentro del cuarto. */
+const GIRO_MURO = { 'z-': 0, 'z+': Math.PI, 'x-': Math.PI / 2, 'x+': -Math.PI / 2 }
+
+/**
+ * Poner una pieza de muro donde le toca: EN el muro.
+ *
+ * Una ventana no se pone en el piso y luego se sube a mano. Se pica cerca de
+ * un muro y se pega a ese muro, a su altura, mirando al cuarto y anclada de
+ * una vez. Antes toda pieza nueva nacía en el suelo y en el centro, y las
+ * ventanas quedaban tiradas en la alfombra.
+ */
+export function ponerEnMuro(item, plano) {
+  if (!MUEBLES_DE_MURO.has(item.tipo)) return item
+  const cerca = murosCerca(item, plano)[0]
+  if (!cerca) return item
+  const m = MUROS[cerca.muro]
+  const hx = (plano.ancho ?? 4) / 2
+  const hz = (plano.largo ?? 4) / 2
+  const sep = 0.02
+  const fijo = (m.eje === 'x' ? hx : hz) * m.signo - m.signo * sep
+  const puesto = {
+    ...item,
+    x: m.eje === 'x' ? fijo : item.x,
+    z: m.eje === 'x' ? item.z : fijo,
+    y: ALTO_EN_MURO[item.tipo] ?? 1.5,
+    rot: GIRO_MURO[cerca.muro] ?? 0,
+  }
+  return { ...puesto, ancla: anclaEnMuro(puesto, plano, cerca.muro) }
 }
