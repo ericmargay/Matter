@@ -33,8 +33,29 @@ export const MUROS = {
   'z+': { eje: 'z', signo: 1, label: 'muro de enfrente' },
 }
 
+/**
+ * La altura a la que de verdad queda la cubierta de un mueble.
+ *
+ * No es `def.alto` a secas: la pieza puede traer su propia altura en `props`,
+ * la variante puede cambiarla otra vez y el taller una tercera. El buró es el
+ * caso que lo destapó — se declara de 54 cm y se dibuja de 52, así que todo lo
+ * que se le ponía encima quedaba flotando dos centímetros. Dos centímetros se
+ * ven, y es de las cosas que hacen que un plano deje de creerse.
+ */
+export function altoDe(item) {
+  const def = MUEBLES[item?.tipo]
+  if (!def) return 0.4
+  const va = def.variantes?.find((v) => v.id === item.variante)
+  const props = { ...def.props, ...(va?.props ?? {}), ...(item.ajustes ?? {}) }
+  return props.alto ?? props.h ?? item.huella?.alto ?? def.alto ?? 0.4
+}
+
 /** Media pieza, para saber dónde termina. */
-const medio = (m) => ({ w: (m?.w ?? 0.4) / 2, d: (m?.d ?? 0.4) / 2, alto: m?.alto ?? 0.4 })
+const medio = (m, it) => ({
+  w: (m?.w ?? 0.4) / 2,
+  d: (m?.d ?? 0.4) / 2,
+  alto: it ? altoDe(it) : (m?.alto ?? 0.4),
+})
 
 /**
  * ¿A qué muro está pegada esta pieza, si es que a alguno?
@@ -145,7 +166,7 @@ export function muebleBajo(item, items) {
     if (otro.id === item.id || otro.clase !== 'mueble') continue
     const def = MUEBLES[otro.tipo]
     if (!def) continue
-    const { w, d, alto } = medio(def)
+    const { w, d, alto } = medio(def, otro)
     // la huella gira con el mueble
     const rot = -(otro.rot ?? 0)
     const dx = item.x - otro.x
@@ -261,7 +282,7 @@ export function resolverAnclas(plano) {
     const rot = base.rot ?? 0
     const x = base.x + (a.lx ?? 0) * Math.cos(rot) + (a.lz ?? 0) * Math.sin(rot)
     const z = base.z - (a.lx ?? 0) * Math.sin(rot) + (a.lz ?? 0) * Math.cos(rot)
-    const y = (MUEBLES[base.tipo]?.alto ?? 0.4) + (a.sobre ?? 0)
+    const y = altoDe(base) + (a.sobre ?? 0)
     if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005 && Math.abs(y - (it.y ?? 0)) < 0.0005) {
       return it
     }
