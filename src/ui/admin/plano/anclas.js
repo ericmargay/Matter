@@ -145,6 +145,18 @@ export function anclaAuto(item, plano, items) {
   if (item.clase === 'punto') return muroDe(item, plano)
   const encima = muebleBajo(item, items) ?? muroDe(item, plano)
   if (encima) return encima
+  /* Y lo que va en el plafón se amarra al plafón, guardando en qué parte de él
+     está —de cero a uno en cada eje— y no en qué metro. Así seis empotrados
+     repartidos en la sala se vuelven a repartir cuando la sala crece, en vez
+     de quedarse apretados en una esquina. */
+  if ((item.y ?? 0) >= (plano.alto ?? 2.6) - 0.6) {
+    return {
+      a: 'techo',
+      u: (item.x + (plano.ancho ?? 4) / 2) / (plano.ancho ?? 4),
+      v: (item.z + (plano.largo ?? 4) / 2) / (plano.largo ?? 4),
+      y: item.y ?? 2.4,
+    }
+  }
   /* Y si no está sobre nada ni contra nada, está en el piso — que también es
      una relación, no una casualidad. Sin esto quedaban muebles flotando a
      dos centímetros del suelo sin que nada los bajara. */
@@ -158,6 +170,7 @@ export function anclaAuto(item, plano, items) {
 export function comoSeLlama(ancla, items) {
   if (!ancla) return null
   if (ancla.a === 'piso') return 'el piso'
+  if (ancla.a === 'techo') return 'el plafón'
   if (ancla.a === 'muro') return MUROS[ancla.muro]?.label ?? 'un muro'
   const m = items.find((i) => i.id === ancla.id)
   return MUEBLES[m?.tipo]?.label ?? 'un mueble'
@@ -190,6 +203,13 @@ export function resolverAnclas(plano) {
       const corre = (m.eje === 'x' ? hz : hx) * (a.t * 2 - 1)
       const x = m.eje === 'x' ? fijo : corre
       const z = m.eje === 'x' ? corre : fijo
+      if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005) return it
+      return { ...it, x, z, y: a.y ?? it.y }
+    }
+
+    if (a.a === 'techo') {
+      const x = (a.u - 0.5) * (plano.ancho ?? 4)
+      const z = (a.v - 0.5) * (plano.largo ?? 4)
       if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005) return it
       return { ...it, x, z, y: a.y ?? it.y }
     }
