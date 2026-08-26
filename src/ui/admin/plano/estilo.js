@@ -105,6 +105,12 @@ export const useEstilo = create((set) => ({
   ao: 1.0,
   saturacion: 1.0,
 
+  /* El grueso del cable, en milímetros. Un cable de casa mide de 5 a 8 mm de
+     diámetro; en el plano se dibuja un poco más para que se vea sin lupa, y
+     cuánto más es cuestión de gusto: demasiado grueso convierte la habitación
+     en un plato de espagueti, demasiado fino desaparece al alejar la cámara. */
+  grosorCable: 4.5,
+
   /* Las conexiones existen siempre; se ven cuando se piden. */
   verElectricas: false,
   verInalambricas: false,
@@ -122,6 +128,7 @@ export const useEstilo = create((set) => ({
       sombraSuave: 0.85,
       ao: 1.0,
       saturacion: 1.0,
+      grosorCable: 4.5,
     }),
 }))
 

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 
+import { useEstilo } from './estilo'
+
 
 /**
  * El cable, dibujado. Las medidas y las rutas viven en `cables.js`; aquí solo
@@ -211,10 +213,15 @@ export function Clavija({ pos, quat, enMano, onTomar }) {
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      <group scale={enMano || encima ? 1.3 : 1}>
-        {/* el cuerpo, con la cara ancha viendo al muro */}
+      {/* Al agarrarla crece un poco, pero mucho menos que antes: inflarla al
+          treinta por ciento la volvía más grande que el adaptador donde va
+          metida, y una clavija más grande que su multicontacto se ve a juguete. */}
+      <group scale={enMano || encima ? 1.12 : 1}>
+        {/* El cuerpo. Treinta por treinta y cuatro por trece milímetros, que es
+            lo que mide una clavija de aquí — la de antes era casi del tamaño
+            del adaptador entero. */}
         <mesh castShadow>
-          <boxGeometry args={[0.038, 0.042, 0.019]} />
+          <boxGeometry args={[0.03, 0.034, 0.013]} />
           <meshStandardMaterial
             color={enMano ? '#4d9fff' : '#2a2e38'}
             roughness={0.5}
@@ -223,16 +230,15 @@ export function Clavija({ pos, quat, enMano, onTomar }) {
           />
         </mesh>
         {/* el cuello por donde sale el cable, del lado contrario a las patas */}
-        <mesh position={[0, -0.028, 0]}>
-          <cylinderGeometry args={[0.006, 0.009, 0.022, 8]} />
+        <mesh position={[0, -0.023, 0]}>
+          <cylinderGeometry args={[0.0045, 0.007, 0.016, 8]} />
           <meshStandardMaterial color="#23262e" roughness={0.8} />
         </mesh>
-        {/* las patas, apuntando al contacto */}
+        {/* Las patas, metidas en la boca. Doce milímetros: lo que se ve de una
+            clavija puesta es casi nada, y ése es justo el punto. */}
         {[-1, 1].map((sg) => (
-          <mesh key={sg} position={[sg * 0.0095, 0.031, 0]}>
-            {/* solera plana, no barrote: una clavija de aquí trae dos navajas
-                de milímetro y medio de espesor */}
-            <boxGeometry args={[0.0065, 0.017, 0.0016]} />
+          <mesh key={sg} position={[sg * 0.008, 0.023, 0]}>
+            <boxGeometry args={[0.005, 0.012, 0.0014]} />
             <meshStandardMaterial color="#c9b48a" metalness={0.8} roughness={0.3} />
           </mesh>
         ))}
@@ -266,6 +272,7 @@ export function Cable({
   onAgarrar,
   onSoltar,
 }) {
+  const radio = useEstilo((e) => e.grosorCable) / 2000
   const malla = useRef()
   const agarre = useRef()
   const [encima, setEncima] = useState(false)
@@ -300,9 +307,9 @@ export function Cable({
     const m = malla.current
     if (!m) return
     m.geometry?.dispose()
-    m.geometry = new THREE.TubeGeometry(curva, 40, 0.009, 7, false)
+    m.geometry = new THREE.TubeGeometry(curva, 40, radio, 7, false)
     return () => m.geometry?.dispose()
-  }, [curva])
+  }, [curva, radio])
 
   /* Y una funda invisible y gorda encima, que es la que recibe el ratón.
      Atinarle a un cable de nueve milímetros en perspectiva es una prueba de

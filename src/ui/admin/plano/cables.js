@@ -82,14 +82,23 @@ export function cablePorDefecto(device) {
 /** Dónde sale el cable del aparato, en coordenadas del mundo. */
 export function puntoSalida(item, caja, salida = 'atras') {
   const s = SALIDAS[salida] ?? SALIDAS.atras
+  /* Sin caja, el aparato se supone chico: seis centímetros de media medida.
+     Antes se suponían diez Y ADEMÁS se levantaba el punto quince centímetros
+     sobre la pieza, así que el cable del Apple TV nacía en el aire arriba del
+     buró en vez de salir por atrás del aparato. Un cable que empieza donde no
+     está el aparato es de lo que más delata un render. */
   const cx = caja ? (caja.min.x + caja.max.x) / 2 : 0
-  const cy = caja ? (caja.min.y + caja.max.y) / 2 : 0.1
+  const cy = caja ? (caja.min.y + caja.max.y) / 2 : 0.03
   const cz = caja ? (caja.min.z + caja.max.z) / 2 : 0
-  const hx = caja ? (caja.max.x - caja.min.x) / 2 : 0.1
-  const hy = caja ? (caja.max.y - caja.min.y) / 2 : 0.1
-  const hz = caja ? (caja.max.z - caja.min.z) / 2 : 0.1
+  const hx = caja ? (caja.max.x - caja.min.x) / 2 : 0.06
+  const hy = caja ? (caja.max.y - caja.min.y) / 2 : 0.03
+  const hz = caja ? (caja.max.z - caja.min.z) / 2 : 0.06
 
-  const local = new THREE.Vector3(cx + s.p[0] * hx, caja ? (s.p[1] === 0 ? caja.min.y : cy + s.p[1] * hy) : 0.1, cz + s.p[2] * hz)
+  const local = new THREE.Vector3(
+    cx + s.p[0] * hx,
+    caja ? (s.p[1] === 0 ? caja.min.y : cy + s.p[1] * hy) : s.p[1] === 0 ? 0 : cy + s.p[1] * hy,
+    cz + s.p[2] * hz,
+  )
   local.applyAxisAngle(new THREE.Vector3(0, 1, 0), item.rot ?? 0)
   return new THREE.Vector3(item.x + local.x, (item.y ?? 0) + local.y, item.z + local.z)
 }

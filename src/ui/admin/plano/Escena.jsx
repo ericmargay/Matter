@@ -578,6 +578,16 @@ function Adaptador({ punto }) {
         <boxGeometry args={[0.066, 0.043, 0.014]} />
         <meshStandardMaterial color="#e8e6e1" roughness={0.55} />
       </mesh>
+      {/* Sus propias patas, metidas en el contacto. Sin ellas el adaptador se
+          veía pegado a la pared por arte de magia; son plegables y por eso van
+          rectas hacia atrás cuando está puesto. */}
+      {[-1, 1].map((sg) => (
+        <mesh key={`p${sg}`} position={[sg * 0.008, 0, -0.014]}>
+          <boxGeometry args={[0.005, 0.012, 0.0014]} />
+          <meshStandardMaterial color="#c9b48a" metalness={0.8} roughness={0.3} />
+        </mesh>
+      ))}
+
       {/* las tres bocas, hundidas */}
       {BOCAS.map((b) => (
         <group
@@ -662,11 +672,18 @@ function Cables({ items, cuarto, enMano, onTomarClavija, onGuiarCable, onAgarrar
            Antes salía a ocho centímetros del contacto en la dirección de su
            aparato, y con dos cables al mismo contacto se encimaban. */
         const b = BOCAS[boca]
-        /* En la boca lateral la clavija sale de canto y pegada al muro: es la
-           que deja arrimar el mueble. En las de frente sale hacia el cuarto. */
+        /* La clavija queda METIDA en su boca: el cuerpo apoyado contra la cara
+           del adaptador y las patas adentro. Antes se dibujaba a dos
+           centímetros por delante y se veía flotando junto al multicontacto en
+           vez de enchufada en él.
+
+           La cuenta: el adaptador está a 23 mm del contacto y mide 14 de
+           espesor, así que su cara de enfrente cae en 30; el cuerpo de la
+           clavija mide 13, o sea 6.5 de centro. En la boca lateral es lo mismo
+           pero sobre el ancho: la cara del canto está a 33 del centro. */
         const clavija = new THREE.Vector3(destino.x, destino.y ?? 0.4, destino.z)
-          .addScaledVector(dentro, b.lateral ? 0.022 : 0.045)
-          .addScaledVector(ancho, b.lateral ? b.a + 0.03 : b.a)
+          .addScaledVector(dentro, b.lateral ? 0.023 : 0.0365)
+          .addScaledVector(ancho, b.lateral ? 0.0395 : b.a)
         const quat = new THREE.Quaternion().setFromUnitVectors(
           ARRIBA,
           b.lateral ? ancho.clone().negate() : dentro.clone().negate(),
@@ -1668,7 +1685,6 @@ function Cota({ eje, ancho, largo, alto, onMedir, midiendo, onEntrar, apoyo = '#
           cuarto no es un gesto de tanteo — es un dato que se midió. */}
       <mesh
         visible={false}
-        {...(esY ? { raycast: () => null } : {})}
         onPointerDown={(e) => {
           if (otraActiva) return
           e.stopPropagation()
@@ -1681,14 +1697,25 @@ function Cota({ eje, ancho, largo, alto, onMedir, midiendo, onEntrar, apoyo = '#
              momento. Así lo que manda es el DESPLAZAMIENTO, no la posición
              absoluta del rayo: agarrar la cota por cualquier punto de su largo
              deja de dar un brinco inicial. */
-          if (e.ray.intersectPlane(PLANO_COTA, PUNTO)) {
-            arrastrando.current = { desde: esX ? PUNTO.x : PUNTO.z, medida: largoCota }
-          }
+          /* En altura lo que manda es cuánto sube el puntero en pantalla: no
+             hay un plano del mundo contra el que medir una vertical sin que la
+             cámara la deforme. */
+          arrastrando.current = esY
+            ? { pantalla: e.clientY, medida: largoCota }
+            : e.ray.intersectPlane(PLANO_COTA, PUNTO)
+              ? { desde: esX ? PUNTO.x : PUNTO.z, medida: largoCota }
+              : null
           e.target.setPointerCapture(e.pointerId)
         }}
         onPointerMove={(e) => {
           if (!arrastrando.current) return
           e.stopPropagation()
+          if (esY) {
+            // hacia arriba en la pantalla es más alto
+            const sube = (arrastrando.current.pantalla - e.clientY) / 160
+            onMedir('y', Math.max(2, Math.round((arrastrando.current.medida + sube) * 100) / 100))
+            return
+          }
           if (!e.ray.intersectPlane(PLANO_COTA, PUNTO)) return
           const ahora = esX ? PUNTO.x : PUNTO.z
           /* El muro de enfrente no se mueve: el cuarto crece al doble de lo

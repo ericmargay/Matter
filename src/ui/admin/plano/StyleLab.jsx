@@ -85,6 +85,22 @@ export default function StyleLab({ onCerrar }) {
       </div>
 
       <div className="mt-3 space-y-2.5 border-t border-line pt-3">
+        <p className="text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">Cable</p>
+        {/* Un cable de casa mide de 5 a 8 milímetros. En el plano se dibuja un
+            poco más para verlo sin lupa, y cuánto más es cuestión de gusto:
+            grueso convierte el cuarto en un plato de espagueti, fino desaparece
+            al alejar la cámara. */}
+        <Barra
+          label="Grosor · mm"
+          valor={e.grosorCable}
+          min={3}
+          max={14}
+          paso={0.5}
+          onChange={(v) => e.set({ grosorCable: v })}
+        />
+      </div>
+
+      <div className="mt-3 space-y-2.5 border-t border-line pt-3">
         <p className="text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">Luz</p>
         <Barra label="Intensidad" valor={e.luzIntensidad} min={0.2} max={2} onChange={(v) => e.set({ luzIntensidad: v })} />
         <Barra label="Ambiente" valor={e.ambiente} min={0} max={1.5} onChange={(v) => e.set({ ambiente: v })} />

@@ -479,12 +479,15 @@ export default function PlanoCuarto({ room, onCerrar }) {
   /* Arrastrar un muro dispara decenas de medidas por segundo. `setPlano` ya
      agrupa el envío, así que la pantalla responde a cada cuadro y al registro
      llega un solo cambio cuando se suelta. */
+  const LLAVE = { x: 'ancho', z: 'largo', y: 'alto' }
+
   const medir = (eje, valor) => {
-    if (eje !== 'x' && eje !== 'z') return // la altura se escribe, no se jala
-    guardar(
-      { [eje === 'x' ? 'ancho' : 'largo']: Number(valor.toFixed(2)) },
-      `Ajustó las medidas de ${room.nombre}`,
-    )
+    const llave = LLAVE[eje]
+    if (!llave) return
+    /* La altura también se jala. Antes sólo se escribía, y desde que lo del
+       plafón se amarra al plafón hay una razón para moverla: subir el techo
+       tiene que subir los empotrados con él. */
+    guardar({ [llave]: Number(valor.toFixed(2)) }, `Ajustó las medidas de ${room.nombre}`)
   }
 
   /* ── acciones sobre los objetos ── */
@@ -1105,14 +1108,17 @@ export default function PlanoCuarto({ room, onCerrar }) {
             <div className="absolute inset-x-0 top-3 flex justify-center">
               <div className="flex items-center gap-2 rounded-full border border-ember bg-ink/92 py-1.5 pr-1.5 pl-3.5 text-[12px] text-ember backdrop-blur">
                 <span>
-                  Midiendo el {midiendo === 'x' ? 'ancho' : 'largo'} · jala la flecha
+                  Midiendo {midiendo === 'x' ? 'el ancho' : midiendo === 'y' ? 'la altura' : 'el largo'} ·
+                  jala la flecha
                 </span>
                 <input
                   type="number"
                   step="0.1"
                   min="1.2"
-                  value={midiendo === 'x' ? plano.ancho : plano.largo}
-                  onChange={(e) => Number(e.target.value) >= 1.2 && medir(midiendo, Number(e.target.value))}
+                  value={plano[LLAVE[midiendo]] ?? plano.largo}
+                  onChange={(e) =>
+                    Number(e.target.value) >= 1.2 && medir(midiendo, Number(e.target.value))
+                  }
                   className="w-20 rounded-lg border border-ember/40 bg-ink px-2 py-1 text-[12px] tabular-nums text-cream"
                 />
                 <button
@@ -1923,6 +1929,17 @@ const COLORES = [
  * anclado importa tanto como saber a qué lo está — es la diferencia entre
  * "se va a mover con el buró" y "se va a quedar flotando".
  */
+const Amarre = ({ activo, onClick, children }) => (
+  <button
+    onClick={onClick}
+    className={`rounded-full border px-2 py-0.5 text-[10.5px] transition-colors ${
+      activo ? 'border-ember bg-ember/12 text-cream' : 'border-line text-cream-3 hover:bg-cream/6'
+    }`}
+  >
+    {children}
+  </button>
+)
+
 function Vinculo({ item, items, plano, onParchar, onSeleccionar }) {
   const a = item.ancla
   const nombre = comoSeLlama(a, items)
@@ -1943,25 +1960,62 @@ function Vinculo({ item, items, plano, onParchar, onSeleccionar }) {
           <>Nada todavía. Suéltala encima de un mueble o contra un muro y se pega sola.</>
         )}
       </p>
-      {/* Esquinado: está pegado a dos muros y hay que poder decir a cuál. Se
-          enseñan los dos más cercanos, con el que manda marcado. */}
-      {!suelta && a?.a === 'muro' && plano && (
+      {/* A qué se amarra. Los dos muros más cercanos —el mueble esquinado toca
+          dos y hay que poder decir a cuál— más el piso y el plafón, que son
+          superficies como cualquier otra: una maceta que se queda en el suelo
+          está amarrada al suelo, y un empotrado al plafón. */}
+      {!suelta && plano && (
         <div className="mt-2 flex flex-wrap gap-1">
           {murosCerca(item, plano)
             .slice(0, 2)
             .map((m) => (
-              <button
+              <Amarre
                 key={m.muro}
+                activo={a?.a === 'muro' && a.muro === m.muro}
                 onClick={() => onParchar(item.id, { ancla: anclaEnMuro(item, plano, m.muro) })}
-                className={`rounded-full border px-2 py-0.5 text-[10.5px] transition-colors ${
-                  a.muro === m.muro
-                    ? 'border-ember bg-ember/12 text-cream'
-                    : 'border-line text-cream-3 hover:bg-cream/6'
-                }`}
               >
                 {m.label} · {Math.round(m.dist * 100)} cm
-              </button>
+              </Amarre>
             ))}
+          <Amarre
+            activo={a?.a === 'piso'}
+            onClick={() => onParchar(item.id, { ancla: { a: 'piso' }, y: 0 })}
+          >
+            el piso
+          </Amarre>
+          <Amarre
+            activo={a?.a === 'techo'}
+            onClick={() =>
+              onParchar(item.id, {
+                ancla: {
+                  a: 'techo',
+                  u: (item.x + plano.ancho / 2) / plano.ancho,
+                  v: (item.z + plano.largo / 2) / plano.largo,
+                  y: item.y ?? (plano.alto ?? 2.6) - 0.2,
+                },
+              })
+            }
+          >
+            el plafón
+          </Amarre>
+        </div>
+      )}
+
+      {/* Cuánto se despega del muro. La cama contra la pared de los contactos
+          los tapa, y hay que poder separarla diez centímetros para verlos —o
+          para que quepa el zoclo, o el radiador, o el cable. Se escribe, no se
+          adivina. */}
+      {!suelta && a?.a === 'muro' && (
+        <div className="mt-2">
+          <Medida
+            label="Separación del muro · cm"
+            value={Math.round((a.sep ?? 0) * 100)}
+            step={1}
+            min={0}
+            onChange={(v) =>
+              onParchar(item.id, { ancla: { ...a, sep: Math.max(0, v) / 100 } })
+            }
+          />
         </div>
       )}
 
