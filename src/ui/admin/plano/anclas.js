@@ -73,23 +73,29 @@ const medio = (m, it) => ({
 export function muroDe(item, plano) {
   const hx = (plano.ancho ?? 4) / 2
   const hz = (plano.largo ?? 4) / 2
-  /* La distancia se mide desde el CANTO de la pieza, no desde su centro. Un
-     sofá de noventa de fondo pegado a la pared tiene el centro a cuarenta y
-     cinco centímetros de ella; midiendo desde el centro, ningún mueble estaba
-     nunca "en el muro" y ninguno se movía al estirar el cuarto. */
+  /* La distancia se mide desde el CANTO de la pieza, no desde su centro, y con
+     la huella YA GIRADA. Un sofá de noventa de fondo pegado a la pared tiene el
+     centro a cuarenta y cinco centímetros de ella; y una cama de dos metros
+     girada noventa grados presenta su lado corto, no el largo. Midiendo desde
+     el centro, o con la huella sin girar, ningún mueble estaba nunca "en el
+     muro" y ninguno se movía al estirar el cuarto. */
   const def = item.clase === 'mueble' ? MUEBLES[item.tipo] : null
-  const canto = def ? Math.min(def.w ?? 0.4, def.d ?? 0.4) / 2 : 0
+  const c = Math.abs(Math.cos(item.rot ?? 0))
+  const sn = Math.abs(Math.sin(item.rot ?? 0))
+  const cantoX = def ? ((def.w ?? 0.4) * c + (def.d ?? 0.4) * sn) / 2 : 0
+  const cantoZ = def ? ((def.w ?? 0.4) * sn + (def.d ?? 0.4) * c) / 2 : 0
   const cand = [
     ['x-', Math.abs(item.x + hx), (item.z + hz) / (hz * 2)],
     ['x+', Math.abs(item.x - hx), (item.z + hz) / (hz * 2)],
     ['z-', Math.abs(item.z + hz), (item.x + hx) / (hx * 2)],
     ['z+', Math.abs(item.z - hz), (item.x + hx) / (hx * 2)],
   ]
-  const [muro, dist, t] = cand.reduce((a, b) => (b[1] < a[1] ? b : a))
+  const [muro, dist] = cand.reduce((a, b) => (b[1] < a[1] ? b : a))
+  const canto = MUROS[muro].eje === 'x' ? cantoX : cantoZ
   /* Lo que va colgado del muro se pega siempre; un mueble de piso, sólo si de
      verdad está arrimado. Medio metro de holgura es lo que separa "está contra
      la pared" de "está cerca de la pared", que son dos cosas distintas. */
-  const limite = MUEBLES_DE_MURO.has(item.tipo) || item.clase === 'punto' ? 0.3 : canto + 0.25
+  const limite = MUEBLES_DE_MURO.has(item.tipo) || item.clase === 'punto' ? 0.3 : canto + 0.5
   if (dist > limite) return null
   /* La altura sólo la fija el muro para lo que de verdad cuelga de él. Un buró
      arrimado a la pared sigue estando en el suelo, y guardarle una altura
@@ -101,16 +107,55 @@ export function muroDe(item, plano) {
      veinticinco centímetros hacia el centro, y un clóset no se mueve porque el
      cuarto crezca: sigue a sesenta de su esquina. La proporción sólo tiene
      sentido en el plafón, donde los empotrados sí se reparten. */
-  const eje = MUROS[muro].eje
-  const d = eje === 'x' ? item.z + hz : item.x + hx
   return {
     a: 'muro',
     muro,
-    d: Math.round(d * 1000) / 1000,
-    t: Math.min(1, Math.max(0, t)),
+    ...avanceEnMuro(item, plano, muro),
     ...(cuelga ? { y: item.y ?? 0.4 } : {}),
     sep: dist,
   }
+}
+
+/**
+ * Dónde va la pieza a lo largo de su muro, y contra qué se mide.
+ *
+ * Guardar la distancia desde una esquina fija parece obvio y está mal: al
+ * ensanchar el cuarto, los burós —que están junto a la cama, en medio del
+ * muro— se iban corriendo hacia la izquierda porque su esquina de referencia
+ * se alejaba. Lo que uno espera es que sigan junto a la cama.
+ *
+ * Así que la referencia es LA MÁS CERCANA de las tres: la esquina izquierda,
+ * la derecha, o el centro del muro. Gana la que esté más cerca porque es la
+ * que uno usaría al replantear —"a sesenta de la esquina" o "centrado con la
+ * cama"— y porque es la que menos se mueve cuando el cuarto cambia.
+ *
+ * Un clóset arrimado a la esquina se queda en la esquina. Un buró junto a una
+ * cama centrada se queda junto a la cama. Una ventana en medio del muro se
+ * queda en medio. Sin más reglas y sin tener que preguntarle a nadie.
+ */
+export function avanceEnMuro(item, plano, muro) {
+  const hx = (plano.ancho ?? 4) / 2
+  const hz = (plano.largo ?? 4) / 2
+  const eje = MUROS[muro].eje
+  const largo = eje === 'x' ? hz * 2 : hx * 2
+  const pos = eje === 'x' ? item.z + hz : item.x + hx
+  const r = (n) => Math.round(n * 1000) / 1000
+  const opciones = [
+    { desde: 'inicio', off: r(pos) },
+    { desde: 'fin', off: r(largo - pos) },
+    { desde: 'centro', off: r(pos - largo / 2) },
+  ]
+  return opciones.reduce((a, b) => (Math.abs(b.off) < Math.abs(a.off) ? b : a))
+}
+
+/** El punto del muro, en coordenadas del cuarto, que le toca a ese avance. */
+export function puntoEnMuro(a, largo) {
+  if (a.desde === 'inicio') return -largo / 2 + (a.off ?? 0)
+  if (a.desde === 'fin') return largo / 2 - (a.off ?? 0)
+  if (a.desde === 'centro') return a.off ?? 0
+  // planos viejos: distancia desde la esquina, o proporción
+  const avance = a.d != null ? a.d : (a.t ?? 0.5) * largo
+  return avance - largo / 2
 }
 
 /**
@@ -140,16 +185,7 @@ export function anclaEnMuro(item, plano, muro) {
   const m = MUROS[muro]
   if (!m) return null
   const sep = Math.abs(m.eje === 'x' ? item.x - hx * m.signo : item.z - hz * m.signo)
-  const d = m.eje === 'x' ? item.z + hz : item.x + hx
-  const t = m.eje === 'x' ? (item.z + hz) / (hz * 2) : (item.x + hx) / (hx * 2)
-  return {
-    a: 'muro',
-    muro,
-    d: Math.round(d * 1000) / 1000,
-    t: Math.min(1, Math.max(0, t)),
-    y: item.y ?? 0.4,
-    sep,
-  }
+  return { a: 'muro', muro, ...avanceEnMuro(item, plano, muro), y: item.y ?? 0.4, sep }
 }
 
 /**
@@ -261,10 +297,10 @@ export function resolverAnclas(plano) {
       // sobre el muro: la coordenada del eje la fija el muro, la otra el avance
       const fijo = (m.eje === 'x' ? hx : hz) * m.signo - m.signo * sep
       const largoMuro = (m.eje === 'x' ? hz : hx) * 2
-      /* Distancia desde la esquina si la hay; si es un plano viejo que sólo
-         guardó proporción, se usa ésa. */
-      const avance = a.d != null ? a.d : (a.t ?? 0.5) * largoMuro
-      const corre = Math.max(-largoMuro / 2, Math.min(largoMuro / 2, avance - largoMuro / 2))
+      const corre = Math.max(
+        -largoMuro / 2,
+        Math.min(largoMuro / 2, puntoEnMuro(a, largoMuro)),
+      )
       const x = m.eje === 'x' ? fijo : corre
       const z = m.eje === 'x' ? corre : fijo
       if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005) return it
