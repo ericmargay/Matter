@@ -320,6 +320,10 @@ export const MUEBLES = {
     V('esquinaChica', 'De esquina · 1.40', 'Dos alas cortas. Aprovecha un rincón muerto.', { w: 1.4, d: 1.4 }),
     V('esquinaGrande', 'De esquina · 1.80', 'Rincón completo. Pide contacto en las dos alas.', { w: 1.8, d: 1.8 }),
   ] },
+  laptop: { ...(A('Laptop', X.Laptop, 0.32, 0.22, 0.02)), variantes: [
+    V('abierta', 'Abierta', 'En uso, sobre el escritorio.', { abierta: true }),
+    V('cerrada', 'Cerrada', 'Guardada, sin encender.', { abierta: false }),
+  ], enchufa: true },
   monitor: { ...(A('Monitor', P.Monitor, 1.05, 0.2, 0.5)), variantes: [
     V('m24', '24″', '53 cm. Escritorio chico o segundo monitor.', { w: 0.55, alto: 0.5, d: 0.2 }),
     V('m27', '27″', '61 cm. El estándar.', { w: 0.61, alto: 0.52, d: 0.2 }),
@@ -1071,10 +1075,10 @@ export const MUEBLES = {
  */
 export const POR_TIPO = {
   sala: ['piezaPropia', 'puerta', 'ventanalCorredizo', 'sofa', 'sillon', 'puf', 'mesaCentro', 'mueble_tv', 'tv', 'tapete', 'libreroLleno', 'lamparaPie', 'chimenea', 'plantaAlta', 'macetaChica', 'macetaGrande', 'bocina', 'mesaLateral', 'mesaRedonda', 'muroCuadros', 'cuadroSolo', 'relojPared', 'revistero', 'gato', 'perro', 'camaMascota', 'ventana', 'persiana', 'lamparaArco', 'lamparaTripode', 'lamparaColgante', 'cuadroArte', 'cuadroGrande', 'triptico', 'cuadroPiso'],
-  recamara: ['piezaPropia', 'puerta', 'cama', 'buro', 'escritorio', 'monitorCurvo', 'lamparaEscritorio', 'closet', 'comoda', 'bancaPie', 'espejoPie', 'cuna', 'tapete', 'tv', 'lamparaPie', 'plantaAlta', 'macetaChica', 'libreroLleno', 'muroCuadros', 'cuadroSolo', 'relojPared', 'gato', 'camaMascota', 'ventana', 'persiana', 'lamparaBuro', 'lamparaTripode', 'cuadroArte', 'triptico'],
+  recamara: ['piezaPropia', 'puerta', 'cama', 'buro', 'escritorio', 'monitorCurvo', 'laptop', 'lamparaEscritorio', 'closet', 'comoda', 'bancaPie', 'espejoPie', 'cuna', 'tapete', 'tv', 'lamparaPie', 'plantaAlta', 'macetaChica', 'libreroLleno', 'muroCuadros', 'cuadroSolo', 'relojPared', 'gato', 'camaMascota', 'ventana', 'persiana', 'lamparaBuro', 'lamparaTripode', 'cuadroArte', 'triptico'],
   cocina: ['piezaPropia', 'puerta', 'barra', 'isla', 'refri', 'estufa', 'campana', 'alacena', 'microondas', 'lavavajillas', 'bancoBarra', 'sillaComedor', 'ventana', 'planta', 'macetaChica', 'relojPared', 'lamparaEsfera', 'lamparaColgante', 'cuadroArte'],
   bano: ['piezaPropia', 'puerta', 'wc', 'lavabo', 'tina', 'regadera', 'espejo', 'toallero', 'boiler', 'ventana', 'macetaChica', 'cuadroArte'],
-  estudio: ['piezaPropia', 'puerta', 'escritorio', 'mesaTrabajo', 'monitor', 'monitorCurvo', 'silla', 'sillaVisita', 'archivero', 'pizarron', 'libreroLleno', 'rack', 'lamparaPie', 'plantaAlta', 'macetaChica', 'muroCuadros', 'gato', 'ventana', 'persiana', 'lamparaEscritorio', 'lamparaArco', 'cuadroArte', 'cuadroPiso', 'triptico'],
+  estudio: ['piezaPropia', 'puerta', 'escritorio', 'mesaTrabajo', 'monitor', 'monitorCurvo', 'laptop', 'silla', 'sillaVisita', 'archivero', 'pizarron', 'libreroLleno', 'rack', 'lamparaPie', 'plantaAlta', 'macetaChica', 'muroCuadros', 'gato', 'ventana', 'persiana', 'lamparaEscritorio', 'lamparaArco', 'cuadroArte', 'cuadroPiso', 'triptico'],
   comedor: ['piezaPropia', 'puerta', 'mesaComedor', 'mesaRedonda', 'sillaComedor', 'tapete', 'libreroLleno', 'lamparaPie', 'plantaAlta', 'macetaChica', 'macetaGrande', 'muroCuadros', 'relojPared', 'ventana', 'bocina', 'lamparaColgante', 'lamparaEsfera', 'cuadroGrande', 'cuadroArte'],
   servicio: ['piezaPropia', 'puerta', 'lavadora', 'secadora', 'lavadero', 'boiler', 'tendedero', 'tinaco', 'rack', 'librero', 'archivero', 'ventana'],
   exterior: ['piezaPropia', 'puerta', 'ventanalCorredizo', 'planta', 'tapete', 'bocina'],

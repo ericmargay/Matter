@@ -863,6 +863,30 @@ export function LamparaEscritorio({ position, rotation, brazo = 1, pinza = false
 }
 
 /**
+ * Laptop de escritorio: base con teclado y pantalla sobre una bisagra.
+ *
+ * Abierta se apoya en la orilla trasera de la base y se inclina hacia atrás,
+ * como se ve de verdad al sentarse frente a ella; cerrada cae plana encima
+ * de la base, que es como queda cuando nadie la está usando.
+ */
+export function Laptop({ position, rotation, w = 0.32, d = 0.22, abierta = true }) {
+  const h = 0.014
+  const altoPantalla = d * 0.85
+  const angulo = abierta ? -0.32 : -Math.PI / 2
+
+  return (
+    <group position={position} rotation={rotation}>
+      <B p={[0, h / 2, 0]} s={[w, h, d]} m={M.metal} />
+      <B p={[0, h + 0.0005, 0.01]} s={[w * 0.82, 0.001, d * 0.62]} m={M.black} />
+      <group position={[0, h, -d / 2]} rotation={[angulo, 0, 0]}>
+        <B p={[0, altoPantalla / 2, 0]} s={[w, altoPantalla, 0.012]} m={M.metal} />
+        {abierta && <B p={[0, altoPantalla / 2, 0.0065]} s={[w * 0.9, altoPantalla * 0.88, 0.002]} m={M.screen} />}
+      </group>
+    </group>
+  )
+}
+
+/**
  * Monitor curvo ultrapanorámico, del que va sobre el escritorio.
  *
  * La curva no es un adorno: es lo único que distingue un monitor curvo de
