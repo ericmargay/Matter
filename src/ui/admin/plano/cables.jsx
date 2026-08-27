@@ -48,9 +48,23 @@ function trazo(desde, hasta, largo, ruta, guia, s = 0.5, cuarto = null) {
   /* Si alguien lo arrastró a un rincón, ése es el punto por el que pasa.
      Un cable no va del aparato al contacto en línea recta cruzando el
      cuarto: va por la orilla, y por dónde exactamente es una decisión de
-     quien instala, no un cálculo. Por eso se arrastra a mano. */
-  const medio = guia
-    ? new THREE.Vector3(guia.x, 0.012, guia.z)
+     quien instala, no un cálculo. Por eso se arrastra a mano.
+
+     Pero la guía es del layout donde se arrastró, no del aparato: si la
+     lámpara se movió al otro lado del cuarto —por un rediseño, o porque se
+     encogió el muro al que estaba pegada— la guía se queda apuntando a donde
+     ya no hay nada, y el cable tiene que dar la vuelta completa al cuarto
+     para pasar por ahí. Un giro así de cerrado no es sólo feo: le rompe el
+     marco de Frenet a TubeGeometry —el cálculo que orienta el tubo a lo largo
+     de la curva— y el cable entero se vuelve invisible en vez de quedarse
+     nada más torcido. Por eso se descarta la guía si el rodeo que exige es
+     mucho más largo que el camino directo: a esa distancia ya no es "el
+     rincón donde lo dejé", es un punto de otra época. */
+  const rumbo = guia ? new THREE.Vector3(guia.x, 0.012, guia.z) : null
+  const rodeo = rumbo ? pie.distanceTo(rumbo) + rumbo.distanceTo(hasta) : 0
+  const guiaSirve = rumbo && rodeo < Math.max(recta, 0.5) * 2.5 + 1.5
+  const medio = guiaSirve
+    ? rumbo
     : (() => {
         const m = pie.clone().lerp(hasta, 0.42 + s * 0.16)
         m.y = 0.012
@@ -215,13 +229,14 @@ export function Clavija({ pos, quat, enMano, onTomar }) {
 
       {/* Al agarrarla crece un poco, pero mucho menos que antes: inflarla al
           treinta por ciento la volvía más grande que el adaptador donde va
-          metida, y una clavija más grande que su multicontacto se ve a juguete. */}
+          metida, y una clavija más grande que su multicontacto se ve a
+          juguete. */}
       <group scale={enMano || encima ? 1.12 : 1}>
-        {/* El cuerpo. Treinta por treinta y cuatro por trece milímetros, que es
-            lo que mide una clavija de aquí — la de antes era casi del tamaño
-            del adaptador entero. */}
+        {/* El cuerpo. Veintidós por veintiséis por diez milímetros — la mitad
+            del tamaño del primer intento, y todavía se agarra bien: la esfera
+            de picar de arriba mide 13 cm de radio y no depende de esto. */}
         <mesh castShadow>
-          <boxGeometry args={[0.03, 0.034, 0.013]} />
+          <boxGeometry args={[0.022, 0.026, 0.01]} />
           <meshStandardMaterial
             color={enMano ? '#4d9fff' : '#2a2e38'}
             roughness={0.5}
@@ -230,15 +245,16 @@ export function Clavija({ pos, quat, enMano, onTomar }) {
           />
         </mesh>
         {/* el cuello por donde sale el cable, del lado contrario a las patas */}
-        <mesh position={[0, -0.023, 0]}>
-          <cylinderGeometry args={[0.0045, 0.007, 0.016, 8]} />
+        <mesh position={[0, -0.017, 0]}>
+          <cylinderGeometry args={[0.0035, 0.0055, 0.012, 8]} />
           <meshStandardMaterial color="#23262e" roughness={0.8} />
         </mesh>
-        {/* Las patas, metidas en la boca. Doce milímetros: lo que se ve de una
-            clavija puesta es casi nada, y ése es justo el punto. */}
+        {/* Las patas, metidas en la boca. Del centro del cuerpo a la punta de
+           la pata hay 22 mm — es la cifra que usa la escena para saber dónde
+           enchufarla, así que si esto se mueve, aquélla se descuadra. */}
         {[-1, 1].map((sg) => (
-          <mesh key={sg} position={[sg * 0.008, 0.023, 0]}>
-            <boxGeometry args={[0.005, 0.012, 0.0014]} />
+          <mesh key={sg} position={[sg * 0.006, 0.0175, 0]}>
+            <boxGeometry args={[0.004, 0.009, 0.0013]} />
             <meshStandardMaterial color="#c9b48a" metalness={0.8} roughness={0.3} />
           </mesh>
         ))}

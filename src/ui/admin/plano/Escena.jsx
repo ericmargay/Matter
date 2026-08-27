@@ -545,15 +545,65 @@ function haciaAdentro(p) {
     : new THREE.Vector3(0, 0, -Math.sign(p.z) || 1)
 }
 
-/* Las tres entradas del adaptador. Dos ven al cuarto y la tercera sale de
-   CANTO, que es la gracia de esta pieza: con el sofá pegado al muro, la
-   clavija que estorba es la que sale de frente, y ésta sale de lado.
-   { a: cuánto se corre sobre el ancho, lateral: si mira al costado } */
+/* Las tres entradas del adaptador plegable: una en cada canto lateral y una
+   abajo. NINGUNA de frente — ésa es la gracia de esta pieza. Un adaptador
+   normal mete la clavija hacia el cuarto y ahí se atora contra el mueble que
+   se le arrimó; éste se pliega para que las tres salgan hacia los lados y
+   hacia abajo, pegadas al muro, y el sofá quede contra la pared sin que nada
+   le estorbe.
+
+   `normal` es hacia dónde mira la boca, en el espacio LOCAL del adaptador
+   (x = a lo ancho, y = arriba, z = hacia el cuarto). Con eso se calculan solas
+   la posición en el canto y la rotación de la ranura — no hay que repetir la
+   cuenta tres veces con signos distintos. */
 const BOCAS = [
-  { a: -0.021, lateral: false },
-  { a: 0.021, lateral: false },
-  { a: 0.033, lateral: true },
+  { id: 'izq', normal: new THREE.Vector3(-1, 0, 0) },
+  { id: 'der', normal: new THREE.Vector3(1, 0, 0) },
+  { id: 'abajo', normal: new THREE.Vector3(0, -1, 0) },
 ]
+
+/**
+ * El adaptador plano de tres vías que va en cada contacto de la casa.
+ *
+ * Es de las piezas más útiles y de las que nadie se acuerda de cotizar: un
+ * contacto da dos tomas y siempre hacen falta tres, y sobre todo, la clavija
+ * de este adaptador se pliega. Eso es lo que permite que un mueble o un sofá
+ * queden pegados al muro sin doblar cables ni separarlo diez centímetros.
+ *
+ * Se dibuja en TODOS los contactos y no sólo donde hay algo enchufado: es como
+ * entregamos la instalación, y verlo en el plano es lo que hace que se cotice.
+ */
+/* Medio cuerpo del adaptador, para no repetir la cifra en cada boca. */
+const AD_HW = 0.033
+const AD_HH = 0.0215
+const AD_HD = 0.007
+
+/**
+ * La ranura de una boca, ya orientada hacia su `normal`.
+ *
+ * Se dibuja mirando a +z y se rota para que esa cara termine viendo hacia
+ * `normal`: así izq, der y abajo comparten el mismo dibujo y sólo cambia hacia
+ * dónde se les da vuelta.
+ */
+function Boca({ boca }) {
+  const quat = useMemo(
+    () => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), boca.normal),
+    [boca.normal],
+  )
+  // el centro de la boca queda en el canto que le toca, apenas hundido
+  const centro = boca.normal.clone().multiply(new THREE.Vector3(AD_HW, AD_HH, AD_HD)).addScaledVector(boca.normal, -0.001)
+
+  return (
+    <group position={centro.toArray()} quaternion={quat.toArray()}>
+      {[-0.0035, 0.0035].map((d) => (
+        <mesh key={d} position={[d, 0, 0]}>
+          <boxGeometry args={[0.0018, 0.008, 0.0016]} />
+          <meshStandardMaterial color="#2a2e38" />
+        </mesh>
+      ))}
+    </group>
+  )
+}
 
 /**
  * El adaptador plano de tres vías que va en cada contacto de la casa.
@@ -575,33 +625,22 @@ function Adaptador({ punto }) {
     <group position={pos.toArray()} quaternion={quat.toArray()}>
       {/* el cuerpo: 6.6 × 4.3 × 1.4 cm, como el de verdad */}
       <mesh castShadow>
-        <boxGeometry args={[0.066, 0.043, 0.014]} />
+        <boxGeometry args={[AD_HW * 2, AD_HH * 2, AD_HD * 2]} />
         <meshStandardMaterial color="#e8e6e1" roughness={0.55} />
       </mesh>
       {/* Sus propias patas, metidas en el contacto. Sin ellas el adaptador se
           veía pegado a la pared por arte de magia; son plegables y por eso van
           rectas hacia atrás cuando está puesto. */}
       {[-1, 1].map((sg) => (
-        <mesh key={`p${sg}`} position={[sg * 0.008, 0, -0.014]}>
+        <mesh key={`p${sg}`} position={[sg * 0.008, 0, -AD_HD]}>
           <boxGeometry args={[0.005, 0.012, 0.0014]} />
           <meshStandardMaterial color="#c9b48a" metalness={0.8} roughness={0.3} />
         </mesh>
       ))}
 
-      {/* las tres bocas, hundidas */}
+      {/* las tres bocas: izquierda, derecha y abajo. Ninguna de frente. */}
       {BOCAS.map((b) => (
-        <group
-          key={b.a}
-          position={b.lateral ? [b.a, 0, 0] : [b.a, 0, 0.0072]}
-          rotation={b.lateral ? [0, Math.PI / 2, 0] : [0, 0, 0]}
-        >
-          {[-0.005, 0.005].map((d) => (
-            <mesh key={d} position={[d, 0, b.lateral ? 0.0055 : 0]}>
-              <boxGeometry args={[0.0022, 0.011, 0.002]} />
-              <meshStandardMaterial color="#2a2e38" />
-            </mesh>
-          ))}
-        </group>
+        <Boca key={b.id} boca={b} />
       ))}
     </group>
   )
@@ -668,26 +707,33 @@ function Cables({ items, cuarto, enMano, onTomarClavija, onGuiarCable, onAgarrar
         const dentro = haciaAdentro(destino)
         // el ancho del adaptador corre perpendicular al muro, sobre el piso
         const ancho = new THREE.Vector3(-dentro.z, 0, dentro.x)
-        /* La clavija queda EN su boca del adaptador, con las patas metidas.
-           Antes salía a ocho centímetros del contacto en la dirección de su
-           aparato, y con dos cables al mismo contacto se encimaban. */
         const b = BOCAS[boca]
-        /* La clavija queda METIDA en su boca: el cuerpo apoyado contra la cara
-           del adaptador y las patas adentro. Antes se dibujaba a dos
-           centímetros por delante y se veía flotando junto al multicontacto en
-           vez de enchufada en él.
 
-           La cuenta: el adaptador está a 23 mm del contacto y mide 14 de
-           espesor, así que su cara de enfrente cae en 30; el cuerpo de la
-           clavija mide 13, o sea 6.5 de centro. En la boca lateral es lo mismo
-           pero sobre el ancho: la cara del canto está a 33 del centro. */
-        const clavija = new THREE.Vector3(destino.x, destino.y ?? 0.4, destino.z)
-          .addScaledVector(dentro, b.lateral ? 0.023 : 0.0365)
-          .addScaledVector(ancho, b.lateral ? 0.0395 : b.a)
-        const quat = new THREE.Quaternion().setFromUnitVectors(
-          ARRIBA,
-          b.lateral ? ancho.clone().negate() : dentro.clone().negate(),
+        /* Dónde cae la boca en el mundo: se arma con las mismas tres
+           direcciones que usa el propio adaptador —ancho, arriba, dentro—
+           multiplicadas por cuánto se corre en cada una, que es lo que dice
+           `normal`. Es la misma cuenta que hace <Boca>, sólo que aquí hace
+           falta el resultado en coordenadas del mundo y no del adaptador. */
+        const centroAdaptador = new THREE.Vector3(destino.x, destino.y ?? 0.4, destino.z).addScaledVector(
+          dentro,
+          0.023,
         )
+        const bocaMundo = centroAdaptador
+          .clone()
+          .addScaledVector(ancho, b.normal.x * AD_HW)
+          .addScaledVector(ARRIBA, b.normal.y * AD_HH)
+          .addScaledVector(dentro, b.normal.z * AD_HD)
+        const normalMundo = ancho
+          .clone()
+          .multiplyScalar(b.normal.x)
+          .addScaledVector(ARRIBA, b.normal.y)
+          .addScaledVector(dentro, b.normal.z)
+
+        /* La clavija se acerca desde AFUERA de la boca, con las patas mirando
+           hacia adentro. 22 mm es cuánto mide del centro a la punta de la
+           pata, así que ahí es donde la pata toca la ranura. */
+        const clavija = bocaMundo.clone().addScaledVector(normalMundo, 0.022)
+        const quat = new THREE.Quaternion().setFromUnitVectors(ARRIBA, normalMundo.clone().negate())
 
         const desde = puntoSalida(it, null, cable.salida)
         /* Si el cable no da, se dibuja en rojo. Es la conversación que hay que
