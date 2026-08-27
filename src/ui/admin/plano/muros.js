@@ -42,15 +42,33 @@ export const MUEBLES_DE_MURO = new Set([
   'puerta',
 ])
 
+/* Del nombre del ancla ('x-','x+','z-','z+') al nombre del muro de aquí
+   ('oeste','este','norte','sur'). Son el mismo muro, dos vocabularios: éste
+   nació antes que el sistema de vínculos y no valía la pena reescribirlo
+   entero para unificar el nombre. */
+const MURO_DE_ANCLA = { 'x-': 'oeste', 'x+': 'este', 'z-': 'norte', 'z+': 'sur' }
+
 /**
  * A qué muro pertenece una pieza, o null si se sostiene sola.
  *
- * Lo que está apoyado en el piso no cuelga de nada: un buró contra la pared
- * sigue de pie cuando el muro desaparece, y esconderlo sería peor. Por eso
- * solo cuentan las piezas colgadas —las que están a cierta altura— y los
- * muebles que por definición van en el muro aunque su ancla esté a ras.
+ * Si la pieza ya sabe a qué está pegada —tiene `ancla`— eso manda siempre:
+ * amarrada a un muro, ese es su muro; amarrada a un mueble, al piso o al
+ * plafón, NUNCA se esconde por cercanía a un muro, así el mueble le quede
+ * pegado por casualidad. Sin esto, el Apple TV que vive sobre un buró
+ * arrimado al fondo se escondía cada vez que ese muro tocaba desaparecer
+ * para poder ver adentro del cuarto —el mismo Apple TV, sin haberse movido,
+ * aparecía y desaparecía nada más por cómo giraba la cámara.
+ *
+ * Sólo cuando no hay ancla —planos viejos, o piezas que la casa dibuja sin
+ * pasar por aquí— se adivina por cercanía, y ahí sigue valiendo la regla
+ * vieja: sólo lo que cuelga (colgado del muro por catálogo, o alto sobre el
+ * piso) puede pertenecer a un muro.
  */
 export function muroDe(item, ancho, largo, margen = 0.45) {
+  if (item.ancla) {
+    return item.ancla.a === 'muro' ? MURO_DE_ANCLA[item.ancla.muro] : null
+  }
+
   const colgada =
     item.clase === 'mueble' ? MUEBLES_DE_MURO.has(item.tipo) : (item.y ?? 0) >= 0.25 && (item.y ?? 0) < 900
 

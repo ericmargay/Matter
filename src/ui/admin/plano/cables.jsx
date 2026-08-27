@@ -204,61 +204,106 @@ function redondear(pts, r = 0.09) {
  * @param quat  cuaternión que lleva el eje de las patas (+Y local) a apuntar
  *              al contacto. Se calcula donde se sabe dónde está el contacto.
  */
+/**
+ * Dónde nace el cable de una clavija puesta: el punto de atrás del cuerpo
+ * —opuesto a las patas, que es de donde sale un cordón de verdad— llevado al
+ * mundo con la MISMA rotación que el cuerpo. La punta del cuello, en cambio,
+ * NO seguía esa rotación: cuelga siempre derecho hacia abajo, como cuelga
+ * cualquier cordón por su propio peso sin importar de qué lado entró la
+ * clavija. Exportada porque la escena necesita este mismo punto para saber
+ * dónde termina de verdad el cable, no dónde está el centro de la clavija.
+ */
+export function puntaCable(pos, quat, factor = 1) {
+  const p = new THREE.Vector3(...pos)
+  const q = new THREE.Quaternion(...quat)
+  const atras = new THREE.Vector3(0, -0.013 * factor, 0).applyQuaternion(q)
+  return p.add(atras).addScaledVector(new THREE.Vector3(0, -1, 0), 0.012 * factor)
+}
+
 export function Clavija({ pos, quat, enMano, onTomar }) {
   const [encima, setEncima] = useState(false)
   const brillo = enMano ? 0.9 : encima ? 0.4 : 0
+  const factor = enMano || encima ? 1.12 : 1
+
+  /* El punto de atrás del cuerpo, en el mundo: ahí empieza el cuello, y de
+     ahí cuelga. Se recalcula con la MISMA cuenta que `puntaCable` menos el
+     último tramo, porque aquí sí hace falta el punto de arriba del cuello y
+     no el de abajo. */
+  const atras = useMemo(() => {
+    const p = new THREE.Vector3(...pos)
+    const q = new THREE.Quaternion(...quat)
+    return p.add(new THREE.Vector3(0, -0.013 * factor, 0).applyQuaternion(q))
+  }, [pos, quat, factor])
 
   return (
-    <group position={pos} quaternion={quat}>
-      {/* Zona de agarre generosa: atinarle a una clavija de cinco centímetros
-          en perspectiva es una prueba de puntería que no le interesa a nadie. */}
-      <mesh
-        onPointerOver={(e) => {
-          e.stopPropagation()
-          setEncima(true)
-        }}
-        onPointerOut={() => setEncima(false)}
-        onPointerDown={(e) => {
-          e.stopPropagation()
-          onTomar?.()
-        }}
-      >
-        <sphereGeometry args={[0.13, 12, 10]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
+    <group>
+      <group position={pos} quaternion={quat}>
+        {/* Zona de agarre: nueve centímetros de radio, la cuarta parte de la
+           que había. La de antes —trece— no se ve porque es transparente,
+           pero SÍ es geometría real, y el paso de normales que usa la
+           sombra de contacto (N8AO) no distingue transparencia: pintaba un
+           disco de sombra ancho justo donde no había nada que lo explicara.
+           Con el cuerpo ya reducido a 22 mm, nueve de radio sigue sobrando
+           para picarle sin apuntar con lupa. */}
+        <mesh
+          onPointerOver={(e) => {
+            e.stopPropagation()
+            setEncima(true)
+          }}
+          onPointerOut={() => setEncima(false)}
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            onTomar?.()
+          }}
+        >
+          <sphereGeometry args={[0.045, 12, 10]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
 
-      {/* Al agarrarla crece un poco, pero mucho menos que antes: inflarla al
-          treinta por ciento la volvía más grande que el adaptador donde va
-          metida, y una clavija más grande que su multicontacto se ve a
-          juguete. */}
-      <group scale={enMano || encima ? 1.12 : 1}>
-        {/* El cuerpo. Veintidós por veintiséis por diez milímetros — la mitad
-            del tamaño del primer intento, y todavía se agarra bien: la esfera
-            de picar de arriba mide 13 cm de radio y no depende de esto. */}
-        <mesh castShadow>
-          <boxGeometry args={[0.022, 0.026, 0.01]} />
-          <meshStandardMaterial
-            color={enMano ? '#4d9fff' : '#2a2e38'}
-            roughness={0.5}
-            emissive="#4d9fff"
-            emissiveIntensity={brillo}
-          />
-        </mesh>
-        {/* el cuello por donde sale el cable, del lado contrario a las patas */}
-        <mesh position={[0, -0.017, 0]}>
-          <cylinderGeometry args={[0.0035, 0.0055, 0.012, 8]} />
-          <meshStandardMaterial color="#23262e" roughness={0.8} />
-        </mesh>
-        {/* Las patas, metidas en la boca. Del centro del cuerpo a la punta de
-           la pata hay 22 mm — es la cifra que usa la escena para saber dónde
-           enchufarla, así que si esto se mueve, aquélla se descuadra. */}
-        {[-1, 1].map((sg) => (
-          <mesh key={sg} position={[sg * 0.006, 0.0175, 0]}>
-            <boxGeometry args={[0.004, 0.009, 0.0013]} />
-            <meshStandardMaterial color="#c9b48a" metalness={0.8} roughness={0.3} />
+        {/* Al agarrarla crece un poco, pero mucho menos que antes: inflarla al
+            treinta por ciento la volvía más grande que el adaptador donde va
+            metida, y una clavija más grande que su multicontacto se ve a
+            juguete. */}
+        <group scale={factor}>
+          {/* El cuerpo. Veintidós por veintiséis por diez milímetros. */}
+          <mesh castShadow>
+            <boxGeometry args={[0.022, 0.026, 0.01]} />
+            <meshStandardMaterial
+              color={enMano ? '#4d9fff' : '#2a2e38'}
+              roughness={0.5}
+              emissive="#4d9fff"
+              emissiveIntensity={brillo}
+            />
           </mesh>
-        ))}
+          {/* Un cuello corto y simétrico, todavía pegado al cuerpo y girando
+              con él: es la tensión donde el cordón sale de la carcasa. De ahí
+              para abajo el cordón ya no gira con la clavija —cuelga solo,
+              más abajo. */}
+          <mesh position={[0, -0.015, 0]}>
+            <cylinderGeometry args={[0.0035, 0.0045, 0.004, 8]} />
+            <meshStandardMaterial color="#23262e" roughness={0.8} />
+          </mesh>
+          {/* Las patas, metidas en la boca. Del centro del cuerpo a la punta de
+             la pata hay 22 mm — es la cifra que usa la escena para saber dónde
+             enchufarla, así que si esto se mueve, aquélla se descuadra. */}
+          {[-1, 1].map((sg) => (
+            <mesh key={sg} position={[sg * 0.006, 0.0175, 0]}>
+              <boxGeometry args={[0.004, 0.009, 0.0013]} />
+              <meshStandardMaterial color="#c9b48a" metalness={0.8} roughness={0.3} />
+            </mesh>
+          ))}
+        </group>
       </group>
+
+      {/* El resto del cuello: SIEMPRE cuelga hacia abajo, sin importar cómo
+          quedó girado el cuerpo para entrar a su boca. Un cordón de verdad no
+          sabe de qué lado lo enchufaron —la gravedad lo dobla igual—, así que
+          plantarlo horizontal cuando la clavija entra de canto era el error:
+          el cable arrancaba apuntando al muro en vez de para abajo. */}
+      <mesh position={[atras.x, atras.y - 0.006 * factor, atras.z]}>
+        <cylinderGeometry args={[0.003, 0.0035, 0.012 * factor, 8]} />
+        <meshStandardMaterial color="#23262e" roughness={0.8} />
+      </mesh>
     </group>
   )
 }

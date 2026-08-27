@@ -11,7 +11,7 @@ import { ID_MUROS, MUEBLES } from './catalogo'
 import { GROSOR_MURO, piezaSeVe } from './muros'
 import Animar from './animacion.jsx'
 import PiezaPropia from './PiezaPropia'
-import { Cable, Clavija } from './cables.jsx'
+import { Cable, Clavija, puntaCable } from './cables.jsx'
 import { cableDeMueble, cablePorDefecto, llevaCable } from './cables'
 import { puntoSalida } from './cables'
 import Conexiones from './Conexiones'
@@ -646,6 +646,22 @@ function Adaptador({ punto }) {
   )
 }
 
+/* Un nanoleaf no tiene un centro por donde salga el cable: es un mosaico de
+   triángulos y el cable de verdad sale por atrás de uno de ellos, el de más
+   abajo, como en cualquier instalación real. Buscar ese triángulo y salir por
+   su orilla inferior evita el cable flotando encima del panel y naciendo del
+   centro del arreglo, que es donde no hay ningún triángulo. */
+function salidaPanel(item) {
+  const disposicion = DISPOSICION_BY_ID[item.params?.disposicion] ?? DISPOSICIONES[0]
+  const piezas = posicionesDe(disposicion, LADO)
+  const abajo = piezas.reduce((a, b) => (b.y < a.y ? b : a), piezas[0])
+  const h = (Math.sqrt(3) / 2) * LADO
+
+  const local = new THREE.Vector3(abajo.x, abajo.y - h / 2, -0.015)
+  local.applyAxisAngle(new THREE.Vector3(0, 1, 0), item.rot ?? 0)
+  return new THREE.Vector3(item.x + local.x, (item.y ?? 0) + local.y, item.z + local.z)
+}
+
 function Cables({ items, cuarto, enMano, onTomarClavija, onGuiarCable, onAgarrarCable, onSoltarCable }) {
   const enchufes = useMemo(
     () => items.filter((i) => i.clase === 'punto' && (i.tipo === 'enchufe' || i.tipo === 'salida')),
@@ -734,17 +750,25 @@ function Cables({ items, cuarto, enMano, onTomarClavija, onGuiarCable, onAgarrar
            pata, así que ahí es donde la pata toca la ranura. */
         const clavija = bocaMundo.clone().addScaledVector(normalMundo, 0.022)
         const quat = new THREE.Quaternion().setFromUnitVectors(ARRIBA, normalMundo.clone().negate())
+        /* El cable no termina en el CENTRO de la clavija: termina donde
+           cuelga la punta de su cuello, que —a diferencia del cuerpo— siempre
+           apunta hacia abajo sin importar de qué lado entró a la boca. Sin
+           esto, la curva llegaba al centro de una pieza que podía estar
+           mirando de canto, y el primer tramo del cable salía apuntando al
+           muro en vez de para abajo. */
+        const puntaClavija = puntaCable(clavija.toArray(), quat.toArray())
 
-        const desde = puntoSalida(it, null, cable.salida)
+        const esPanel = it.clase === 'equipo' && DEVICE_BY_ID[it.deviceId]?.luz?.forma === 'panel'
+        const desde = esPanel ? salidaPanel(it) : puntoSalida(it, null, cable.salida)
         /* Si el cable no da, se dibuja en rojo. Es la conversación que hay que
            tener en el plano y no con el aparato ya montado en el muro. */
-        const alcanza = cable.largo >= desde.distanceTo(clavija) * 1.05
+        const alcanza = cable.largo >= desde.distanceTo(puntaClavija) * 1.05
 
         return (
           <group key={it.id}>
             <Cable
               desde={desde}
-              hasta={clavija}
+              hasta={puntaClavija}
               largo={cable.largo}
               ruta={cable.ruta}
               alcanza={alcanza}

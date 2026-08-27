@@ -410,3 +410,94 @@ export function agrandarSiNoCabe(plano) {
   const redondo = (n) => Math.round(n * 100) / 100
   return { ancho: redondo(ancho), largo: redondo(largo) }
 }
+
+/**
+ * Separa lo que se encima cuando el cuarto encoge.
+ *
+ * `agrandarSiNoCabe` evita que un mueble quede afuera del cuarto, pero no
+ * dice nada de dos muebles ENTRE sí: si el cuarto se achica por el lado que
+ * no tenía ese mueble pegado, un buró y una cama que antes no se tocaban
+ * pueden terminar uno encima del otro. Aquí se detectan esos pares por su
+ * huella ya girada, en el piso, y se separan por el eje donde se traslapan
+ * menos —el que cuesta menos mover para que dejen de tocarse.
+ *
+ * Lo pegado a un muro (`ancla.a === 'muro'`) sólo se desliza A LO LARGO de
+ * ese muro: separarlo despegándolo de la pared sería peor que el traslape
+ * que se está arreglando. Lo demás se mueve libre y se recorta para no
+ * salirse del cuarto.
+ */
+export function separarSolapes(plano) {
+  const items = plano.items ?? []
+  const hx = (plano.ancho ?? 4) / 2
+  const hz = (plano.largo ?? 4) / 2
+
+  const cuerpos = items
+    .map((it, i) => {
+      if (it.clase !== 'mueble') return null
+      const def = MUEBLES[it.tipo]
+      if (!def || MUEBLES_DE_MURO.has(it.tipo)) return null
+      const c = Math.abs(Math.cos(it.rot ?? 0))
+      const s = Math.abs(Math.sin(it.rot ?? 0))
+      const hw = ((def.w ?? 0.4) * c + (def.d ?? 0.4) * s) / 2
+      const hd = ((def.w ?? 0.4) * s + (def.d ?? 0.4) * c) / 2
+      return { i, hw, hd }
+    })
+    .filter(Boolean)
+
+  if (cuerpos.length < 2) return items
+
+  const pos = items.map((it) => ({ x: it.x, z: it.z }))
+  const muroDeI = items.map((it) => (it.ancla?.a === 'muro' ? MUROS[it.ancla.muro] : null))
+
+  const empujar = (cuerpo, dx, dz) => {
+    const muro = muroDeI[cuerpo.i]
+    if (muro) {
+      if (muro.eje === 'x') pos[cuerpo.i].z += dz
+      else pos[cuerpo.i].x += dx
+    } else {
+      pos[cuerpo.i].x += dx
+      pos[cuerpo.i].z += dz
+    }
+    pos[cuerpo.i].x = Math.max(-hx + cuerpo.hw, Math.min(hx - cuerpo.hw, pos[cuerpo.i].x))
+    pos[cuerpo.i].z = Math.max(-hz + cuerpo.hd, Math.min(hz - cuerpo.hd, pos[cuerpo.i].z))
+  }
+
+  let tocado = false
+  for (let pasada = 0; pasada < 8; pasada++) {
+    let movio = false
+    for (let a = 0; a < cuerpos.length; a++) {
+      for (let b = a + 1; b < cuerpos.length; b++) {
+        const A = cuerpos[a]
+        const B = cuerpos[b]
+        const dx = pos[B.i].x - pos[A.i].x
+        const dz = pos[B.i].z - pos[A.i].z
+        const solapaX = A.hw + B.hw - Math.abs(dx)
+        const solapaZ = A.hd + B.hd - Math.abs(dz)
+        if (solapaX <= 0.001 || solapaZ <= 0.001) continue
+        movio = true
+        tocado = true
+        if (solapaX < solapaZ) {
+          const dir = dx >= 0 ? 1 : -1
+          empujar(A, -dir * solapaX * 0.5, 0)
+          empujar(B, dir * solapaX * 0.5, 0)
+        } else {
+          const dir = dz >= 0 ? 1 : -1
+          empujar(A, 0, -dir * solapaZ * 0.5)
+          empujar(B, 0, dir * solapaZ * 0.5)
+        }
+      }
+    }
+    if (!movio) break
+  }
+
+  if (!tocado) return items
+
+  return items.map((it, i) => {
+    if (pos[i].x === it.x && pos[i].z === it.z) return it
+    const patched = { ...it, x: pos[i].x, z: pos[i].z }
+    if (it.ancla?.a === 'muro') {
+      patched.ancla = { ...it.ancla, ...avanceEnMuro(patched, plano, it.ancla.muro) }
+    }
+    return patched
+  })
+}
