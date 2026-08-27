@@ -11,10 +11,10 @@ import {
   anclaAuto,
   anclaEnMuro,
   comoSeLlama,
+  limitarPorSolape,
   murosCerca,
   ponerEnMuro,
   resolverAnclas,
-  separarSolapes,
 } from './anclas'
 import { comoAloja, dispositivosDe } from './aloja'
 import { ESPACIOS } from '../../../content/espacios'
@@ -321,7 +321,6 @@ export default function PlanoCuarto({ room, onCerrar }) {
    */
   const guardar = (patch, que) => {
     historia.anotar(plano, que)
-    let siguiente = { ...plano, ...patch }
 
     /* Si lo que cambia son las MEDIDAS, primero se amarra lo que todavía no lo
        estaba —contra las medidas viejas, que son las que dicen qué toca qué— y
@@ -331,30 +330,23 @@ export default function PlanoCuarto({ room, onCerrar }) {
     const cambiaMedida =
       (patch.ancho != null && patch.ancho !== plano.ancho) ||
       (patch.largo != null && patch.largo !== plano.largo)
+
+    let siguiente = { ...plano, ...patch }
     if (cambiaMedida) {
       const base = patch.items ?? plano.items
-      siguiente = {
-        ...siguiente,
-        items: base.map((it) => {
-          if (it.ancla || it.suelta) return it
-          const ancla = anclaAuto(it, plano, base)
-          return ancla ? { ...it, ancla } : it
-        }),
-      }
+      const anclados = base.map((it) => {
+        if (it.ancla || it.suelta) return it
+        const ancla = anclaAuto(it, plano, base)
+        return ancla ? { ...it, ancla } : it
+      })
+      /* No se reacomoda nada: si al encoger dos muebles van a quedar uno
+         encima del otro, la medida no llega hasta ahí. El número que el
+         cliente ve en el campo es el que de verdad se guardó. */
+      const limitado = limitarPorSolape({ ...plano, items: anclados }, patch)
+      siguiente = { ...plano, ...limitado, items: anclados }
     }
 
-    let items = resolverAnclas(siguiente)
-    /* Estirar el cuarto no encima nada nuevo, pero achicarlo sí puede: dos
-       muebles que no se tocaban quedan uno sobre el otro si el lado que
-       encogió no era el suyo. Sólo hace falta revisarlo cuando la MEDIDA
-       cambió, no en cada guardado. Y si algo se separó, hay que volver a
-       resolver anclas: un Apple TV o un Echo Dot que vive SOBRE un buró no
-       se mueve solo cuando el buró se corre para dejar de encimarse, y sin
-       este segundo paso se quedaba flotando donde el buró ya no está. */
-    if (cambiaMedida) {
-      const separados = separarSolapes({ ...siguiente, items })
-      items = separados === items ? items : resolverAnclas({ ...siguiente, items: separados })
-    }
+    const items = resolverAnclas(siguiente)
     setPlano(room.id, items === siguiente.items ? siguiente : { ...siguiente, items }, que)
   }
 
