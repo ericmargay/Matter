@@ -347,8 +347,14 @@ export default function PlanoCuarto({ room, onCerrar }) {
     /* Estirar el cuarto no encima nada nuevo, pero achicarlo sí puede: dos
        muebles que no se tocaban quedan uno sobre el otro si el lado que
        encogió no era el suyo. Sólo hace falta revisarlo cuando la MEDIDA
-       cambió, no en cada guardado. */
-    if (cambiaMedida) items = separarSolapes({ ...siguiente, items })
+       cambió, no en cada guardado. Y si algo se separó, hay que volver a
+       resolver anclas: un Apple TV o un Echo Dot que vive SOBRE un buró no
+       se mueve solo cuando el buró se corre para dejar de encimarse, y sin
+       este segundo paso se quedaba flotando donde el buró ya no está. */
+    if (cambiaMedida) {
+      const separados = separarSolapes({ ...siguiente, items })
+      items = separados === items ? items : resolverAnclas({ ...siguiente, items: separados })
+    }
     setPlano(room.id, items === siguiente.items ? siguiente : { ...siguiente, items }, que)
   }
 

@@ -434,6 +434,12 @@ export function separarSolapes(plano) {
   const cuerpos = items
     .map((it, i) => {
       if (it.clase !== 'mueble') return null
+      /* Lo que va ENCIMA de otro mueble —un monitor sobre el escritorio, una
+         lámpara sobre el buró— no es un cuerpo aparte: es parte de la huella
+         de su anfitrión y se mueve con él. Tratarlo como cuerpo propio lo
+         hacía chocar con el mismo mueble que lo carga y salir volando de la
+         mesa en cuanto el cuarto cambiaba de medida. */
+      if (it.ancla?.a === 'mueble') return null
       const def = MUEBLES[it.tipo]
       if (!def || MUEBLES_DE_MURO.has(it.tipo)) return null
       const c = Math.abs(Math.cos(it.rot ?? 0))
@@ -449,15 +455,18 @@ export function separarSolapes(plano) {
   const pos = items.map((it) => ({ x: it.x, z: it.z }))
   const muroDeI = items.map((it) => (it.ancla?.a === 'muro' ? MUROS[it.ancla.muro] : null))
 
-  const empujar = (cuerpo, dx, dz) => {
-    const muro = muroDeI[cuerpo.i]
-    if (muro) {
-      if (muro.eje === 'x') pos[cuerpo.i].z += dz
-      else pos[cuerpo.i].x += dx
-    } else {
-      pos[cuerpo.i].x += dx
-      pos[cuerpo.i].z += dz
-    }
+  /* Un mueble pegado a un muro sólo puede correr A LO LARGO de ese muro: el
+     que está en 'x-'/'x+' sólo cede en Z, el que está en 'z-'/'z+' sólo en X.
+     Con dos muebles bloqueados en ejes distintos —un clóset contra el muro
+     oeste y un buró contra el muro norte— repartir el empujón 50/50 sin ver
+     esto no resuelve nada: el clóset ignora la mitad que le toca porque no
+     puede moverse en X, y el buró se queda cargando el traslape completo cada
+     pasada, saliéndose del cuarto en unas cuantas vueltas. Aquí el que SÍ
+     puede ceder en el eje elegido carga lo que el otro no puede. */
+  const libreX = (c) => !muroDeI[c.i] || muroDeI[c.i].eje === 'z'
+  const libreZ = (c) => !muroDeI[c.i] || muroDeI[c.i].eje === 'x'
+
+  const limitar = (cuerpo) => {
     pos[cuerpo.i].x = Math.max(-hx + cuerpo.hw, Math.min(hx - cuerpo.hw, pos[cuerpo.i].x))
     pos[cuerpo.i].z = Math.max(-hz + cuerpo.hd, Math.min(hz - cuerpo.hd, pos[cuerpo.i].z))
   }
@@ -474,16 +483,28 @@ export function separarSolapes(plano) {
         const solapaX = A.hw + B.hw - Math.abs(dx)
         const solapaZ = A.hd + B.hd - Math.abs(dz)
         if (solapaX <= 0.001 || solapaZ <= 0.001) continue
+
+        const puedeX = libreX(A) || libreX(B)
+        const puedeZ = libreZ(A) || libreZ(B)
+        if (!puedeX && !puedeZ) continue
+
+        const eje = puedeX && (!puedeZ || solapaX < solapaZ) ? 'x' : 'z'
+        const monto = eje === 'x' ? solapaX : solapaZ
+        const libre = eje === 'x' ? libreX : libreZ
+        const dir = (eje === 'x' ? dx : dz) >= 0 ? 1 : -1
+        const [libreA, libreB] = [libre(A), libre(B)]
+        const parteA = libreA && libreB ? monto * 0.5 : monto
+        const parteB = parteA
+
         movio = true
         tocado = true
-        if (solapaX < solapaZ) {
-          const dir = dx >= 0 ? 1 : -1
-          empujar(A, -dir * solapaX * 0.5, 0)
-          empujar(B, dir * solapaX * 0.5, 0)
-        } else {
-          const dir = dz >= 0 ? 1 : -1
-          empujar(A, 0, -dir * solapaZ * 0.5)
-          empujar(B, 0, dir * solapaZ * 0.5)
+        if (libreA) {
+          pos[A.i][eje] -= dir * parteA
+          limitar(A)
+        }
+        if (libreB) {
+          pos[B.i][eje] += dir * parteB
+          limitar(B)
         }
       }
     }
