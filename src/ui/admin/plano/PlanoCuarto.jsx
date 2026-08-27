@@ -85,11 +85,19 @@ function Chip({ activo, onClick, children, tono }) {
 const inputCls =
   'w-full rounded border border-line bg-ink px-2 py-1 text-[12px] text-cream outline-none focus:border-ember/60'
 
-function Medida({ label, value, onChange, step = 0.1, min = 0.5 }) {
+function Medida({ label, value, onChange, step = 0.1, min = 0.5, disabled = false, title }) {
   return (
-    <label className="block">
+    <label className="block" title={disabled ? title : undefined}>
       <span className="mb-0.5 block text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">{label}</span>
-      <input type="number" step={step} min={min} value={value} onChange={(e) => onChange(num(e.target.value))} className={inputCls} />
+      <input
+        type="number"
+        step={step}
+        min={min}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(num(e.target.value))}
+        className={`${inputCls} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+      />
     </label>
   )
 }
@@ -542,8 +550,27 @@ export default function PlanoCuarto({ room, onCerrar }) {
       'Movió una pieza en el plano',
     )
 
-  const parchar = (id, patch, que) =>
-    setItems(plano.items.map((i) => (i.id === id ? { ...i, ...patch } : i)), que)
+  /* Escalar una pieza que tiene algo encima —por ancla o por cercanía— la
+     deja incongruente con lo que carga: el Apple TV se queda flotando al
+     lado del buró que acaba de encoger, o colgando del aire sobre uno que
+     creció. La regla vive aquí y no sólo en el campo de texto porque hay
+     otras dos formas de escalar —el gizmo del lienzo y las flechas con el
+     modo activo— y las tres tienen que respetarla igual. */
+  const parchar = (id, patch, que) => {
+    let real = patch
+    if (patch.esc != null) {
+      const it = plano.items.find((i) => i.id === id)
+      const tieneEncima =
+        it &&
+        (plano.items.some((i) => i.ancla?.a === 'mueble' && i.ancla.id === id) ||
+          dispositivosDe(it, plano.items).length > 0)
+      if (tieneEncima) {
+        const { esc: _esc, ...resto } = patch
+        real = resto
+      }
+    }
+    setItems(plano.items.map((i) => (i.id === id ? { ...i, ...real } : i)), que)
+  }
 
   /**
    * Dónde va el módulo que vuelve inteligente ese apagador.
@@ -2067,6 +2094,21 @@ function Inspector({
 }) {
   const dev = item.clase === 'equipo' ? DEVICE_BY_ID[item.deviceId] : null
   const alojados = useMemo(() => dispositivosDe(item, items), [item, items])
+  /* Lo que vive ENCIMA de esta pieza —por ancla explícita, un monitor sobre
+     el escritorio, o por cercanía, un foco metido en la lámpara— se mueve con
+     ella pero no cambia de tamaño con ella. Escalar el mueble sin tocar lo de
+     arriba deja al Apple TV flotando a un lado del buró o colgando del aire
+     sobre el escritorio, así que mientras algo repose ahí, la escala se
+     queda fija. */
+  const hijos = useMemo(
+    () => items.filter((i) => i.ancla?.a === 'mueble' && i.ancla.id === item.id),
+    [item.id, items],
+  )
+  const encima = useMemo(() => {
+    const ids = new Set([...hijos, ...alojados].map((i) => i.id))
+    return ids.size
+  }, [hijos, alojados])
+  const tieneEncima = encima > 0
   const p = item.params
 
   const titulo =
@@ -2123,9 +2165,16 @@ function Inspector({
           value={item.esc ?? 1}
           step={0.05}
           min={0.2}
+          disabled={tieneEncima}
+          title="Tiene algo encima: despégalo o muévelo antes de cambiar el tamaño."
           onChange={(v) => onParchar(item.id, { esc: Math.max(0.2, Math.min(4, v)) })}
         />
       </div>
+      {tieneEncima && (
+        <p className="mt-1 text-[10px] text-cream-3">
+          No se puede escalar: tiene {encima === 1 ? 'algo' : `${encima} cosas`} encima.
+        </p>
+      )}
 
       {item.clase === 'punto' && item.tipo === 'apagador' && (
         <div className="mt-2 space-y-1.5 rounded-lg border border-line px-2 py-2">
