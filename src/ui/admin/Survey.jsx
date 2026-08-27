@@ -153,7 +153,7 @@ function MenuEspacios({ propiedad, onElegir, onCerrar }) {
 
 /* ── un cuarto con sus piezas ─────────────────────────────────── */
 
-function Room({ room, active, onSelect, onAgregar, onPlano, onSubir, onBajar }) {
+function Room({ room, active, onSelect, onAgregar, planoHref, onSubir, onBajar }) {
   const updateRoom = useSurvey((s) => s.updateRoom)
   const removeRoom = useSurvey((s) => s.removeRoom)
   const bump = useSurvey((s) => s.bump)
@@ -278,12 +278,19 @@ function Room({ room, active, onSelect, onAgregar, onPlano, onSubir, onBajar }) 
         >
           + Agregar equipo a {room.nombre}
         </button>
-        <button
-          onClick={onPlano}
+        {/* Es un enlace de verdad y no un botón con window.open: así el clic
+            derecho, el clic con la rueda y ctrl/cmd+clic funcionan como en
+            cualquier pestaña, y el plano vive en su propia pestaña con su
+            propia URL —no hace falta volver a entrar al proyecto para verlo,
+            ni cargar todo el levantamiento sólo para mirar un cuarto. */}
+        <a
+          href={planoHref}
+          target="_blank"
+          rel="noopener"
           className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-cream-2 transition-colors hover:border-thread hover:text-thread-2"
         >
           Plano 3D{piezasPlano > 0 ? ` · ${piezasPlano}` : ''}
-        </button>
+        </a>
         {piezas > 0 && <span className="text-[11px] text-cream-3">{piezas} piezas</span>}
       </div>
 
@@ -536,7 +543,7 @@ export default function Survey() {
                   survey.setActiveRoom(r.id)
                   setPickerRoomId(r.id)
                 }}
-                onPlano={() => setPlanoRoomId(r.id)}
+                planoHref={`${location.origin}${location.pathname}#/admin/levantamiento?proyecto=${proyecto.id}&plano=${r.id}`}
               />
             ))}
             {rooms.length === 0 && (
