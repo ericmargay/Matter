@@ -41,6 +41,12 @@ const ADMIN_ONLY = import.meta.env.VITE_ADMIN === 'on'
 const Admin = ADMIN_ENABLED ? lazy(() => import('./ui/admin/Admin')) : null
 const Quote = lazy(() => import('./ui/admin/Quote'))
 
+/** El plano de un solo cuarto, en su propia URL — ver PlanoStandalone.jsx.
+ *  Va aparte de `Admin` para que abrirlo no arrastre el levantamiento ni la
+ *  cotización del proyecto entero cuando lo único que hace falta es ESE
+ *  cuarto. */
+const PlanoStandalone = ADMIN_ENABLED ? lazy(() => import('./ui/admin/PlanoStandalone')) : null
+
 /** El catálogo para clientes SÍ es público: es lo que se manda por WhatsApp
  *  cuando preguntan qué se le puede poner a la casa. Va en su propio chunk
  *  porque arrastra las fichas de 91 productos y el sitio no lo necesita para
@@ -130,6 +136,16 @@ export default function App() {
     return (
       <Suspense fallback={<div className="min-h-screen bg-ink" />}>
         <Catalogo />
+      </Suspense>
+    )
+  }
+
+  // #/plano?proyecto=<id>&plano=<id> — un cuarto, sin el proyecto alrededor
+  if (route.startsWith('#/plano')) {
+    if (!ADMIN_ENABLED) return <AdminOff />
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-ink" />}>
+        <PlanoStandalone />
       </Suspense>
     )
   }

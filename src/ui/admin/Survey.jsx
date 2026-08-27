@@ -543,7 +543,7 @@ export default function Survey() {
                   survey.setActiveRoom(r.id)
                   setPickerRoomId(r.id)
                 }}
-                planoHref={`${location.origin}${location.pathname}#/admin/levantamiento?proyecto=${proyecto.id}&plano=${r.id}`}
+                planoHref={`${location.origin}${location.pathname}#/plano?proyecto=${proyecto.id}&plano=${r.id}`}
               />
             ))}
             {rooms.length === 0 && (
