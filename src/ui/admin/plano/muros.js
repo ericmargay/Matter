@@ -59,6 +59,13 @@ const MURO_DE_ANCLA = { 'x-': 'oeste', 'x+': 'este', 'z-': 'norte', 'z+': 'sur' 
  * para poder ver adentro del cuarto —el mismo Apple TV, sin haberse movido,
  * aparecía y desaparecía nada más por cómo giraba la cámara.
  *
+ * Pero "amarrado a un muro" no es lo mismo que "pegado AL muro": una cama o
+ * un buró se ancla a un muro para saber su lugar cuando el cuarto cambia de
+ * medida, y no por eso son parte del muro. Sólo lo que de verdad cuelga o va
+ * embebido —lo del catálogo de `MUEBLES_DE_MURO`, o cualquier pieza que no
+ * sea mueble de piso— desaparece con él; una cama, un buró, un escritorio o
+ * un clóset se quedan siempre a la vista, tengan o no ancla de muro.
+ *
  * Sólo cuando no hay ancla —planos viejos, o piezas que la casa dibuja sin
  * pasar por aquí— se adivina por cercanía, y ahí sigue valiendo la regla
  * vieja: sólo lo que cuelga (colgado del muro por catálogo, o alto sobre el
@@ -66,7 +73,9 @@ const MURO_DE_ANCLA = { 'x-': 'oeste', 'x+': 'este', 'z-': 'norte', 'z+': 'sur' 
  */
 export function muroDe(item, ancho, largo, margen = 0.45) {
   if (item.ancla) {
-    return item.ancla.a === 'muro' ? MURO_DE_ANCLA[item.ancla.muro] : null
+    if (item.ancla.a !== 'muro') return null
+    if (item.clase === 'mueble' && !MUEBLES_DE_MURO.has(item.tipo)) return null
+    return MURO_DE_ANCLA[item.ancla.muro]
   }
 
   const colgada =
