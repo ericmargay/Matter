@@ -22,7 +22,7 @@ const COLOR = { piso: '#3b3f4a', muro: '#4a505e', oculto: '#6f5a86' }
  *           Sin esto, tres cables juntos se veían como un solo cable calcado
  *           tres veces, que es de lo primero que delata a un render.
  */
-function trazo(desde, hasta, largo, ruta, guia, s = 0.5, cuarto = null) {
+function trazo(desde, hasta, largo, ruta, guia, s = 0.5, cuarto = null, borde = null) {
   const recta = desde.distanceTo(hasta)
   // lo que sobra se cuelga o se enrosca; si falta, el cable va tenso
   const sobra = Math.max(0, largo - recta)
@@ -43,8 +43,14 @@ function trazo(desde, hasta, largo, ruta, guia, s = 0.5, cuarto = null) {
     return pts
   }
 
+  /* Lo que sale de encima de un mueble no cae donde está: primero corre por
+     la cubierta hasta `borde` —la orilla contra el muro, ya calculada por
+     quien llama— y desde ahí es como si el cable arrancara ahí. Sin esto,
+     el cable de un monitor caía a través del escritorio en vez de detrás. */
+  const salida = borde ?? desde
+
   // por el piso: cae, se arrastra y hace una lazada con lo que sobra
-  const pie = new THREE.Vector3(desde.x, 0.012, desde.z)
+  const pie = new THREE.Vector3(salida.x, 0.012, salida.z)
   /* Si alguien lo arrastró a un rincón, ése es el punto por el que pasa.
      Un cable no va del aparato al contacto en línea recta cruzando el
      cuarto: va por la orilla, y por dónde exactamente es una decisión de
@@ -81,7 +87,8 @@ function trazo(desde, hasta, largo, ruta, guia, s = 0.5, cuarto = null) {
   const alPie = new THREE.Vector3(hasta.x, 0.012, hasta.z)
   pts.push(
     desde,
-    desde.clone().lerp(pie, 0.45 + s * 0.14).setY(desde.y * (0.34 + s * 0.24)),
+    ...(borde ? [borde] : []),
+    salida.clone().lerp(pie, 0.45 + s * 0.14).setY(salida.y * (0.34 + s * 0.24)),
     pie,
     medio,
     alPie,
@@ -322,6 +329,7 @@ const DONDE = new THREE.Vector3()
 export function Cable({
   desde,
   hasta,
+  borde = null,
   largo = 1.8,
   ruta = 'piso',
   alcanza = true,
@@ -340,8 +348,8 @@ export function Cable({
   const arrastrando = useRef(false)
 
   const base = useMemo(
-    () => trazo(desde.clone(), hasta.clone(), largo, ruta, guia, semilla, cuarto),
-    [desde, hasta, largo, ruta, guia, semilla, cuarto],
+    () => trazo(desde.clone(), hasta.clone(), largo, ruta, guia, semilla, cuarto, borde),
+    [desde, hasta, largo, ruta, guia, semilla, cuarto, borde],
   )
   /* La curva se suaviza y luego se le pone piso.
      Un Catmull-Rom que pasa por puntos a distinta altura se pasa de la raya

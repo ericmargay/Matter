@@ -662,6 +662,28 @@ function salidaPanel(item) {
   return new THREE.Vector3(item.x + local.x, (item.y ?? 0) + local.y, item.z + local.z)
 }
 
+/* Lo que está PARADO sobre un mueble —un monitor, un Apple TV, la regleta—
+   no deja caer su cable donde está: un cable no atraviesa la cubierta del
+   escritorio. Primero corre por ENCIMA de la mesa hasta la orilla contra el
+   muro, y de ahí para abajo, que es exactamente cómo se acomoda de verdad y
+   además lo deja escondido detrás del mueble en vez de colgando a la vista
+   por el frente. */
+function bordeDeAnfitrion(item, items) {
+  if (item.ancla?.a !== 'mueble') return null
+  const host = items.find((i) => i.id === item.ancla.id)
+  if (!host || host.clase !== 'mueble') return null
+  const def = MUEBLES[host.tipo]
+  if (!def) return null
+  const variante = def.variantes?.find((v) => v.id === host.variante)
+  const d = variante?.props?.d ?? def.d ?? 0.4
+  const rot = host.rot ?? 0
+  const lx = item.ancla.lx ?? 0
+  const lz = -d / 2 + 0.03
+  const x = host.x + lx * Math.cos(rot) + lz * Math.sin(rot)
+  const z = host.z - lx * Math.sin(rot) + lz * Math.cos(rot)
+  return new THREE.Vector3(x, item.y ?? 0, z)
+}
+
 function Cables({ items, cuarto, enMano, onTomarClavija, onGuiarCable, onAgarrarCable, onSoltarCable }) {
   const enchufes = useMemo(
     () => items.filter((i) => i.clase === 'punto' && (i.tipo === 'enchufe' || i.tipo === 'salida')),
@@ -760,6 +782,7 @@ function Cables({ items, cuarto, enMano, onTomarClavija, onGuiarCable, onAgarrar
 
         const esPanel = it.clase === 'equipo' && DEVICE_BY_ID[it.deviceId]?.luz?.forma === 'panel'
         const desde = esPanel ? salidaPanel(it) : puntoSalida(it, null, cable.salida)
+        const borde = esPanel ? null : bordeDeAnfitrion(it, items)
         /* Si el cable no da, se dibuja en rojo. Es la conversación que hay que
            tener en el plano y no con el aparato ya montado en el muro. */
         const alcanza = cable.largo >= desde.distanceTo(puntaClavija) * 1.05
@@ -769,6 +792,7 @@ function Cables({ items, cuarto, enMano, onTomarClavija, onGuiarCable, onAgarrar
             <Cable
               desde={desde}
               hasta={puntaClavija}
+              borde={borde}
               largo={cable.largo}
               ruta={cable.ruta}
               alcanza={alcanza}
