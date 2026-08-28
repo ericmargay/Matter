@@ -308,7 +308,13 @@ export const MUEBLES = {
     V('depie', 'De pie', 'No va al muro: se para junto a la tina. Sin taladro.', { w: 0.55 }),
   ] },
   /* ── estudio ── */
-  escritorio: { ...(A('Escritorio', P.Desk, 1.8, 0.7, 0.75)), variantes: [
+  /* `cubierta` es dónde queda de verdad la superficie de arriba, no la altura
+     nominal: el tablero (Desk, en scene/props.jsx) se dibuja centrado 1 cm
+     abajo del alto declarado y con 5 cm de grosor, así que su cara de arriba
+     quedaba 1.5 cm más arriba de donde `altoDe()` decía. Sin esto, todo lo
+     que se apoya en un escritorio —el teclado de una laptop es lo que más se
+     nota— se hundía esos 1.5 cm dentro del tablero. */
+  escritorio: { ...(A('Escritorio', P.Desk, 1.8, 0.7, 0.75, { cubierta: 0.765 })), variantes: [
     V('m140', '1.40 × 0.60', 'El de una recámara. Cabe un monitor de 27 y nada más.', { w: 1.4, d: 0.6 }),
     V('m160', '1.60 × 0.70', 'El estándar de oficina. Monitor y papeles al mismo tiempo.', { w: 1.6, d: 0.7 }),
     V('m180', '1.80 × 0.70', 'Cabe un ultrapanorámico de 34 con espacio a los lados.', { w: 1.8, d: 0.7 }),

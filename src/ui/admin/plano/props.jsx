@@ -477,15 +477,20 @@ export function EspejoPie({ position, rotation, w = 0.55, alto = 1.65, d = 0.3 }
           justamente lo que un espejo pintado con un solo color nunca hace. */}
       <mesh position={[0, 0.85, 0.036]} castShadow>
         <planeGeometry args={[0.46, 1.5]} />
+        {/* El shader de este material MULTIPLICA el reflejo por su propio
+            `color` ya iluminado (diffuseColor · reflejo · mixStrength): con
+            un color oscuro, el espejo se ve opaco sin importar qué tan
+            fuerte se ponga el reflejo, porque lo está apagando él mismo.
+            Casi blanco es lo que deja pasar el reflejo tal cual. */}
         <MeshReflectorMaterial
           mirror={1}
-          resolution={512}
-          mixBlur={0.4}
-          mixStrength={1.4}
+          resolution={768}
+          mixBlur={0.3}
+          mixStrength={2.2}
           depthScale={0}
-          color="#3a3d45"
-          metalness={0.4}
-          roughness={0.15}
+          color="#f2f2f5"
+          metalness={0.9}
+          roughness={0.06}
         />
       </mesh>
       <B p={[0, 0.03, 0.12]} s={[0.4, 0.05, 0.28]} m={M.woodDark} />
