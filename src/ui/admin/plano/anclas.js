@@ -352,7 +352,7 @@ const ALTO_EN_MURO = {
 }
 
 /** El giro que deja la pieza viendo hacia adentro del cuarto. */
-const GIRO_MURO = { 'z-': 0, 'z+': Math.PI, 'x-': Math.PI / 2, 'x+': -Math.PI / 2 }
+export const GIRO_MURO = { 'z-': 0, 'z+': Math.PI, 'x-': Math.PI / 2, 'x+': -Math.PI / 2 }
 
 /**
  * Poner una pieza de muro donde le toca: EN el muro.

@@ -19,7 +19,7 @@ import { DISPOSICION_BY_ID, DISPOSICIONES, LADO, posicionesDe, trianguloPanel } 
 import Cuarto3D from './Cuarto3D'
 import Rig from './Rig'
 import { fondoDe, useEstilo, paletaDe } from './estilo'
-import { exposicionDe, kelvinAColor } from './luz'
+import { exposicionDe, kelvinAColor, parametrosIniciales } from './luz'
 
 /**
  * El plano del cuarto, en 3D.
@@ -1985,22 +1985,41 @@ function LuzVentana({ item, ancho, largo, alto, dia }) {
 
 /* ── plano invisible para arrastrar y colocar ─────────────────── */
 
-function Suelo({ ancho, largo, onMover, onSoltar, onColocar, arrastrando, colocando, onTocar, onFuera }) {
+function Suelo({
+  ancho,
+  largo,
+  onMover,
+  onSoltar,
+  onColocar,
+  onApuntar,
+  arrastrando,
+  colocando,
+  permitePiso,
+  onTocar,
+  onFuera,
+}) {
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, 0.001, 0]}
       visible={false}
       onPointerMove={(e) => {
-        if (!arrastrando) return
-        e.stopPropagation()
-        onMover(e.point.x, e.point.z)
+        if (arrastrando) {
+          e.stopPropagation()
+          onMover(e.point.x, e.point.z)
+          return
+        }
+        if (colocando && permitePiso) {
+          e.stopPropagation()
+          onApuntar?.({ x: e.point.x, y: 0, z: e.point.z, superficie: 'piso' })
+        }
       }}
       onPointerUp={onSoltar}
       onPointerDown={(e) => {
         if (colocando) {
+          if (!permitePiso) return
           e.stopPropagation()
-          onColocar(e.point.x, e.point.z)
+          onColocar({ x: e.point.x, y: 0, z: e.point.z, superficie: 'piso' })
           return
         }
         /* Este plano se extiende tres veces el cuarto porque hace de mesa de
@@ -2077,6 +2096,69 @@ function Postproceso({ modo }) {
   )
 }
 
+/* Del nombre del muro que usa Cuarto3D (norte/sur/este/oeste, contra qué
+   malla se picó) al giro que deja la pieza viendo hacia adentro del cuarto.
+   Es la misma tabla que `GIRO_MURO` de anclas.js, sólo que ahí vive con el
+   otro vocabulario (x-/x+/z-/z+) y aquí hace falta con éste. */
+const GIRO_MURO_NOMBRE = { norte: 0, sur: Math.PI, oeste: Math.PI / 2, este: -Math.PI / 2 }
+
+/**
+ * Lo que se está arrastrando, mientras no se ha soltado.
+ *
+ * Usa el mismo cuerpo que la pieza ya puesta —el mueble entero, el aparato
+ * entero, con su forma y su tamaño de verdad— para que lo que sigue al
+ * mouse sea la pieza y no un cubo que la representa. No participa del
+ * raycaster —`raycast={() => null}`— porque flota justo encima de lo que sí
+ * tiene que recibir el clic: el piso, el muro o el plafón que hay debajo.
+ */
+function Fantasma({ colocando, puntero, superficies }) {
+  if (!colocando || !puntero) return null
+  const valido = superficies.includes(puntero.superficie)
+  const rot = puntero.superficie === 'muro' ? (GIRO_MURO_NOMBRE[puntero.muro] ?? 0) : 0
+
+  let cuerpo = null
+  if (colocando.clase === 'mueble') {
+    const def = MUEBLES[colocando.tipo]
+    if (def?.Comp) {
+      const variante = def.variantes?.find((v) => v.id === colocando.variante)
+      const props = { ...def.props, ...(variante?.props ?? {}) }
+      const Comp = def.Comp
+      cuerpo = def.Nuevo ? <Comp {...props} /> : <Comp position={[0, 0, 0]} rotation={[0, 0, 0]} {...props} />
+    }
+  } else if (colocando.clase === 'equipo') {
+    const dev = DEVICE_BY_ID[colocando.deviceId]
+    cuerpo = <Cuerpo device={dev} params={parametrosIniciales(dev)} encendido={false} color={new THREE.Color('#7b8296')} />
+  } else {
+    cuerpo = (
+      <mesh>
+        <sphereGeometry args={[0.035, 12, 10]} />
+        <meshStandardMaterial color={COLOR_PUNTO[colocando.tipo] ?? '#8896ac'} />
+      </mesh>
+    )
+  }
+
+  return (
+    <group position={[puntero.x, puntero.y, puntero.z]} rotation={[0, rot, 0]} raycast={() => null}>
+      {cuerpo}
+      {/* El halo dice si aquí se puede soltar o no, antes de intentarlo: es
+          más rápido leer un color que picarle y que rebote. */}
+      <mesh
+        position={puntero.superficie === 'piso' ? [0, 0.006, 0] : [0, 0, 0.006]}
+        rotation={puntero.superficie === 'piso' ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}
+      >
+        <ringGeometry args={[0.2, 0.25, 28]} />
+        <meshBasicMaterial
+          color={valido ? '#7fdc8f' : '#ff5d5d'}
+          transparent
+          opacity={0.75}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
+  )
+}
+
 /* ── escena ───────────────────────────────────────────────────── */
 
 export default function Escena({
@@ -2086,6 +2168,9 @@ export default function Escena({
   onMover,
   onColocar,
   colocando,
+  superficies = [],
+  puntero,
+  onApuntar,
   sim,
   modo = 'noche',
   onAccionar,
@@ -2240,6 +2325,10 @@ export default function Escena({
         onTocar={midiendo || colocando ? undefined : () => onSeleccionar(ID_MUROS)}
         piso={plano.piso}
         muro={plano.muroAcabado}
+        colocando={colocando && !midiendo}
+        permiteMuro={superficies.includes('muro')}
+        onApuntarMuro={onApuntar}
+        onColocarMuro={onColocar}
       />
       <Conexiones plano={plano} alto={alto} />
 
@@ -2249,8 +2338,10 @@ export default function Escena({
         onMover={mover}
         onSoltar={soltar}
         onColocar={onColocar}
+        onApuntar={onApuntar}
         arrastrando={arrastrando}
         colocando={colocando && !midiendo}
+        permitePiso={superficies.includes('piso')}
         onTocar={midiendo ? undefined : () => onSeleccionar(ID_MUROS)}
         /* Picar fuera del cuarto cierra lo que esté abierto: primero el modo
            medida y si no, la selección. Antes, midiendo, este manejador se
@@ -2261,6 +2352,30 @@ export default function Escena({
            todos los clics de afuera. */
         onFuera={() => (midiendo ? onMidiendo(null) : onSeleccionar(null))}
       />
+
+      {/* El plafón, para lo que se cuelga de él —empotrados, salidas de
+          techo—. Sólo existe como blanco de clics mientras se está colocando
+          algo que de verdad va ahí: el resto del tiempo no hay ninguna razón
+          para que algo invisible le robe el clic a lo que sí se ve. */}
+      {colocando && !midiendo && superficies.includes('techo') && (
+        <mesh
+          position={[0, alto - 0.01, 0]}
+          rotation={[Math.PI / 2, 0, 0]}
+          visible={false}
+          onPointerMove={(e) => {
+            e.stopPropagation()
+            onApuntar?.({ x: e.point.x, y: alto - 0.01, z: e.point.z, superficie: 'techo' })
+          }}
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            onColocar?.({ x: e.point.x, y: alto - 0.01, z: e.point.z, superficie: 'techo' })
+          }}
+        >
+          <planeGeometry args={[ancho, largo]} />
+        </mesh>
+      )}
+
+      <Fantasma colocando={colocando} puntero={puntero} superficies={superficies} />
 
       {plano.items.map((it) => {
         const sel = it.id === seleccion

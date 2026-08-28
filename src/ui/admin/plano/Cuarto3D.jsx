@@ -15,7 +15,20 @@ import { GROSOR_MURO, MUROS, muroSeVe } from './muros'
  * Los dos muros que quedan entre la cámara y el cuarto se esconden solos, así
  * que se puede girar libremente sin perder la vista de casa de muñecas.
  */
-export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1, onTocar, piso, muro }) {
+export default function Cuarto3D({
+  ancho,
+  largo,
+  alto,
+  camaraX = 1,
+  camaraZ = 1,
+  onTocar,
+  piso,
+  muro,
+  colocando,
+  permiteMuro,
+  onApuntarMuro,
+  onColocarMuro,
+}) {
   const e = useEstilo()
   const pal = paletaDe(e.paleta)
   const t = GROSOR_MURO
@@ -87,13 +100,28 @@ export default function Cuarto3D({ ancho, largo, alto, camaraX = 1, camaraZ = 1,
             rotation={[0, m.rot, 0]}
             castShadow
             receiveShadow
-            onPointerDown={
-              visible && onTocar
+            onPointerMove={
+              visible && colocando && permiteMuro
                 ? (ev) => {
                     ev.stopPropagation()
-                    onTocar()
+                    onApuntarMuro?.({ x: ev.point.x, y: ev.point.y, z: ev.point.z, superficie: 'muro', muro: m.id })
                   }
                 : undefined
+            }
+            onPointerDown={
+              colocando
+                ? visible && permiteMuro
+                  ? (ev) => {
+                      ev.stopPropagation()
+                      onColocarMuro?.({ x: ev.point.x, y: ev.point.y, z: ev.point.z, superficie: 'muro', muro: m.id })
+                    }
+                  : undefined
+                : visible && onTocar
+                  ? (ev) => {
+                      ev.stopPropagation()
+                      onTocar()
+                    }
+                  : undefined
             }
           />
         )

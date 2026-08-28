@@ -11,11 +11,12 @@ import {
   anclaAuto,
   anclaEnMuro,
   comoSeLlama,
+  GIRO_MURO,
   limitarPorSolape,
   murosCerca,
-  ponerEnMuro,
   resolverAnclas,
 } from './anclas'
+import { MUEBLES_DE_MURO } from './muros'
 import { comoAloja, dispositivosDe } from './aloja'
 import { ESPACIOS } from '../../../content/espacios'
 import { DISPOSICIONES } from './paneles'
@@ -122,6 +123,15 @@ function Medida({ label, value, onChange, step = 0.1, min = 0.5, disabled = fals
  */
 const SIN_PROPIOS = []
 
+/* Dos vocabularios para los mismos cuatro muros: la escena 3D los nombra
+   norte/sur/este/oeste —así están las mallas contra las que se pica—, y el
+   sistema de anclas los nombra x-/x+/z-/z+ —así los espera `anclaEnMuro`—.
+   Nacieron en momentos distintos y no valía la pena unificarlos; esto es
+   nada más la traducción. */
+const ANCLA_DE_MURO = { norte: 'z-', sur: 'z+', oeste: 'x-', este: 'x+' }
+
+const NOMBRE_SUPERFICIE = { piso: 'el piso', muro: 'un muro', techo: 'el plafón' }
+
 const PASOS = 60
 const JUNTOS = 1500
 
@@ -178,6 +188,13 @@ export default function PlanoCuarto({ room, onCerrar }) {
 
   const [seleccion, setSeleccion] = useState(null)
   const [colocando, setColocando] = useState(null)
+  /* Dónde caería la pieza AHORA MISMO, mientras se arrastra —piso, muro o
+     plafón, el que haya debajo del puntero en este instante—. Es lo que
+     pinta el fantasma; se limpia cada vez que se deja de colocar algo. */
+  const [puntero, setPuntero] = useState(null)
+  useEffect(() => {
+    if (!colocando) setPuntero(null)
+  }, [colocando])
   /* Se abre de DÍA. De noche, un cuarto sin luces colocadas es una pantalla
      negra, y esa no es la primera impresión de una herramienta que funciona.
      El modo noche es para lo otro: juzgar si con estas piezas se ve. */
@@ -504,38 +521,76 @@ export default function PlanoCuarto({ room, onCerrar }) {
 
   /* ── acciones sobre los objetos ── */
 
-  const colocar = (x, z) => {
-    if (!colocando) return
-    const base = { id: uid('i'), x: Number(x.toFixed(2)), z: Number(z.toFixed(2)), rot: 0 }
+  /* A qué muro, piso o plafón le toca a algo, según qué es —no todo cabe en
+     cualquier lado: una ventana no se cuelga del plafón y un sensor de
+     movimiento no se para en el piso a media sala. Esto es lo que decide,
+     mientras se arrastra, qué superficies se ofrecen y cuáles se rechazan. */
+  const superficiesDe = (col) => {
+    if (!col) return []
+    if (col.clase === 'mueble') return MUEBLES_DE_MURO.has(col.tipo) ? ['muro'] : ['piso']
+    if (col.clase === 'punto') return col.tipo === 'salida' ? ['techo'] : ['muro']
+    if (col.clase === 'equipo') {
+      const dev = DEVICE_BY_ID[col.deviceId]
+      return dev?.cat === 'iluminacion' ? ['muro', 'techo'] : ['muro', 'piso']
+    }
+    return ['piso']
+  }
+
+  /**
+   * Pone lo que se estaba arrastrando justo donde se soltó —piso, muro o
+   * plafón, según de dónde venga `punto`— y con el vínculo ya armado: nunca
+   * queda una pieza que "adivinar" después. El muro fija su propia altura y
+   * su propio giro con la misma cuenta que ya usa el resto del plano
+   * (`anclaEnMuro`), así que da igual si se picó a la altura de un
+   * interruptor o de una ventana: queda pegada donde se picó.
+   */
+  const colocar = (punto) => {
+    if (!colocando || !punto) return
+    const id = uid('i')
+    const permitidas = superficiesDe(colocando)
+    const superficie = permitidas.includes(punto.superficie) ? punto.superficie : permitidas[0]
     let item, que
 
+    const enMuro = (extra) => {
+      const muro = ANCLA_DE_MURO[punto.muro] ?? murosCerca(punto, plano)[0]?.muro
+      const base = { id, x: punto.x, y: punto.y, z: punto.z, rot: GIRO_MURO[muro] ?? 0, ...extra }
+      return { ...base, ancla: anclaEnMuro(base, plano, muro) }
+    }
+    const enTecho = (extra) => {
+      const base = { id, x: punto.x, y: punto.y, z: punto.z, rot: 0, ...extra }
+      const ancla = {
+        a: 'techo',
+        u: (punto.x + (plano.ancho ?? 4) / 2) / (plano.ancho ?? 4),
+        v: (punto.z + (plano.largo ?? 4) / 2) / (plano.largo ?? 4),
+        y: punto.y,
+      }
+      return { ...base, ancla }
+    }
+
     if (colocando.clase === 'mueble') {
-      /* Lo que va colgado o embebido en el muro se va al muro más cercano al
-         punto donde se picó, a su altura y mirando al cuarto. Una ventana en
-         el piso no es una ventana. */
-      item = ponerEnMuro({ ...base, clase: 'mueble', tipo: colocando.tipo }, plano)
+      item =
+        superficie === 'muro'
+          ? enMuro({ clase: 'mueble', tipo: colocando.tipo })
+          : { id, x: punto.x, y: 0, z: punto.z, rot: 0, clase: 'mueble', tipo: colocando.tipo }
       que = `Colocó ${MUEBLES[colocando.tipo]?.label?.toLowerCase() ?? 'un mueble'}`
     } else if (colocando.clase === 'equipo') {
       const dev = DEVICE_BY_ID[colocando.deviceId]
       const params = parametrosIniciales(dev)
-      item = {
-        ...base,
-        clase: 'equipo',
-        deviceId: colocando.deviceId,
-        y: params ? ALTURA_POR_FORMA[params.forma] ?? 2.4 : 0.3,
-        params,
-      }
+      const extra = { clase: 'equipo', deviceId: colocando.deviceId, params }
+      item =
+        superficie === 'muro'
+          ? enMuro(extra)
+          : superficie === 'techo'
+            ? enTecho(extra)
+            : { id, x: punto.x, y: params ? (ALTURA_POR_FORMA[params.forma] ?? 2.4) : 0.3, z: punto.z, rot: 0, ...extra }
       que = `Colocó ${dev?.name ?? 'un dispositivo'}`
     } else {
-      item = { ...base, clase: 'punto', tipo: colocando.tipo, y: colocando.tipo === 'apagador' ? 1.2 : 0.4 }
+      const extra = { clase: 'punto', tipo: colocando.tipo }
+      item = superficie === 'techo' ? enTecho(extra) : enMuro({ ...extra, y: colocando.tipo === 'apagador' ? 1.2 : 0.4 })
       que = `Colocó un ${colocando.tipo}`
     }
 
-    /* Se pega a lo que le toca en el momento de ponerla: al muro si es un
-       contacto, al mueble que tenga debajo si es un aparato. Después ya no se
-       adivina sola — se cambia a mano desde su ficha. */
-    const ancla = item.ancla ?? anclaAuto(item, plano, plano.items)
-    const items = [...plano.items, ancla ? { ...item, ancla } : item]
+    const items = [...plano.items, item]
     /* Y si la pieza ya no cabe contra ese muro, el cuarto crece. Es una regla
        de obra: si va un clóset de 1.80 contra esa pared, la pared mide por lo
        menos 1.80. */
@@ -928,7 +983,10 @@ export default function PlanoCuarto({ room, onCerrar }) {
               onSeleccionar={seleccionar}
               onMover={mover}
               onColocar={colocar}
-              colocando={!!colocando}
+              colocando={colocando}
+              superficies={superficiesDe(colocando)}
+              puntero={puntero}
+              onApuntar={setPuntero}
               sim={sim}
               modo={modo}
               onAccionar={bloqueo ? undefined : dispararPorPieza}
@@ -1165,7 +1223,9 @@ export default function PlanoCuarto({ room, onCerrar }) {
           {colocando && !midiendo && (
             <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
               <span className="rounded-full border border-ember bg-ink/90 px-3 py-1.5 text-[12px] text-ember">
-                Haz clic en el piso para colocar · Esc para cancelar
+                Haz clic en {NOMBRE_SUPERFICIE[superficiesDe(colocando)[0]] ?? 'el espacio'}
+                {superficiesDe(colocando).length > 1 ? ` o ${NOMBRE_SUPERFICIE[superficiesDe(colocando)[1]]}` : ''} para
+                colocar · Esc para cancelar
               </span>
             </div>
           )}
