@@ -319,6 +319,7 @@ export const MUEBLES = {
     V('dePie', 'De pie · 1.60', 'A 1.05 de alto. El contacto tiene que subir con él.', { w: 1.6, d: 0.7, alto: 1.05 }),
     V('esquinaChica', 'De esquina · 1.40', 'Dos alas cortas. Aprovecha un rincón muerto.', { w: 1.4, d: 1.4 }),
     V('esquinaGrande', 'De esquina · 1.80', 'Rincón completo. Pide contacto en las dos alas.', { w: 1.8, d: 1.8 }),
+    V('m140Clara', 'Madera clara · 1.40 × 0.60', 'La misma 1.40, en un tono de madera claro en vez del oscuro de siempre.', { w: 1.4, d: 0.6, tono: 'clara' }),
   ] },
   laptop: { ...(A('Laptop', X.Laptop, 0.32, 0.22, 0.02)), variantes: [
     V('abierta', 'Abierta', 'En uso, sobre el escritorio.', { abierta: true }),

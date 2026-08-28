@@ -53,6 +53,7 @@ export const M = {
   // ── mobiliario ──────────────────────────────────────────────
   wood: pbr(T.wood, 1.4, '#b5794a', { roughness: 0.55, bump: 0.7 }),
   woodDark: pbr(T.wood, 1.4, '#59402e', { roughness: 0.6, bump: 0.7 }),
+  woodLight: pbr(T.wood, 1.4, '#e3c39c', { roughness: 0.5, bump: 0.6 }),
   fabric: pbr(T.fabric, 4, '#39415e', { roughness: 0.95, bump: 0.6 }),
   fabricLight: pbr(T.fabric, 4, '#cfc4b1', { roughness: 0.95, bump: 0.6 }),
   metal: std('#1d1d20', { roughness: 0.35, metalness: 0.8 }),

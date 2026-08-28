@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { MeshReflectorMaterial } from '@react-three/drei'
 import * as THREE from 'three'
 
 import { M } from '../../../scene/materials'
@@ -469,7 +470,24 @@ export function EspejoPie({ position, rotation, w = 0.55, alto = 1.65, d = 0.3 }
   return (
     <group position={position} rotation={rotation} scale={[w / 0.55, alto / 1.65, d / 0.3]}>
       <B p={[0, 0.85, 0]} s={[0.55, 1.6, 0.05]} m={M.woodDark} />
-      <B p={[0, 0.85, 0.03]} s={[0.46, 1.5, 0.01]} m={M.glass} />
+      {/* El paño es una malla aparte y no la caja compartida: un reflejo de
+          verdad renderiza el cuarto una vez más desde su propio plano, y eso
+          no se puede compartir entre mallas como sí se comparten las cajas
+          de madera. Se ve distinto según de dónde se le mire, que es
+          justamente lo que un espejo pintado con un solo color nunca hace. */}
+      <mesh position={[0, 0.85, 0.036]} castShadow>
+        <planeGeometry args={[0.46, 1.5]} />
+        <MeshReflectorMaterial
+          mirror={1}
+          resolution={512}
+          mixBlur={0.4}
+          mixStrength={1.4}
+          depthScale={0}
+          color="#3a3d45"
+          metalness={0.4}
+          roughness={0.15}
+        />
+      </mesh>
       <B p={[0, 0.03, 0.12]} s={[0.4, 0.05, 0.28]} m={M.woodDark} />
     </group>
   )

@@ -445,10 +445,16 @@ export function PendantLamp({ position, h = 1.2, count = 3, spread = 0.55, room 
 /* `d` y `alto` entran como parámetros porque un escritorio de 1.60 × 0.60 y
    uno de 2.00 × 0.80 no son el mismo mueble: cambian el monitor que cabe, la
    distancia a los ojos y si el contacto queda alcanzable. */
-export function Desk({ position, rotation, w = 1.8, d = 0.72, alto = 0.75 }) {
+/* Oscura por default: es la que ya se ve en todo el recorrido de la casa.
+   La clara es la variación de madera que pide el catálogo del plano —mismo
+   mueble, otro tono, sin duplicar la geometría. */
+const TONOS_ESCRITORIO = { oscura: M.wood, clara: M.woodLight }
+
+export function Desk({ position, rotation, w = 1.8, d = 0.72, alto = 0.75, tono = 'oscura' }) {
+  const mat = TONOS_ESCRITORIO[tono] ?? M.wood
   return (
     <group position={position} rotation={rotation}>
-      <B p={[0, alto - 0.01, 0]} s={[w, 0.05, d]} m={M.wood} />
+      <B p={[0, alto - 0.01, 0]} s={[w, 0.05, d]} m={mat} />
       {[-1, 1].map((x) => (
         <B key={x} p={[(x * (w - 0.14)) / 2, (alto - 0.01) / 2, 0]} s={[0.05, alto - 0.01, d - 0.1]} m={M.metal} shadow={false} />
       ))}
