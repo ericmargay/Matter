@@ -9,6 +9,7 @@ import { DEVICE_BY_ID } from '../../../content/catalog'
 
 import { ID_MUROS, MUEBLES } from './catalogo'
 import { GROSOR_MURO, piezaSeVe } from './muros'
+import { altoDe, MUROS as MUROS_ANCLA } from './anclas'
 import Animar from './animacion.jsx'
 import PiezaPropia from './PiezaPropia'
 import { Cable, Clavija, puntaCable } from './cables.jsx'
@@ -428,7 +429,7 @@ function useMedidaPieza(id, item) {
  * salen las flechas del gizmo. Y tiene que vivir DENTRO del canvas: medir es
  * recorrer la escena montada, y fuera no hay escena que recorrer.
  */
-function Seleccion({ item, modo, onParchar, onFin }) {
+function Seleccion({ item, items, plano, modo, onParchar, onFin }) {
   const caja = useMedidaPieza(item.id, item)
   const mayor = caja ? Math.max(caja.w, caja.h, caja.d) : 1
 
@@ -438,6 +439,8 @@ function Seleccion({ item, modo, onParchar, onFin }) {
       {modo && (
         <Gizmo
           item={item}
+          items={items}
+          plano={plano}
           modo={modo}
           onParchar={onParchar}
           onFin={onFin}
@@ -1867,7 +1870,66 @@ function magnetizar(rad) {
   return Math.round((norm * 180) / Math.PI) * (Math.PI / 180)
 }
 
-function Gizmo({ item, modo, onParchar, onFin, tamano = 1 }) {
+/**
+ * Recorta a dónde puede ir el gizmo cuando la pieza está vinculada.
+ *
+ * Un Echo Dot que vive sobre un buró no se suelta a media sala nada más
+ * porque alguien lo arrastró de más: se queda sobre el buró. Un cuadro
+ * pegado a un muro no atraviesa la pared. El gizmo deja mover libre en los
+ * tres ejes —es lo que se necesita para lo que no está vinculado a nada—
+ * pero lo que SÍ tiene un `ancla` se recorta de vuelta a esa superficie
+ * antes de guardarse, así que nunca se ve flotando donde no va.
+ */
+function restringirASuperficie(item, items, plano, x, y, z) {
+  const a = item.ancla
+  if (!a) return { x, y, z }
+
+  if (a.a === 'mueble') {
+    const host = items.find((i) => i.id === a.id)
+    if (!host) return { x, y, z }
+    const def = MUEBLES[host.tipo]
+    const variante = def?.variantes?.find((v) => v.id === host.variante)
+    const w = variante?.props?.w ?? def?.w ?? 0.4
+    const d = variante?.props?.d ?? def?.d ?? 0.4
+    const rot = host.rot ?? 0
+    // al marco local del mueble, para recortar dentro de SU huella y no de una caja alineada al mundo
+    const dx = x - host.x
+    const dz = z - host.z
+    const lx = Math.max(-w / 2, Math.min(w / 2, dx * Math.cos(rot) - dz * Math.sin(rot)))
+    const lz = Math.max(-d / 2, Math.min(d / 2, dx * Math.sin(rot) + dz * Math.cos(rot)))
+    return {
+      x: host.x + lx * Math.cos(rot) + lz * Math.sin(rot),
+      y: altoDe(host) + (a.sobre ?? 0),
+      z: host.z - lx * Math.sin(rot) + lz * Math.cos(rot),
+    }
+  }
+
+  if (a.a === 'muro') {
+    const m = MUROS_ANCLA[a.muro]
+    if (!m) return { x, y, z }
+    const hx = (plano.ancho ?? 4) / 2
+    const hz = (plano.largo ?? 4) / 2
+    const fijo = (m.eje === 'x' ? hx : hz) * m.signo - m.signo * (a.sep ?? 0)
+    const cy = Math.max(0.05, Math.min((plano.alto ?? 2.6) - 0.05, y))
+    return m.eje === 'x'
+      ? { x: fijo, y: cy, z: Math.max(-hz + 0.1, Math.min(hz - 0.1, z)) }
+      : { x: Math.max(-hx + 0.1, Math.min(hx - 0.1, x)), y: cy, z: fijo }
+  }
+
+  if (a.a === 'techo') {
+    const hx = (plano.ancho ?? 4) / 2
+    const hz = (plano.largo ?? 4) / 2
+    return {
+      x: Math.max(-hx + 0.1, Math.min(hx - 0.1, x)),
+      y: a.y ?? (plano.alto ?? 2.6) - 0.01,
+      z: Math.max(-hz + 0.1, Math.min(hz - 0.1, z)),
+    }
+  }
+
+  return { x, y, z }
+}
+
+function Gizmo({ item, items, plano, modo, onParchar, onFin, tamano = 1 }) {
   const proxy = useRef()
   const [listo, setListo] = useState(false)
 
@@ -1885,11 +1947,14 @@ function Gizmo({ item, modo, onParchar, onFin, tamano = 1 }) {
     const o = proxy.current
     if (!o) return
     if (modo === 'mover') {
-      onParchar(item.id, {
-        x: Number(o.position.x.toFixed(3)),
-        y: Number(Math.max(0, o.position.y).toFixed(3)),
-        z: Number(o.position.z.toFixed(3)),
-      })
+      /* Vinculada, no se suelta de la superficie a la que está pegada: se
+         recorta de vuelta AQUÍ, sobre el proxy mismo, para que el gizmo se
+         sienta pegado en el momento —no que flote y hasta soltar el mouse
+         se corrija de un salto. */
+      const libre = { x: o.position.x, y: Math.max(0, o.position.y), z: o.position.z }
+      const { x, y, z } = restringirASuperficie(item, items, plano, libre.x, libre.y, libre.z)
+      if (x !== o.position.x || y !== o.position.y || z !== o.position.z) o.position.set(x, y, z)
+      onParchar(item.id, { x: Number(x.toFixed(3)), y: Number(y.toFixed(3)), z: Number(z.toFixed(3)) })
     } else if (modo === 'girar') {
       onParchar(item.id, { rot: Number(magnetizar(o.rotation.y).toFixed(4)) })
     } else {
@@ -2246,7 +2311,16 @@ export default function Escena({
     // es un descuido que después nadie encuentra
     const lx = Math.max(-ancho / 2 + 0.15, Math.min(ancho / 2 - 0.15, x))
     const lz = Math.max(-largo / 2 + 0.15, Math.min(largo / 2 - 0.15, z))
-    onMover(arrastrando, lx, lz)
+    /* Este arrastre es el rápido —doble clic y jalar, sin pasar por el modo
+       Mover del gizmo— y viaja sobre el piso porque ahí es donde vive el
+       plano que lo capta. Pero si la pieza está vinculada, el piso no es su
+       superficie: se recorta igual que en el gizmo, o un Echo Dot arrastrado
+       así se bajaría del buró al suelo sin que nadie lo haya pedido. */
+    const item = plano.items.find((i) => i.id === arrastrando)
+    const { x: fx, y: fy, z: fz } = item
+      ? restringirASuperficie(item, plano.items, plano, lx, item.y ?? 0, lz)
+      : { x: lx, y: undefined, z: lz }
+    onMover(arrastrando, fx, fy, fz)
   }
 
   const seleccionado = plano.items.find((i) => i.id === seleccion)
@@ -2494,6 +2568,8 @@ export default function Escena({
       {seleccionado && (
         <Seleccion
           item={seleccionado}
+          items={plano.items}
+          plano={plano}
           modo={!midiendo && modoGizmo ? modoGizmo : null}
           onParchar={onParchar}
           onFin={onFinGizmo}

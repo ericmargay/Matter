@@ -599,9 +599,13 @@ export default function PlanoCuarto({ room, onCerrar }) {
     setColocando(null)
   }
 
-  const mover = (id, x, z) =>
+  const mover = (id, x, y, z) =>
     setItems(
-      plano.items.map((i) => (i.id === id ? { ...i, x: Number(x.toFixed(2)), z: Number(z.toFixed(2)) } : i)),
+      plano.items.map((i) =>
+        i.id === id
+          ? { ...i, x: Number(x.toFixed(2)), ...(y != null ? { y: Number(y.toFixed(3)) } : {}), z: Number(z.toFixed(2)) }
+          : i,
+      ),
       'Movió una pieza en el plano',
     )
 
