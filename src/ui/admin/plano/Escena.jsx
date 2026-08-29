@@ -209,6 +209,36 @@ function MesaTaller({ activo, centro, r, color }) {
   )
 }
 
+/**
+ * El fondo, pasando lento por una gama de colores.
+ *
+ * No es decoración: es la prueba de que un hueco es un hueco de verdad. Un
+ * fondo fijo no dice nada —lo que se vea "a través" de una ventana bien
+ * puede ser el mismo tono del muro por casualidad—, pero un fondo que
+ * cambia de color solo, sin que nadie toque nada, delata al instante
+ * cualquier parte del muro que en realidad esté dejando pasar lo de atrás.
+ *
+ * Una vuelta completa por el matiz cada dos minutos: lento a propósito, para
+ * que el ojo compare un cuadro con el siguiente y no un parpadeo.
+ */
+const VUELTA_FONDO = 120 // segundos para una vuelta completa de matiz
+
+function FondoAnimado() {
+  const { scene } = useThree()
+  const color = useRef(new THREE.Color())
+  useEffect(() => {
+    scene.background = color.current
+    return () => {
+      scene.background = null
+    }
+  }, [scene])
+  useFrame((state) => {
+    const matiz = (state.clock.elapsedTime / VUELTA_FONDO) % 1
+    color.current.setHSL(matiz, 0.4, 0.24)
+  })
+  return null
+}
+
 function SeguirCamara({ onMover }) {
   const { camera } = useThree()
   const ultimo = useRef([1, 1])
@@ -2365,9 +2395,11 @@ export default function Escena({
       onPointerMissed={() => (midiendo ? onMidiendo(null) : onSeleccionar(null))}
       onPointerUp={soltar}
     >
-      {/* el fondo toma el muro de la paleta: es lo que hace que el cuarto se
-          vea como un diorama y no como una maqueta flotando en el vacío */}
-      <color attach="background" args={[fondo]} />
+      {/* El fondo pasa lento por toda la gama de matices —ver FondoAnimado—
+          para poder comprobar a ojo si un hueco en el muro de verdad deja
+          ver lo de atrás, o si sólo lo parece porque el fondo fijo se
+          confundía con el color del muro. */}
+      <FondoAnimado />
       <SeguirCamara onMover={(x, z) => setCam([x, z])} />
       <VolarA enfoque={enfoque} onListo={onEnfocado} />
       <Disolver
