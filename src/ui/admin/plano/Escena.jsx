@@ -756,7 +756,17 @@ function bordeDeAnfitrion(item, items) {
   return new THREE.Vector3(x, item.y ?? 0, z)
 }
 
-function Cables({ items, cuarto, enMano, onTomarClavija, onGuiarCable, onAgarrarCable, onSoltarCable }) {
+function Cables({
+  items,
+  cuarto,
+  enMano,
+  onTomarClavija,
+  onGuiarCable,
+  onAgarrarCable,
+  onSoltarCable,
+  cableSeleccionado,
+  onSeleccionarCable,
+}) {
   const enchufes = useMemo(
     () => items.filter((i) => i.clase === 'punto' && (i.tipo === 'enchufe' || i.tipo === 'salida')),
     [items],
@@ -871,9 +881,13 @@ function Cables({ items, cuarto, enMano, onTomarClavija, onGuiarCable, onAgarrar
               guia={cable.guia ?? null}
               semilla={semillaDe(it.id)}
               cuarto={cuarto}
+              grosor={cable.grosor}
+              color={cable.color}
+              seleccionado={cableSeleccionado === it.id}
               onGuiar={onGuiarCable ? (x, z) => onGuiarCable(it.id, x, z) : undefined}
               onAgarrar={onAgarrarCable}
               onSoltar={onSoltarCable}
+              onSeleccionar={onSeleccionarCable ? () => onSeleccionarCable(it.id) : undefined}
             />
             <Clavija
               pos={[clavija.x, clavija.y, clavija.z]}
@@ -2334,6 +2348,8 @@ export default function Escena({
   plano,
   seleccion,
   onSeleccionar,
+  cableSeleccionado,
+  onSeleccionarCable,
   onMover,
   onColocar,
   colocando,
@@ -2662,6 +2678,8 @@ export default function Escena({
           setAcomodando(false)
           onSoltarCable?.()
         }}
+        cableSeleccionado={cableSeleccionado}
+        onSeleccionarCable={onSeleccionarCable}
       />
       {/* El hover se suelta en cuanto su pieza deja de existir: si no, se
           queda apuntando a un fantasma hasta que el puntero se mueva. */}

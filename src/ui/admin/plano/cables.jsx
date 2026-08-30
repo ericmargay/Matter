@@ -9,7 +9,7 @@ import { useEstilo } from './estilo'
  * está cómo se ve y cómo se mueve.
  */
 
-const COLOR = { piso: '#3b3f4a', muro: '#4a505e', oculto: '#6f5a86' }
+export const COLOR = { piso: '#3b3f4a', muro: '#4a505e', oculto: '#6f5a86' }
 
 /**
  * @param desde  punto de salida del aparato, en mundo
@@ -337,15 +337,25 @@ export function Cable({
   guia = null,
   semilla = 0.5,
   cuarto = null,
+  grosor,
+  color,
+  seleccionado = false,
   onGuiar,
   onAgarrar,
   onSoltar,
+  onSeleccionar,
 }) {
-  const radio = useEstilo((e) => e.grosorCable) / 2000
+  const grosorCuarto = useEstilo((e) => e.grosorCable)
+  // el grosor de ESTE cable, si se puso uno; si no, el del cuarto entero
+  const radio = (grosor ?? grosorCuarto) / 2000
   const malla = useRef()
   const agarre = useRef()
   const [encima, setEncima] = useState(false)
   const arrastrando = useRef(false)
+  // desde dónde se picó, para distinguir un toque de un arrastre: si el
+  // puntero casi no se movió entre bajar y soltar el botón, fue un clic —se
+  // selecciona—; si se movió, fue jalar el cable, que ya hacía esto antes.
+  const inicio = useRef(null)
 
   const base = useMemo(
     () => trazo(desde.clone(), hasta.clone(), largo, ruta, guia, semilla, cuarto, borde),
@@ -403,10 +413,10 @@ export function Cable({
     <group>
       <mesh ref={malla} castShadow>
         <meshStandardMaterial
-          color={alcanza ? COLOR[ruta] : '#e0533f'}
+          color={color ?? (alcanza ? COLOR[ruta] : '#e0533f')}
           roughness={0.75}
-          emissive={encima ? '#4d9fff' : '#000000'}
-          emissiveIntensity={encima ? 0.55 : 0}
+          emissive={seleccionado ? '#ff9a4d' : encima ? '#4d9fff' : '#000000'}
+          emissiveIntensity={seleccionado ? 0.6 : encima ? 0.55 : 0}
         />
       </mesh>
 
@@ -424,21 +434,29 @@ export function Cable({
         }
         onPointerOut={interactivo ? () => setEncima(false) : undefined}
         onPointerDown={
-          interactivo && onGuiar && ruta === 'piso'
+          interactivo
             ? (e) => {
                 e.stopPropagation()
-                arrastrando.current = true
-                e.target.setPointerCapture(e.pointerId)
-                /* La cámara se queda quieta mientras se acomoda el cable. El
-                   `stopPropagation` de r3f no llega hasta OrbitControls —que
-                   escucha el DOM del canvas, no el raycaster—, así que hay que
-                   apagarlo a mano, igual que con la cota del muro. */
-                onAgarrar?.()
-                /* Y el punto por el que se agarró es el punto que se mueve.
-                   Antes se movía siempre el mismo punto de en medio, así que
-                   agarrar cerca del enchufe daba un tirón desde el otro lado
-                   del cuarto. */
-                if (e.point) onGuiar(e.point.x, e.point.z)
+                inicio.current = { x: e.clientX, y: e.clientY }
+                /* Arrastrar el cable sigue siendo el mismo gesto de siempre
+                   —agarrar y jalar—, sólo por el piso, que es donde tiene
+                   sentido correr una lazada. Seleccionarlo es un gesto
+                   nuevo y más simple: un clic que no se movió, se detecta
+                   al soltar, no aquí. */
+                if (onGuiar && ruta === 'piso') {
+                  arrastrando.current = true
+                  e.target.setPointerCapture(e.pointerId)
+                  /* La cámara se queda quieta mientras se acomoda el cable. El
+                     `stopPropagation` de r3f no llega hasta OrbitControls —que
+                     escucha el DOM del canvas, no el raycaster—, así que hay que
+                     apagarlo a mano, igual que con la cota del muro. */
+                  onAgarrar?.()
+                  /* Y el punto por el que se agarró es el punto que se mueve.
+                     Antes se movía siempre el mismo punto de en medio, así que
+                     agarrar cerca del enchufe daba un tirón desde el otro lado
+                     del cuarto. */
+                  if (e.point) onGuiar(e.point.x, e.point.z)
+                }
               }
             : undefined
         }
@@ -453,12 +471,17 @@ export function Cable({
             : undefined
         }
         onPointerUp={
-          interactivo && onGuiar
+          interactivo
             ? (e) => {
-                if (!arrastrando.current) return
-                arrastrando.current = false
-                e.target.releasePointerCapture(e.pointerId)
-                onSoltar?.()
+                if (arrastrando.current) {
+                  arrastrando.current = false
+                  e.target.releasePointerCapture(e.pointerId)
+                  onSoltar?.()
+                }
+                const movido =
+                  inicio.current && Math.hypot(e.clientX - inicio.current.x, e.clientY - inicio.current.y) > 4
+                if (!movido) onSeleccionar?.()
+                inicio.current = null
               }
             : undefined
         }

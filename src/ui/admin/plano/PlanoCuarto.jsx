@@ -6,6 +6,8 @@ import { useSurvey } from '../../../store/survey'
 import { ARRANQUE, ID_MUROS, MUEBLES, POR_TIPO, TIPOS, tipoPorNombre } from './catalogo'
 import { MUROS_ACABADO, PISOS } from './acabados'
 import { cableDeMueble, cablePorDefecto, llevaCable } from './cables'
+import { COLOR as COLOR_CABLE } from './cables.jsx'
+import { useEstilo } from './estilo'
 import {
   agrandarSiNoCabe,
   anclaAuto,
@@ -187,6 +189,11 @@ export default function PlanoCuarto({ room, onCerrar }) {
   const tipo = plano.tipoCuarto ?? tipoPorNombre(room.nombre)
 
   const [seleccion, setSeleccion] = useState(null)
+  /* El cable seleccionado vive aparte de `seleccion`: no es un item del
+     plano —es un campo dentro de otro item—, así que no puede compartir el
+     mismo id. Elegir uno u otro es excluyente: seleccionar una pieza suelta
+     el cable elegido, y al revés. */
+  const [cableSeleccionado, setCableSeleccionado] = useState(null)
   const [colocando, setColocando] = useState(null)
   /* Dónde caería la pieza AHORA MISMO, mientras se arrastra —piso, muro o
      plafón, el que haya debajo del puntero en este instante—. Es lo que
@@ -253,6 +260,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
         else if (midiendo) setMidiendo(null)
         else if (uniendo) setUniendo(null)
         else if (colocando) setColocando(null)
+        else if (cableSeleccionado) setCableSeleccionado(null)
         else onCerrar()
       }
       if (midiendo || escribiendo) return
@@ -501,8 +509,31 @@ export default function PlanoCuarto({ room, onCerrar }) {
 
   const seleccionar = (id) => {
     if (uniendo && id && id !== uniendo) return unirCon(id)
+    setCableSeleccionado(null)
     setSeleccion(id)
   }
+
+  /** El id que llega es el del APARATO al que pertenece el cable, no un id
+      propio del cable —no lo tiene. */
+  const seleccionarCable = (id) => {
+    setSeleccion(null)
+    setCableSeleccionado((actual) => (actual === id ? null : id))
+  }
+
+  /** Grosor y color son de ESTE cable, no del estilo del cuarto: se guardan
+      dentro de `item.cable`, junto con el largo y la ruta que ya vivían ahí
+      —los de fábrica si la pieza nunca había tenido uno propio, con
+      `cableDe`, para no perderlos al escribir solo el grosor o el color. */
+  const parcharCable = (id, cambios) =>
+    guardar(
+      {
+        items: plano.items.map((it) =>
+          it.id === id ? { ...it, cable: { ...cableDe(it), ...cambios } } : it,
+        ),
+      },
+      'Cambió un cable',
+    )
+
   const setItems = (items, que) => guardar({ items }, que)
 
   /* Arrastrar un muro dispara decenas de medidas por segundo. `setPlano` ya
@@ -716,6 +747,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
 
   const seleccionado = plano.items.find((i) => i.id === seleccion)
   const enMuros = seleccion === ID_MUROS
+  const dueñoDelCable = cableSeleccionado && plano.items.find((i) => i.id === cableSeleccionado)
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-ink">
@@ -985,6 +1017,8 @@ export default function PlanoCuarto({ room, onCerrar }) {
               plano={plano}
               seleccion={seleccion}
               onSeleccionar={seleccionar}
+              cableSeleccionado={cableSeleccionado}
+              onSeleccionarCable={seleccionarCable}
               onMover={mover}
               onColocar={colocar}
               colocando={colocando}
@@ -1309,6 +1343,13 @@ export default function PlanoCuarto({ room, onCerrar }) {
                 })
               }}
               onQuitarTramo={(tid) => guardar({ tramos: plano.tramos.filter((t) => t.id !== tid) }, 'Quitó una línea eléctrica')}
+            />
+          ) : dueñoDelCable ? (
+            <InspectorCable
+              item={dueñoDelCable}
+              cable={cableDe(dueñoDelCable)}
+              onCambiar={(cambios) => parcharCable(cableSeleccionado, cambios)}
+              onCerrar={() => setCableSeleccionado(null)}
             />
           ) : (
             <Grupo titulo="Nada seleccionado">
@@ -2135,6 +2176,60 @@ function Vinculo({ item, items, plano, onParchar, onSeleccionar }) {
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * El grosor y el color de UN cable.
+ *
+ * Un cable no es una pieza del plano —vive metido en `item.cable`, sin id
+ * propio— así que no tiene un Inspector como el de un mueble o un aparato.
+ * Éste es más chico a propósito: dos controles y ya, porque es lo único que
+ * de verdad varía cable por cable. El largo y la ruta se siguen editando
+ * donde ya se editaban.
+ */
+function InspectorCable({ item, cable, onCambiar, onCerrar }) {
+  const grosorCuarto = useEstilo((e) => e.grosorCable)
+  const colorDefecto = COLOR_CABLE[cable.ruta] ?? COLOR_CABLE.piso
+  const nombre =
+    item.clase === 'equipo' ? (DEVICE_BY_ID[item.deviceId]?.name ?? 'dispositivo') : MUEBLES[item.tipo]?.label ?? item.tipo
+
+  return (
+    <Grupo
+      titulo={`Cable · ${nombre}`}
+      right={
+        <button onClick={onCerrar} className="text-[10.5px] text-cream-3 hover:text-ember">
+          cerrar
+        </button>
+      }
+    >
+      <div className="grid grid-cols-2 gap-1.5">
+        <Medida
+          label="Grosor · mm"
+          value={cable.grosor ?? grosorCuarto}
+          step={0.5}
+          min={1}
+          onChange={(v) => onCambiar({ grosor: Math.max(1, v) })}
+        />
+        <label className="block">
+          <span className="mb-0.5 block text-[9.5px] tracking-[0.1em] text-cream-3 uppercase">Color</span>
+          <input
+            type="color"
+            value={cable.color ?? colorDefecto}
+            onChange={(e) => onCambiar({ color: e.target.value })}
+            className="h-[26px] w-full cursor-pointer rounded border border-line bg-ink"
+          />
+        </label>
+      </div>
+      {(cable.grosor != null || cable.color != null) && (
+        <button
+          onClick={() => onCambiar({ grosor: undefined, color: undefined })}
+          className="mt-2 w-full rounded-lg border border-line px-2 py-1 text-[11px] text-cream-2 hover:border-cream/35"
+        >
+          Volver al grosor y color del cuarto
+        </button>
+      )}
+    </Grupo>
   )
 }
 
