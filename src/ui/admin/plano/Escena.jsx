@@ -679,6 +679,45 @@ function Adaptador({ punto }) {
   )
 }
 
+/* Del nombre del muro que usa el sistema de anclas (x-/x+/z-/z+) al que usa
+   Cuarto3D para dibujarlo (norte/sur/este/oeste). Es la misma pareja de
+   muros con dos vocabularios distintos que ya se traduce en otros lugares
+   de este archivo, aquí para poder decirle a Cuarto3D dónde partir cada uno. */
+const MURO_NOMBRE_ESCENA = { 'x-': 'oeste', 'x+': 'este', 'z-': 'norte', 'z+': 'sur' }
+
+/**
+ * Dónde va cada hueco, agrupado por el muro que lo lleva.
+ *
+ * Una ventana no es un marco pegado al muro: es un hueco DE VERDAD en la
+ * geometría, con el muro partido alrededor —ver `pedazosDeMuro` en
+ * Cuarto3D.jsx—. Lo que hace falta aquí es sólo la medida del hueco, no de
+ * la ventana: el ancho y el alto de verdad —variante y ajustes ya
+ * mezclados, la misma cuenta que usa `Mueble` para dibujarla— y en qué
+ * punto a lo largo del muro y a qué altura queda su centro.
+ */
+function huecosDeMuros(items) {
+  const porMuro = { norte: [], sur: [], este: [], oeste: [] }
+  for (const it of items) {
+    if (it.clase !== 'mueble' || it.tipo !== 'ventana') continue
+    if (it.ancla?.a !== 'muro') continue
+    const muro = MURO_NOMBRE_ESCENA[it.ancla.muro]
+    if (!muro) continue
+    const def = MUEBLES[it.tipo]
+    if (!def) continue
+    const variante = def.variantes?.find((v) => v.id === it.variante)
+    const props = { ...def.props, ...(variante?.props ?? {}), ...(it.ajustes ?? {}) }
+    const ow = props.w ?? def.w ?? 1.2
+    const oh = props.h ?? props.alto ?? def.alto ?? 1.4
+    // a lo largo del muro: norte/sur corren en X, este/oeste corren en Z —y
+    // en los dos casos el centro del muro coincide con el centro del cuarto
+    // en ese eje, así que la coordenada del item ES la posición a lo largo.
+    const co = muro === 'norte' || muro === 'sur' ? it.x : it.z
+    porMuro[muro].push({ co, ow, oy: it.y ?? 1.5, oh })
+  }
+  for (const muro in porMuro) porMuro[muro].sort((a, b) => a.co - b.co)
+  return porMuro
+}
+
 /* Un nanoleaf no tiene un centro por donde salga el cable: es un mosaico de
    triángulos y el cable de verdad sale por atrás de uno de ellos, el de más
    abajo, como en cualquier instalación real. Buscar ese triángulo y salir por
@@ -2363,6 +2402,7 @@ export default function Escena({
     () => plano.items.filter((i) => i.clase === 'mueble' && (i.tipo === 'ventana' || i.tipo === 'persiana')),
     [plano.items],
   )
+  const huecos = useMemo(() => huecosDeMuros(plano.items), [plano.items])
   const encuadre = Math.hypot(ancho + 2.2, largo + 2.2)
 
   /* Cuáles proyectan sombra: las primeras MAX_SOMBRAS luminarias dirigidas.
@@ -2435,6 +2475,7 @@ export default function Escena({
         permiteMuro={superficies.includes('muro')}
         onApuntarMuro={onApuntar}
         onColocarMuro={onColocar}
+        huecos={huecos}
       />
       <Conexiones plano={plano} alto={alto} />
 

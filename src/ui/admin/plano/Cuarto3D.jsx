@@ -15,6 +15,42 @@ import { GROSOR_MURO, MUROS, muroSeVe } from './muros'
  * Los dos muros que quedan entre la cámara y el cuarto se esconden solos, así
  * que se puede girar libremente sin perder la vista de casa de muñecas.
  */
+/**
+ * Parte un muro en los pedazos que quedan alrededor de un hueco.
+ *
+ * Nada de resta booleana: el muro ya es una caja, y un hueco rectangular en
+ * una caja son hasta cuatro cajas más chicas alrededor —dos que corren de
+ * piso a plafón a los lados, y dos angostas arriba y abajo del hueco mismo—.
+ * Es la misma pieza de siempre, sólo que en partes, y por eso se ve igual:
+ * mismo bisel, mismo tono por vértice, mismo material.
+ *
+ * `huecos` viene ordenado de izquierda a derecha y ya se asume que no se
+ * traslapan —dos ventanas la una encima de la otra no es un plano, es un
+ * error de captura que se corrige ahí, no aquí.
+ */
+function pedazosDeMuro(w, alto, huecos) {
+  if (!huecos?.length) return [{ x: 0, y: alto / 2, sx: w, sy: alto }]
+
+  const piezas = []
+  let borde = -w / 2
+  for (const h of huecos) {
+    const izq = h.co - h.ow / 2
+    const der = h.co + h.ow / 2
+    // lo que hay a la izquierda del hueco, de piso a plafón
+    if (izq > borde + 0.001) piezas.push({ x: (borde + izq) / 2, y: alto / 2, sx: izq - borde, sy: alto })
+    // el dintel, arriba del hueco
+    const arriba = h.oy + h.oh / 2
+    if (alto - arriba > 0.001) piezas.push({ x: h.co, y: (arriba + alto) / 2, sx: h.ow, sy: alto - arriba })
+    // el pretil, abajo del hueco
+    const abajo = h.oy - h.oh / 2
+    if (abajo > 0.001) piezas.push({ x: h.co, y: abajo / 2, sx: h.ow, sy: abajo })
+    borde = der
+  }
+  // lo que queda a la derecha del último hueco
+  if (w / 2 - borde > 0.001) piezas.push({ x: (borde + w / 2) / 2, y: alto / 2, sx: w / 2 - borde, sy: alto })
+  return piezas
+}
+
 export default function Cuarto3D({
   ancho,
   largo,
@@ -28,6 +64,7 @@ export default function Cuarto3D({
   permiteMuro,
   onApuntarMuro,
   onColocarMuro,
+  huecos,
 }) {
   const e = useEstilo()
   const pal = paletaDe(e.paleta)
@@ -90,40 +127,43 @@ export default function Cuarto3D({
       {muros.map((m) => {
         // se esconde el que taparía la vista
         const visible = muroSeVe(m.n, camaraX, camaraZ)
+        const onMove =
+          visible && colocando && permiteMuro
+            ? (ev) => {
+                ev.stopPropagation()
+                onApuntarMuro?.({ x: ev.point.x, y: ev.point.y, z: ev.point.z, superficie: 'muro', muro: m.id })
+              }
+            : undefined
+        const onDown = colocando
+          ? visible && permiteMuro
+            ? (ev) => {
+                ev.stopPropagation()
+                onColocarMuro?.({ x: ev.point.x, y: ev.point.y, z: ev.point.z, superficie: 'muro', muro: m.id })
+              }
+            : undefined
+          : visible && onTocar
+            ? (ev) => {
+                ev.stopPropagation()
+                onTocar()
+              }
+            : undefined
+
         return (
-          <mesh
-            key={m.id}
-            visible={visible}
-            geometry={cja(m.w, alto, t)}
-            material={mat(m.n[0] !== 0 ? pal.muroFrio : pal.muro, 'mate')}
-            position={[m.pos[0], alto / 2, m.pos[1]]}
-            rotation={[0, m.rot, 0]}
-            castShadow
-            receiveShadow
-            onPointerMove={
-              visible && colocando && permiteMuro
-                ? (ev) => {
-                    ev.stopPropagation()
-                    onApuntarMuro?.({ x: ev.point.x, y: ev.point.y, z: ev.point.z, superficie: 'muro', muro: m.id })
-                  }
-                : undefined
-            }
-            onPointerDown={
-              colocando
-                ? visible && permiteMuro
-                  ? (ev) => {
-                      ev.stopPropagation()
-                      onColocarMuro?.({ x: ev.point.x, y: ev.point.y, z: ev.point.z, superficie: 'muro', muro: m.id })
-                    }
-                  : undefined
-                : visible && onTocar
-                  ? (ev) => {
-                      ev.stopPropagation()
-                      onTocar()
-                    }
-                  : undefined
-            }
-          />
+          <group key={m.id} position={[m.pos[0], 0, m.pos[1]]} rotation={[0, m.rot, 0]}>
+            {pedazosDeMuro(m.w, alto, huecos?.[m.id]).map((p, i) => (
+              <mesh
+                key={i}
+                visible={visible}
+                geometry={cja(p.sx, p.sy, t)}
+                material={mat(m.n[0] !== 0 ? pal.muroFrio : pal.muro, 'mate')}
+                position={[p.x, p.y, 0]}
+                castShadow
+                receiveShadow
+                onPointerMove={onMove}
+                onPointerDown={onDown}
+              />
+            ))}
+          </group>
         )
       })}
 
