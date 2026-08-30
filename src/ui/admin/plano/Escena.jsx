@@ -1439,13 +1439,38 @@ export function Cuerpo({ device, params, encendido, color, apertura }) {
     )
   }
 
-  if (cat === 'energia')
+  if (cat === 'energia') {
+    /* Una regleta no es un enchufe: es una barra de 16 cm con varias tomas,
+       no una cajita vertical de 6 —dibujarla igual la hacía irreconocible
+       Y, centrada en el origen sin levantarla, quedaba medio metida dentro
+       del escritorio donde va parada, que es de donde salía que no se
+       pudiera picar: la mitad de su geometría estaba del otro lado de la
+       madera. */
+    const esRegleta = /regleta|strip|kp303/i.test(`${device?.id ?? ''} ${device?.name ?? ''}`)
+    if (esRegleta)
+      return (
+        <group position={[0, 0.018, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[0.16, 0.036, 0.045]} />
+            {gris}
+          </mesh>
+          {[-1, 0, 1].map((i) => (
+            <mesh key={i} position={[i * 0.045, 0.02, 0]}>
+              <boxGeometry args={[0.012, 0.006, 0.02]} />
+              <meshStandardMaterial color="#2c2c31" roughness={0.4} />
+            </mesh>
+          ))}
+        </group>
+      )
     return (
-      <mesh castShadow>
-        <boxGeometry args={[0.06, 0.09, 0.035]} />
-        {gris}
-      </mesh>
+      <group position={[0, 0.045, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.06, 0.09, 0.035]} />
+          {gris}
+        </mesh>
+      </group>
     )
+  }
 
   return (
     <mesh castShadow>
@@ -1545,6 +1570,16 @@ function Equipo({ item, estado, seleccionado, onTomar, modo, alto, conSombra, co
       <group visible={aLaVista}>
         <Cuerpo device={dev} params={p} encendido={encendido} color={color} apertura={estado?.apertura} />
       </group>
+
+      {/* Zona de agarre, invisible: un aparato de verdad mide de tres a
+          quince centímetros, y picarle exacto a esa silueta —sobre todo en
+          perspectiva, sobre todo si además queda medio escondido detrás de
+          un monitor— es puntería de más. `Mueble` ya tenía esto; `Equipo` no,
+          y era de donde salía que la regleta y piezas chicas parecidas no se
+          pudieran seleccionar aunque el mouse pasara justo encima. */}
+      <mesh position={[0, 0.08, 0]} visible={false}>
+        <boxGeometry args={[0.16, 0.22, 0.16]} />
+      </mesh>
 
       {/* módulo inteligente metido en el registro de la luminaria: la otra
           forma de hacerlo cuando la caja del apagador no da o no hay neutro */}
