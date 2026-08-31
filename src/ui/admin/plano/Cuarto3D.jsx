@@ -58,6 +58,7 @@ export default function Cuarto3D({
   camaraX = 1,
   camaraZ = 1,
   onTocar,
+  onTocarMuro,
   piso,
   muro,
   colocando,
@@ -141,10 +142,13 @@ export default function Cuarto3D({
                 onColocarMuro?.({ x: ev.point.x, y: ev.point.y, z: ev.point.z, superficie: 'muro', muro: m.id })
               }
             : undefined
-          : visible && onTocar
+          : visible && (onTocar || onTocarMuro)
             ? (ev) => {
                 ev.stopPropagation()
-                onTocar()
+                // el muro en concreto primero: si nadie lo usa, cae al
+                // genérico de "se tocó un muro cualquiera"
+                if (onTocarMuro) onTocarMuro(m.id)
+                else onTocar()
               }
             : undefined
 

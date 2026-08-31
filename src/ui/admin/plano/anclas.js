@@ -188,6 +188,51 @@ export function anclaEnMuro(item, plano, muro) {
   return { a: 'muro', muro, ...avanceEnMuro(item, plano, muro), y: item.y ?? 0.4, sep }
 }
 
+/** ¿`muroA` y `muroB` se juntan en una esquina? Sólo si corren en ejes
+ *  distintos —dos paredes del mismo eje son la misma pared o la de
+ *  enfrente, nunca vecinas—. */
+export function sonContiguos(muroA, muroB) {
+  const a = MUROS[muroA]
+  const b = MUROS[muroB]
+  return !!a && !!b && a.eje !== b.eje
+}
+
+/**
+ * El ancla de una pieza esquinada: pegada a `muroA` —que decide hacia dónde
+ * mira— y arrimada además a `muroB`, el que se junta con él en la esquina.
+ *
+ * Sigue siendo un ancla de muro común, la misma que ya entiende todo lo
+ * demás (resolverAnclas, el panel, el historial); lo único que cambia es
+ * que en vez de dejar que `avanceEnMuro` elija sola el extremo más cercano,
+ * aquí se FIJA al extremo de la esquina compartida, con la separación
+ * exacta que pide `sepB` medida desde la ORILLA de la pieza —su canto real,
+ * ya girado hacia `muroA`— y no desde su centro. Sin el canto, una pieza
+ * ancha se metería literalmente adentro de `muroB` antes de que su centro
+ * llegara a los `sepB` pedidos.
+ */
+export function anclaEnEsquina(item, plano, muroA, muroB, sepA = 0.02, sepB = 0.02) {
+  const base = anclaEnMuro(item, plano, muroA)
+  if (!base || !sonContiguos(muroA, muroB)) return base
+
+  const mA = MUROS[muroA]
+  const mB = MUROS[muroB]
+  const rot = GIRO_MURO[muroA] ?? item.rot ?? 0
+  const c = Math.abs(Math.cos(rot))
+  const sn = Math.abs(Math.sin(rot))
+  const def = item.clase === 'mueble' ? MUEBLES[item.tipo] : null
+  const cantoX = def ? ((def.w ?? 0.4) * c + (def.d ?? 0.4) * sn) / 2 : 0
+  const cantoZ = def ? ((def.w ?? 0.4) * sn + (def.d ?? 0.4) * c) / 2 : 0
+  // el canto a lo largo de muroA: si muroA corre en x, el canto que importa
+  // es el de z, y viceversa
+  const canto = mA.eje === 'x' ? cantoZ : cantoX
+
+  // el extremo de muroA que colinda con muroB: 'inicio' del lado negativo
+  // del eje de muroB, 'fin' del lado positivo — es la misma cuenta que ya
+  // hace avanceEnMuro, sólo que aquí se fija en vez de elegir sola
+  const desde = mB.signo < 0 ? 'inicio' : 'fin'
+  return { ...base, sep: sepA, desde, off: canto + sepB }
+}
+
 /**
  * ¿Sobre qué mueble está apoyada esta pieza?
  *
