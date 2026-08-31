@@ -30,6 +30,7 @@ export default function Compras() {
   const eliminarCompra = useSurvey((s) => s.eliminarCompra)
   const cambiarAlternativa = useSurvey((s) => s.cambiarAlternativa)
   const setExtras = useSurvey((s) => s.setExtras)
+  const setQty = useSurvey((s) => s.setQty)
   const [cambiando, setCambiando] = useState(null) // deviceId con el picker de alternativas abierto
   const [editandoFoto, setEditandoFoto] = useState(null) // deviceId con el campo de foto abierto
   const [editandoPaquetes, setEditandoPaquetes] = useState(null) // deviceId con el editor de paquetes abierto
@@ -46,7 +47,7 @@ export default function Compras() {
       if (qty <= 0) continue
       const actual = porDevice.get(id) ?? { qty: 0, cuartos: [] }
       actual.qty += qty
-      actual.cuartos.push({ nombre: room.nombre, qty })
+      actual.cuartos.push({ id: room.id, nombre: room.nombre, qty })
       porDevice.set(id, actual)
     }
   }
@@ -131,9 +132,21 @@ export default function Compras() {
                     <p className="text-[11.5px] text-cream-3">
                       {f.dev.brand} · {cat?.label ?? f.dev.cat}
                     </p>
-                    <p className="mt-0.5 text-[10.5px] text-cream-3/80">
-                      {f.cuartos.map((c) => `${c.nombre} ×${c.qty}`).join(' · ')}
-                    </p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10.5px] text-cream-3/80">
+                      {f.cuartos.map((c) => (
+                        <label key={c.id} className="flex items-center gap-1">
+                          <span>{c.nombre} ×</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={c.qty}
+                            onChange={(e) => setQty(f.id, Math.max(0, Number(e.target.value) || 0), c.id)}
+                            title={`Cantidad en ${c.nombre} — 0 la quita de ahí`}
+                            className="w-11 rounded border border-line bg-ink-2 px-1 py-0.5 text-center text-cream-2 outline-none focus:border-ember/60"
+                          />
+                        </label>
+                      ))}
+                    </div>
 
                     <div className="mt-2 flex flex-wrap items-center gap-3">
                       <label className="flex items-center gap-1.5 text-[11.5px] text-cream-2">
