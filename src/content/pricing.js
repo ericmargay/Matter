@@ -15,6 +15,7 @@ import { DEVICES } from './catalog'
    truena cuando el archivo no está: devuelve un objeto vacío. */
 import { LABOR_TIERS as DEMO_LABOR, RATES as DEMO_RATES } from './rates'
 import { acomodoDeCables, instalacionDelProyecto } from './instalacion'
+import { MATERIAL_BY_ID, precioMaterial } from './materiales'
 
 const overrides = import.meta.glob('./rates.local.js', { eager: true })
 const local = Object.values(overrides)[0]
@@ -90,7 +91,12 @@ export function unitPrice(device) {
  * cotización pública: una sola fuente para los dos.
  */
 export function quote(survey) {
-  const rates = { ...RATES, ...(survey.rates ?? {}) }
+  /* Tres capas, la más específica gana: la tarifa de arranque del código,
+     la tarifa REAL del negocio (`estado.tarifas`, se corrige una vez y
+     aplica a cualquier proyecto), y —solo por compatibilidad con lo que ya
+     se había corregido antes de que existiera la capa del negocio— un
+     ajuste de este proyecto en particular. */
+  const rates = { ...RATES, ...(survey.tarifas?.rates ?? {}), ...(survey.rates ?? {}) }
 
   // ── equipo, agrupado por dispositivo aunque esté en varios cuartos ──
   const counts = {}
@@ -106,9 +112,11 @@ export function quote(survey) {
     const d = DEVICES.find((x) => x.id === id)
     if (!d) continue
     /* El precio real es el que se corrigió en Compras —"lo compramos en tal
-       tienda a tal precio"—, no el de catálogo. Si nadie lo tocó, cae al de
-       catálogo igual que siempre. */
-    const sobrescrito = survey.compras?.productos?.[id]?.precio
+       tienda a tal precio"—, no el de catálogo. Gana la tarifa del negocio
+       (aplica a todos los proyectos); si nadie la puso ahí pero un proyecto
+       viejo trae su propio ajuste de cuando esa capa no existía, se usa
+       ese. Si nadie tocó nada, cae al de catálogo. */
+    const sobrescrito = survey.tarifas?.productos?.[id]?.precio ?? survey.compras?.productos?.[id]?.precio
     const unit = sobrescrito ?? unitPrice(d)
     equipo.push({
       id,
@@ -257,7 +265,30 @@ export function quote(survey) {
   }
 
   const serviciosTotal = servicios.reduce((a, l) => a + l.importe, 0)
-  const bruto = equipoTotal + serviciosTotal
+
+  /* ── materiales e insumos ──
+     La cantidad es del proyecto —cuánto cable hace falta aquí—; el precio
+     por unidad es del negocio, igual que el de un producto: un metro de
+     canaleta cuesta lo mismo en cualquier levantamiento. */
+  const materiales = Object.entries(survey.materiales ?? {})
+    .filter(([, qty]) => qty > 0)
+    .map(([id, qty]) => {
+      // del catálogo de arranque, o de uno personalizado dado de alta desde Compras
+      const base = MATERIAL_BY_ID[id]
+      const propio = survey.tarifas?.materiales?.[id]
+      const concepto = base?.nombre ?? propio?.nombre
+      if (!concepto) return null
+      const unidad = base?.unidad ?? propio?.unidad ?? 'pza'
+      const detalle = base?.detalle ?? propio?.detalle ?? ''
+      const unit = precioMaterial(id, survey.tarifas)
+      return { id, concepto, unidad, detalle, qty, unit, importe: unit * qty }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.importe - a.importe)
+
+  const materialesTotal = materiales.reduce((a, l) => a + l.importe, 0)
+
+  const bruto = equipoTotal + serviciosTotal + materialesTotal
 
   const descPct = Number(survey.extras?.descuentoPct) || 0
   const acredita = survey.extras?.acreditaLevantamiento ? round(levantamiento) : 0
@@ -270,8 +301,10 @@ export function quote(survey) {
   return {
     equipo,
     servicios,
+    materiales,
     equipoTotal,
     serviciosTotal,
+    materialesTotal,
     /* El desglose de instalación ahora es por espacio, no un conteo de piezas
        por dificultad. Quien lo pinte tiene el detalle aquí. */
     instalacion: inst,

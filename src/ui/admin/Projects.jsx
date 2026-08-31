@@ -183,10 +183,19 @@ function Fila({ proyecto, abierto, fechas }) {
   const eliminar = useSurvey((s) => s.eliminarProyecto)
   const duplicar = useSurvey((s) => s.duplicarProyecto)
   const setEstado = useSurvey((s) => s.setEstado)
+  const tarifas = useSurvey((s) => s.tarifas)
 
   const q = useMemo(
-    () => quote({ obra: proyecto.obra, rooms: proyecto.rooms, extras: proyecto.extras, compras: proyecto.compras }),
-    [proyecto],
+    () =>
+      quote({
+        obra: proyecto.obra,
+        rooms: proyecto.rooms,
+        extras: proyecto.extras,
+        compras: proyecto.compras,
+        materiales: proyecto.materiales,
+        tarifas,
+      }),
+    [proyecto, tarifas],
   )
 
   const entrar = () => {
