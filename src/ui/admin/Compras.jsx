@@ -42,7 +42,6 @@ export default function Compras() {
   const [cambiando, setCambiando] = useState(null) // deviceId con el picker de alternativas abierto
   const [editandoFoto, setEditandoFoto] = useState(null) // deviceId con el campo de foto abierto
   const [editandoPaquetes, setEditandoPaquetes] = useState(null) // deviceId con el editor de paquetes abierto
-  const [menuAbierto, setMenuAbierto] = useState(null) // deviceId con el menú de "más acciones" abierto
   const [agregando, setAgregando] = useState(false)
   const [vista, setVista] = useState('producto') // 'producto' (una lista, junta) | 'espacio' (por cuarto)
 
@@ -145,7 +144,7 @@ export default function Compras() {
       {filas.length === 0 ? (
         <p className="mt-10 text-center text-[13px] text-cream-3">Todavía no hay equipo levantado en ningún espacio.</p>
       ) : vista === 'espacio' ? (
-        <PorEspacio proyecto={proyecto} precioDe={precioDe} q={q} />
+        <PorEspacio proyecto={proyecto} precioDe={precioDe} tarifas={tarifas} q={q} />
       ) : (
         <>
           <div className="mt-4 space-y-2.5">
@@ -163,38 +162,36 @@ export default function Compras() {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-                      <p className="truncate text-[14px] text-cream">{f.dev.name}</p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11.5px] tabular-nums text-cream-3">
-                          {f.qty} pieza{f.qty === 1 ? '' : 's'}
-                        </span>
-                        <MenuAcciones
-                          abierto={menuAbierto === f.id}
-                          onAbrir={() => setMenuAbierto(f.id)}
-                          onCerrar={() => setMenuAbierto(null)}
-                          opciones={[
-                            alternativas.length > 0 && {
-                              label: 'Cambiar por otra opción',
-                              onClick: () => setCambiando(f.id),
-                            },
-                            { label: over.foto ? 'Cambiar foto' : 'Poner foto real', onClick: () => setEditandoFoto(f.id) },
-                            {
-                              label: over.paquetes?.length ? 'Editar paquetes' : 'Se vende en paquetes',
-                              onClick: () => setEditandoPaquetes(f.id),
-                            },
-                            {
-                              label: 'Quitar de compras',
-                              peligro: true,
-                              onClick: () =>
-                                confirm(`¿Quitar "${f.dev.name}" de la lista de compras?`) && eliminarCompra(f.id),
-                            },
-                          ].filter(Boolean)}
-                        />
-                      </div>
+                      <input
+                        value={over.nombre ?? f.dev.name}
+                        onChange={(e) => editarProductoGlobal(f.id, { nombre: e.target.value })}
+                        title="Aplica a todos los proyectos"
+                        className="min-w-0 flex-1 truncate bg-transparent text-[14px] text-cream outline-none focus:underline"
+                      />
+                      <span className="text-[11.5px] tabular-nums text-cream-3">
+                        {f.qty} pieza{f.qty === 1 ? '' : 's'}
+                      </span>
                     </div>
-                    <p className="text-[11.5px] text-cream-3">
-                      {f.dev.brand} · {cat?.label ?? f.dev.cat}
-                    </p>
+                    {over.nombre != null && (
+                      <button
+                        onClick={() => editarProductoGlobal(f.id, { nombre: null })}
+                        className="text-[10px] text-cream-3/70 underline decoration-dotted underline-offset-2 hover:text-ember"
+                      >
+                        volver al nombre de catálogo ({f.dev.name})
+                      </button>
+                    )}
+                    <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                      <p className="text-[11.5px] text-cream-3">
+                        {f.dev.brand} · {cat?.label ?? f.dev.cat}
+                      </p>
+                      <input
+                        value={over.modelo ?? ''}
+                        onChange={(e) => editarProductoGlobal(f.id, { modelo: e.target.value || null })}
+                        placeholder="+ modelo"
+                        title="Aplica a todos los proyectos"
+                        className="w-28 bg-transparent text-[11.5px] text-cream-3 outline-none placeholder:text-cream-3/50 focus:underline"
+                      />
+                    </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10.5px] text-cream-3/80">
                       {f.cuartos.map((c) => (
                         <label key={c.id} className="flex items-center gap-1">
@@ -239,6 +236,35 @@ export default function Compras() {
                           volver al precio de catálogo
                         </button>
                       )}
+                    </div>
+
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {alternativas.length > 0 && (
+                        <button
+                          onClick={() => setCambiando(cambiando === f.id ? null : f.id)}
+                          className="rounded-full border border-line px-2 py-0.5 text-[10.5px] text-cream-3 hover:border-ember/60 hover:text-cream"
+                        >
+                          cambiar alternativa
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setEditandoFoto(editandoFoto === f.id ? null : f.id)}
+                        className="rounded-full border border-line px-2 py-0.5 text-[10.5px] text-cream-3 hover:border-ember/60 hover:text-cream"
+                      >
+                        {over.foto ? 'cambiar foto' : 'poner foto real'}
+                      </button>
+                      <button
+                        onClick={() => setEditandoPaquetes(editandoPaquetes === f.id ? null : f.id)}
+                        className="rounded-full border border-line px-2 py-0.5 text-[10.5px] text-cream-3 hover:border-ember/60 hover:text-cream"
+                      >
+                        {over.paquetes?.length ? 'editar paquetes' : 'se vende en paquetes'}
+                      </button>
+                      <button
+                        onClick={() => confirm(`¿Quitar "${f.dev.name}" de la lista de compras?`) && eliminarCompra(f.id)}
+                        className="rounded-full border border-line px-2 py-0.5 text-[10.5px] text-cream-3/70 hover:border-red-400/50 hover:text-red-400"
+                      >
+                        quitar
+                      </button>
                     </div>
 
                     {cambiando === f.id && (
@@ -296,13 +322,26 @@ export default function Compras() {
                       </p>
                     )}
 
-                    <input
-                      type="url"
-                      placeholder="URL del producto — pégala aquí si ya sabes dónde se compra"
-                      value={over.url ?? ''}
-                      onChange={(e) => editarProductoGlobal(f.id, { url: e.target.value })}
-                      className="mt-1.5 w-full rounded border border-line bg-ink-2 px-2 py-1 text-[11.5px] text-cream outline-none placeholder:text-cream-3/60 focus:border-ember/60"
-                    />
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <input
+                        type="url"
+                        placeholder="URL del producto — pégala aquí si ya sabes dónde se compra"
+                        value={over.url ?? ''}
+                        onChange={(e) => editarProductoGlobal(f.id, { url: e.target.value })}
+                        className="min-w-0 flex-1 rounded border border-line bg-ink-2 px-2 py-1 text-[11.5px] text-cream outline-none placeholder:text-cream-3/60 focus:border-ember/60"
+                      />
+                      {over.url && (
+                        <a
+                          href={over.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Abrir la URL"
+                          className="flex-none rounded border border-line px-2 py-1 text-[11px] text-cream-3 hover:border-ember/60 hover:text-cream"
+                        >
+                          abrir ↗
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
@@ -383,7 +422,7 @@ export default function Compras() {
  *  fila "Instalación" de Servicios, que puede traer un costo corregido a
  *  mano o el mínimo de proyecto aplicado—. Sin ese ajuste, los espacios
  *  sumarían un número y la cotización real otro. */
-function PorEspacio({ proyecto, precioDe, q }) {
+function PorEspacio({ proyecto, precioDe, tarifas, q }) {
   const formula = instalacionDelProyecto(proyecto.rooms ?? [])
   const lineaInstalacion = q.servicios.find((l) => l.id === 'instalacion')
   const factor = formula.suma > 0 ? (lineaInstalacion?.importe ?? formula.total) / formula.suma : 0
@@ -396,7 +435,8 @@ function PorEspacio({ proyecto, precioDe, q }) {
           const dev = DEVICE_BY_ID[id]
           if (!dev) return null
           const precio = precioDe(dev)
-          return { id, dev, qty, importe: precio * qty }
+          const nombre = tarifas.productos?.[id]?.nombre || dev.name
+          return { id, dev, nombre, qty, importe: precio * qty }
         })
         .filter(Boolean)
         .sort((a, b) => b.importe - a.importe)
@@ -424,7 +464,7 @@ function PorEspacio({ proyecto, precioDe, q }) {
             {e.productos.map((p) => (
               <div key={p.id} className="flex items-center justify-between gap-2 text-cream-2">
                 <span className="truncate">
-                  {p.dev.name} ×{p.qty}
+                  {p.nombre} ×{p.qty}
                 </span>
                 <span className="flex-none tabular-nums text-cream-3">
                   ${Math.round(p.importe).toLocaleString('es-MX')}
@@ -598,45 +638,6 @@ function AgregarMaterial({ onCerrar, onCrear }) {
           Agregar
         </button>
       </div>
-    </div>
-  )
-}
-
-/** El botón "⋯" de cada producto: agrupa lo que antes eran cuatro links
- *  sueltos —cambiar de alternativa, foto, paquetes, quitar— en un solo
- *  menú, para que la tarjeta no se vea como una lista de vínculos azules. */
-function MenuAcciones({ abierto, onAbrir, onCerrar, opciones }) {
-  return (
-    <div className="relative">
-      <button
-        onClick={() => (abierto ? onCerrar() : onAbrir())}
-        aria-label="Más acciones"
-        className={`rounded-md px-1.5 py-0.5 text-[13px] leading-none transition-colors ${
-          abierto ? 'bg-cream/10 text-cream' : 'text-cream-3 hover:bg-cream/8 hover:text-cream-2'
-        }`}
-      >
-        ⋯
-      </button>
-      {abierto && (
-        <>
-          {/* capa invisible para cerrar el menú al hacer click afuera */}
-          <div className="fixed inset-0 z-10" onClick={onCerrar} />
-          <div className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-lg border border-line bg-ink-2 py-1 text-[11.5px] shadow-lg">
-            {opciones.map((o) => (
-              <button
-                key={o.label}
-                onClick={() => {
-                  o.onClick()
-                  onCerrar()
-                }}
-                className={`block w-full px-3 py-1.5 text-left hover:bg-cream/8 ${o.peligro ? 'text-red-400' : 'text-cream-2'}`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   )
 }

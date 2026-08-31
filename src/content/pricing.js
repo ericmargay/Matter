@@ -118,9 +118,14 @@ export function quote(survey) {
        ese. Si nadie tocó nada, cae al de catálogo. */
     const sobrescrito = survey.tarifas?.productos?.[id]?.precio ?? survey.compras?.productos?.[id]?.precio
     const unit = sobrescrito ?? unitPrice(d)
+    /* El nombre y el modelo también se corrigen en Compras cuando lo que
+       de verdad se instaló no es exactamente el genérico del catálogo —
+       pasa seguido al sustituir por lo que hay con el proveedor. */
+    const nombre = survey.tarifas?.productos?.[id]?.nombre || d.name
+    const modelo = survey.tarifas?.productos?.[id]?.modelo
     equipo.push({
       id,
-      concepto: `${d.name} — ${d.brand}`,
+      concepto: `${nombre}${modelo ? ` (${modelo})` : ''} — ${d.brand}`,
       clave: CLAVE_PROD_SERV[d.cat] ?? CLAVE_PROD_SERV.servicio,
       unidad: CLAVE_UNIDAD.pieza,
       qty,
