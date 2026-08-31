@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CATEGORIES } from '../../content/catalog'
 import { photoOf } from '../../content/photos'
 import Icon from '../Icon'
@@ -35,9 +35,15 @@ const TINTE = {
   electro: '#7d8189',
 }
 
-export default function DevicePhoto({ device, className = '', sizes, eager = false }) {
-  const src = photoOf(device.id)
+export default function DevicePhoto({ device, className = '', sizes, eager = false, srcOverride }) {
+  /* srcOverride: la foto real que alguien pegó para ESTE proyecto —la caja
+     que de verdad llegó, no el catálogo genérico—. Gana sobre la del
+     catálogo cuando existe. */
+  const src = srcOverride || photoOf(device.id)
   const [rota, setRota] = useState(false)
+  // si alguien pega una URL nueva después de que la anterior falló, hay que
+  // volver a intentar — sin esto, una vez rota se quedaba rota para siempre.
+  useEffect(() => setRota(false), [src])
   const cat = CATEGORIES.find((c) => c.id === device.cat)
 
   if (src && !rota) {

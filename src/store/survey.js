@@ -254,6 +254,24 @@ export const useSurvey = create((set, get) => ({
     agrupar(`${id}:compras:${deviceId}`, 'compras.editar', id, patch, { deviceId })
   },
 
+  /** Quita un producto de la lista de compras por completo: lo pone en 0 en
+   *  todos los cuartos donde estuviera y limpia lo que se le hubiera
+   *  corregido (precio, URL, foto, paquetes). No borra el aparato del
+   *  catálogo del proyecto —eso es `quitarDevice`, y es otra decisión—, solo
+   *  deja de comprarse. */
+  eliminarCompra: (deviceId) => {
+    const s = get()
+    const p = s.proyectos.find((x) => x.id === s.activoId)
+    if (!p) return
+    for (const cuarto of p.rooms) {
+      const anterior = cuarto.items?.[deviceId] ?? 0
+      if (anterior <= 0) continue
+      despachar('equipo.cantidad', p.id, { cuartoId: cuarto.id, cuartoNombre: cuarto.nombre, deviceId, qty: 0, anterior })
+    }
+    aplicarYa(set, get, 'compras.editar', p.id, { deviceId, patch: { precio: null, url: null, foto: null, paquetes: null } })
+    agrupar(`${p.id}:compras:${deviceId}`, 'compras.editar', p.id, { precio: null, url: null, foto: null, paquetes: null }, { deviceId })
+  },
+
   setFolio: (folio) => {
     const id = get().activoId
     if (id) despachar('proyecto.editar', id, { patch: { folio } })

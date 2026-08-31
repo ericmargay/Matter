@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useProyecto, useSurvey } from '../../store/survey'
 import { CATEGORIES, DEVICES, DEVICE_BY_ID } from '../../content/catalog'
 import { quote, unitPrice } from '../../content/pricing'
+import { planCompra } from '../../content/paquetes'
 import DevicePhoto, { PhotoFrame } from '../catalog/DevicePhoto'
 
 /**
@@ -10,24 +11,29 @@ import DevicePhoto, { PhotoFrame } from '../catalog/DevicePhoto'
  *
  * La cotización ya arma esta lista para calcular un total; esto es la misma
  * cuenta pero para lo otro que hace falta antes de instalar — decidir dónde
- * se compra cada cosa, si se cambia por otra opción, y cuánto cuestan de
- * verdad los servicios detrás. Por eso vive aparte y no adentro de un
- * cuarto: el mismo foco en tres recámaras se compra una sola vez, junto, no
- * tres veces por separado.
+ * se compra cada cosa, si se cambia por otra opción, si hay que quitarla o
+ * agregar una que no estaba, y cuánto cuestan de verdad los servicios
+ * detrás. Por eso vive aparte y no adentro de un cuarto: el mismo foco en
+ * tres recámaras se compra una sola vez, junto, no tres veces por separado.
  *
- * Precio, URL y alternativa son del PROYECTO, no del catálogo: el catálogo
- * es de todos los clientes, y lo que aquí se corrige —"lo compramos en tal
- * tienda a tal precio", "mejor llevamos este otro modelo"— es de esta casa.
- * Los dos alimentan la cotización oficial (quote()): cambiar un precio o el
- * costo de un servicio aquí mueve el total que ve el cliente en Levantamiento
- * y en Proyectos, no solo esta pantalla.
+ * Precio, URL, foto, paquetes y alternativa son del PROYECTO, no del
+ * catálogo: el catálogo es de todos los clientes, y lo que aquí se corrige
+ * —"lo compramos en tal tienda a tal precio", "esta es la foto real de la
+ * caja que llegó", "mejor llevamos este otro modelo"— es de esta casa. El
+ * precio y el costo de servicios alimentan la cotización oficial (quote()):
+ * cambiarlos aquí mueve el total que ve el cliente en Levantamiento y en
+ * Proyectos, no solo esta pantalla.
  */
 export default function Compras() {
   const proyecto = useProyecto()
   const editarCompra = useSurvey((s) => s.editarCompra)
+  const eliminarCompra = useSurvey((s) => s.eliminarCompra)
   const cambiarAlternativa = useSurvey((s) => s.cambiarAlternativa)
   const setExtras = useSurvey((s) => s.setExtras)
   const [cambiando, setCambiando] = useState(null) // deviceId con el picker de alternativas abierto
+  const [editandoFoto, setEditandoFoto] = useState(null) // deviceId con el campo de foto abierto
+  const [editandoPaquetes, setEditandoPaquetes] = useState(null) // deviceId con el editor de paquetes abierto
+  const [agregando, setAgregando] = useState(false)
 
   if (!proyecto) return null
 
@@ -69,30 +75,50 @@ export default function Compras() {
         es de este proyecto, no del catálogo general, y mueve el total de la cotización.
       </p>
 
+      <div className="mt-6 flex items-baseline justify-between border-b border-line pb-3">
+        <span className="text-[11px] tracking-[0.12em] text-cream-3 uppercase">
+          Productos
+          {filas.length > 0 &&
+            ` · ${filas.length} producto${filas.length === 1 ? '' : 's'} · ${filas.reduce((a, f) => a + f.qty, 0)} piezas`}
+        </span>
+        <div className="flex items-center gap-3">
+          {filas.length > 0 && (
+            <span className="text-[15px] text-cream">
+              <strong className="text-ember">${Math.round(totalGeneral).toLocaleString('es-MX')}</strong> equipo
+            </span>
+          )}
+          <button
+            onClick={() => setAgregando(true)}
+            className="rounded-lg border border-line px-2.5 py-1 text-[11px] text-cream-2 hover:border-ember/60 hover:text-cream"
+          >
+            + Agregar producto
+          </button>
+        </div>
+      </div>
+
+      {agregando && (
+        <AgregarProducto
+          proyecto={proyecto}
+          existentes={porDevice}
+          onCerrar={() => setAgregando(false)}
+        />
+      )}
+
       {filas.length === 0 ? (
         <p className="mt-10 text-center text-[13px] text-cream-3">Todavía no hay equipo levantado en ningún espacio.</p>
       ) : (
         <>
-          <div className="mt-6 flex items-baseline justify-between border-b border-line pb-3">
-            <span className="text-[11px] tracking-[0.12em] text-cream-3 uppercase">
-              Productos · {filas.length} producto{filas.length === 1 ? '' : 's'} ·{' '}
-              {filas.reduce((a, f) => a + f.qty, 0)} piezas
-            </span>
-            <span className="text-[15px] text-cream">
-              <strong className="text-ember">${Math.round(totalGeneral).toLocaleString('es-MX')}</strong> equipo
-            </span>
-          </div>
-
           <div className="mt-4 space-y-2.5">
             {filas.map((f) => {
               const over = overrides[f.id] ?? {}
               const precio = over.precio ?? unitPrice(f.dev)
               const cat = CATEGORIES.find((c) => c.id === f.dev.cat)
               const alternativas = DEVICES.filter((d) => d.cat === f.dev.cat && d.id !== f.id)
+              const plan = over.paquetes?.length ? planCompra(f.qty, over.paquetes) : null
               return (
                 <div key={f.id} className="flex gap-3 rounded-xl border border-line bg-ink p-3">
                   <PhotoFrame className="h-20 w-20 flex-none rounded-lg">
-                    <DevicePhoto device={f.dev} />
+                    <DevicePhoto device={f.dev} srcOverride={over.foto} />
                   </PhotoFrame>
 
                   <div className="min-w-0 flex-1">
@@ -136,14 +162,35 @@ export default function Compras() {
                           volver al precio de catálogo
                         </button>
                       )}
+                    </div>
+
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px]">
                       {alternativas.length > 0 && (
                         <button
                           onClick={() => setCambiando(cambiando === f.id ? null : f.id)}
-                          className="text-[10.5px] text-cream-3 underline decoration-dotted underline-offset-2 hover:text-ember"
+                          className="text-cream-3 underline decoration-dotted underline-offset-2 hover:text-ember"
                         >
                           cambiar por otra opción
                         </button>
                       )}
+                      <button
+                        onClick={() => setEditandoFoto(editandoFoto === f.id ? null : f.id)}
+                        className="text-cream-3 underline decoration-dotted underline-offset-2 hover:text-ember"
+                      >
+                        {over.foto ? 'cambiar foto' : 'poner foto real'}
+                      </button>
+                      <button
+                        onClick={() => setEditandoPaquetes(editandoPaquetes === f.id ? null : f.id)}
+                        className="text-cream-3 underline decoration-dotted underline-offset-2 hover:text-ember"
+                      >
+                        {over.paquetes?.length ? 'editar paquetes' : 'se vende en paquetes'}
+                      </button>
+                      <button
+                        onClick={() => confirm(`¿Quitar "${f.dev.name}" de la lista de compras?`) && eliminarCompra(f.id)}
+                        className="text-cream-3/70 underline decoration-dotted underline-offset-2 hover:text-red-400"
+                      >
+                        quitar
+                      </button>
                     </div>
 
                     {cambiando === f.id && (
@@ -168,6 +215,38 @@ export default function Compras() {
                       </select>
                     )}
 
+                    {editandoFoto === f.id && (
+                      <input
+                        autoFocus
+                        type="url"
+                        placeholder="URL de la foto real — la de la caja que llegó, no la del catálogo"
+                        defaultValue={over.foto ?? ''}
+                        onBlur={(e) => {
+                          editarCompra(f.id, { foto: e.target.value.trim() || null })
+                          setEditandoFoto(null)
+                        }}
+                        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                        className="mt-1.5 w-full rounded border border-line bg-ink-2 px-2 py-1 text-[11.5px] text-cream outline-none placeholder:text-cream-3/60 focus:border-ember/60"
+                      />
+                    )}
+
+                    {editandoPaquetes === f.id && (
+                      <EditorPaquetes
+                        paquetes={over.paquetes ?? []}
+                        onCambiar={(paquetes) => editarCompra(f.id, { paquetes: paquetes.length ? paquetes : null })}
+                      />
+                    )}
+
+                    {plan && (
+                      <p className="mt-1.5 rounded-lg bg-ink-2 px-2 py-1.5 text-[11px] leading-snug text-cream-2">
+                        Comprar {plan.combo.map((c) => `${c.veces}× paquete de ${c.tam}`).join(' + ')} ={' '}
+                        {plan.unidades} piezas · ${Math.round(plan.costoTotal).toLocaleString('es-MX')}
+                        {plan.sobran > 0 && (
+                          <span className="text-ember"> · sobran {plan.sobran}, no hay combinación exacta para {f.qty}</span>
+                        )}
+                      </p>
+                    )}
+
                     <input
                       type="url"
                       placeholder="URL del producto — pégala aquí si ya sabes dónde se compra"
@@ -180,50 +259,272 @@ export default function Compras() {
               )
             })}
           </div>
-
-          <div className="mt-8 flex items-baseline justify-between border-b border-line pb-3">
-            <span className="text-[11px] tracking-[0.12em] text-cream-3 uppercase">
-              Servicios · instalación, cableado y puesta en marcha
-            </span>
-            <span className="text-[15px] text-cream">
-              <strong className="text-ember">${Math.round(q.serviciosTotal).toLocaleString('es-MX')}</strong> servicios
-            </span>
-          </div>
-
-          <div className="mt-4 space-y-2.5 pb-10">
-            {q.servicios.map((linea) => (
-              <div key={linea.id} className="rounded-xl border border-line bg-ink p-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-                  <p className="text-[13px] text-cream">{linea.concepto}</p>
-                </div>
-                <p className="mt-0.5 text-[10.5px] text-cream-3/80">{linea.detalle}</p>
-
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <label className="flex items-center gap-1.5 text-[11.5px] text-cream-2">
-                    <span className="text-cream-3">$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={linea.importe}
-                      onChange={(e) => patchServicio(linea.id, Math.max(0, Number(e.target.value) || 0))}
-                      className="w-28 rounded border border-line bg-ink-2 px-1.5 py-0.5 text-[12.5px] text-cream outline-none focus:border-ember/60"
-                    />
-                    <span className="text-cream-3">total del servicio</span>
-                  </label>
-                  {linea.editado && (
-                    <button
-                      onClick={() => patchServicio(linea.id, null)}
-                      className="text-[10.5px] text-cream-3 underline decoration-dotted underline-offset-2 hover:text-ember"
-                    >
-                      volver al costo calculado
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
         </>
       )}
+
+      <div className="mt-8 flex items-baseline justify-between border-b border-line pb-3">
+        <span className="text-[11px] tracking-[0.12em] text-cream-3 uppercase">
+          Servicios · instalación, cableado y puesta en marcha
+        </span>
+        <span className="text-[15px] text-cream">
+          <strong className="text-ember">${Math.round(q.serviciosTotal).toLocaleString('es-MX')}</strong> servicios
+        </span>
+      </div>
+
+      <div className="mt-4 space-y-2.5 pb-10">
+        {q.servicios.map((linea) => (
+          <div key={linea.id} className="rounded-xl border border-line bg-ink p-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+              <p className="text-[13px] text-cream">{linea.concepto}</p>
+            </div>
+            <p className="mt-0.5 text-[10.5px] text-cream-3/80">{linea.detalle}</p>
+
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-1.5 text-[11.5px] text-cream-2">
+                <span className="text-cream-3">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={linea.importe}
+                  onChange={(e) => patchServicio(linea.id, Math.max(0, Number(e.target.value) || 0))}
+                  className="w-28 rounded border border-line bg-ink-2 px-1.5 py-0.5 text-[12.5px] text-cream outline-none focus:border-ember/60"
+                />
+                <span className="text-cream-3">total del servicio</span>
+              </label>
+              {linea.editado && (
+                <button
+                  onClick={() => patchServicio(linea.id, null)}
+                  className="text-[10.5px] text-cream-3 underline decoration-dotted underline-offset-2 hover:text-ember"
+                >
+                  volver al costo calculado
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Los tamaños de paquete en los que se vende esto, cada uno con su precio.
+ *  Amazon casi nunca vende un aparato de smart home suelto y a granel: viene
+ *  en 2, 4, 6 — y el precio por pieza cambia entre paquetes. Sin esto no hay
+ *  con qué calcular `planCompra`. */
+function EditorPaquetes({ paquetes, onCambiar }) {
+  const set = (i, campo, valor) => {
+    const copia = paquetes.map((p, j) => (j === i ? { ...p, [campo]: valor } : p))
+    onCambiar(copia)
+  }
+  const quitar = (i) => onCambiar(paquetes.filter((_, j) => j !== i))
+  const agregar = () => onCambiar([...paquetes, { tam: 2, precio: 0 }])
+
+  return (
+    <div className="mt-1.5 rounded-lg border border-line bg-ink-2 p-2">
+      <p className="text-[10px] text-cream-3">Tamaño de paquete y precio, tal como se vende</p>
+      <div className="mt-1.5 space-y-1">
+        {paquetes.map((p, i) => (
+          <div key={i} className="flex items-center gap-1.5 text-[11.5px]">
+            <input
+              type="number"
+              min="1"
+              value={p.tam}
+              onChange={(e) => set(i, 'tam', Math.max(1, Number(e.target.value) || 1))}
+              className="w-14 rounded border border-line bg-ink px-1.5 py-0.5 text-cream outline-none focus:border-ember/60"
+            />
+            <span className="text-cream-3">pzas por</span>
+            <span className="text-cream-3">$</span>
+            <input
+              type="number"
+              min="0"
+              value={p.precio}
+              onChange={(e) => set(i, 'precio', Math.max(0, Number(e.target.value) || 0))}
+              className="w-24 rounded border border-line bg-ink px-1.5 py-0.5 text-cream outline-none focus:border-ember/60"
+            />
+            <button onClick={() => quitar(i)} className="ml-1 text-cream-3/70 hover:text-red-400">
+              quitar
+            </button>
+          </div>
+        ))}
+      </div>
+      <button onClick={agregar} className="mt-1.5 text-[10.5px] text-cream-3 underline decoration-dotted hover:text-ember">
+        + agregar tamaño de paquete
+      </button>
+    </div>
+  )
+}
+
+/** Agregar un producto que todavía no está en ningún cuarto — del catálogo,
+ *  o uno que no existe ahí y se da de alta con lo mínimo. Necesita un
+ *  cuarto: la lista de Compras se arma a partir de lo que hay en los
+ *  cuartos, así que no hay "agregar sin cuarto". */
+function AgregarProducto({ proyecto, existentes, onCerrar }) {
+  const setQty = useSurvey((s) => s.setQty)
+  const nuevoDevice = useSurvey((s) => s.nuevoDevice)
+  const [busqueda, setBusqueda] = useState('')
+  const [seleccionado, setSeleccionado] = useState(null)
+  const [nuevo, setNuevo] = useState(false)
+  const [form, setForm] = useState({ name: '', brand: '', precio: 0, cat: 'iluminacion' })
+  const [cuartoId, setCuartoId] = useState(proyecto.rooms[0]?.id ?? '')
+  const [qty, setQtyLocal] = useState(1)
+
+  const resultados =
+    !nuevo && busqueda.trim().length > 1
+      ? DEVICES.filter(
+          (d) =>
+            !existentes.has(d.id) &&
+            (d.name.toLowerCase().includes(busqueda.toLowerCase()) ||
+              d.brand.toLowerCase().includes(busqueda.toLowerCase())),
+        ).slice(0, 8)
+      : []
+
+  const agregar = () => {
+    if (!cuartoId || qty <= 0) return
+    if (nuevo) {
+      if (!form.name.trim()) return
+      const id = `propio-${form.name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .slice(0, 28)}-${Math.random().toString(36).slice(2, 6)}`
+      nuevoDevice({
+        id,
+        name: form.name.trim(),
+        brand: form.brand.trim() || 'Sin marca',
+        cat: form.cat,
+        link: 'wifi',
+        eco: ['apple', 'google', 'alexa'],
+        power: 'corriente',
+        price: [Number(form.precio) || 0, Number(form.precio) || 0],
+        tier: 'esencial',
+        pitch: 'Dado de alta desde Compras.',
+      })
+      setQty(id, qty, cuartoId)
+    } else if (seleccionado) {
+      setQty(seleccionado, qty, cuartoId)
+    } else {
+      return
+    }
+    onCerrar()
+  }
+
+  const campo =
+    'w-full rounded border border-line bg-ink px-2 py-1 text-[12px] text-cream outline-none focus:border-ember/60'
+
+  return (
+    <div className="mt-4 rounded-xl border border-line bg-ink p-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[12px] text-cream">Agregar producto</p>
+        <button onClick={onCerrar} className="text-[11px] text-cream-3 hover:text-cream">
+          cerrar
+        </button>
+      </div>
+
+      <div className="mt-2 flex gap-2 text-[11px]">
+        <button
+          onClick={() => setNuevo(false)}
+          className={`rounded-full border px-2.5 py-1 ${!nuevo ? 'border-ember bg-ember/12 text-cream' : 'border-line text-cream-3'}`}
+        >
+          Del catálogo
+        </button>
+        <button
+          onClick={() => setNuevo(true)}
+          className={`rounded-full border px-2.5 py-1 ${nuevo ? 'border-ember bg-ember/12 text-cream' : 'border-line text-cream-3'}`}
+        >
+          No está en el catálogo
+        </button>
+      </div>
+
+      {!nuevo ? (
+        <div className="mt-2">
+          <input
+            autoFocus
+            placeholder="Buscar por nombre o marca…"
+            value={busqueda}
+            onChange={(e) => {
+              setBusqueda(e.target.value)
+              setSeleccionado(null)
+            }}
+            className={campo}
+          />
+          {resultados.length > 0 && (
+            <div className="mt-1.5 max-h-40 space-y-1 overflow-y-auto">
+              {resultados.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => {
+                    setSeleccionado(d.id)
+                    setBusqueda(`${d.name} — ${d.brand}`)
+                  }}
+                  className={`block w-full rounded border px-2 py-1 text-left text-[11.5px] ${
+                    seleccionado === d.id ? 'border-ember bg-ember/10 text-cream' : 'border-line text-cream-2 hover:bg-cream/6'
+                  }`}
+                >
+                  {d.name} — {d.brand} · ${unitPrice(d).toLocaleString('es-MX')}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+          <input
+            autoFocus
+            placeholder="Cómo se llama"
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            className={`${campo} sm:col-span-2`}
+          />
+          <input
+            placeholder="Marca"
+            value={form.brand}
+            onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
+            className={campo}
+          />
+          <input
+            type="number"
+            min="0"
+            placeholder="Precio unitario"
+            value={form.precio}
+            onChange={(e) => setForm((f) => ({ ...f, precio: e.target.value }))}
+            className={campo}
+          />
+          <select
+            value={form.cat}
+            onChange={(e) => setForm((f) => ({ ...f, cat: e.target.value }))}
+            className={`${campo} sm:col-span-2`}
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <select value={cuartoId} onChange={(e) => setCuartoId(e.target.value)} className={`${campo} w-auto`}>
+          {proyecto.rooms.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.nombre}
+            </option>
+          ))}
+        </select>
+        <input
+          type="number"
+          min="1"
+          value={qty}
+          onChange={(e) => setQtyLocal(Math.max(1, Number(e.target.value) || 1))}
+          className={`${campo} w-16`}
+        />
+        <button
+          onClick={agregar}
+          className="rounded-lg bg-ember px-3 py-1.5 text-[11.5px] font-medium text-ink hover:bg-ember/90"
+        >
+          Agregar
+        </button>
+      </div>
     </div>
   )
 }
