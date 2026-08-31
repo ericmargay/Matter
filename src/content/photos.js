@@ -1,0 +1,108 @@
+/**
+ * Qué productos tienen foto y de dónde salió.
+ *
+ * GENERADO por `npm run photos` — no editar a mano.
+ *
+ * El crédito no es adorno: parte del material viene de Wikimedia Commons con
+ * licencia que pide atribución, y la ficha del producto la muestra.
+ */
+
+export const PHOTOS = {
+  'apc-ups': {"credito":"APC by Schneider Electric","fuente":"fabricante","uso":false},
+  'appletv-4k': {"credito":"Davidbspalding · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'appletv-4k-hub': {"credito":"Davidbspalding · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'aqara-cube': {"credito":"us.aqara.com · Cube T1 Pro","fuente":"us.aqara.com","uso":false},
+  'aqara-driver-e1': {"credito":"us.aqara.com · Curtain Driver E1","fuente":"us.aqara.com","uso":false},
+  'aqara-fan': {"credito":"sonoff.tech · SONOFF iFan04: Wi-Fi Ceiling Fan And Light Controller","fuente":"sonoff.tech","uso":true},
+  'aqara-fp2': {"credito":"us.aqara.com · Presence Sensor FP2","fuente":"us.aqara.com","uso":true},
+  'aqara-fp300': {"credito":"us.aqara.com · Presence Multi-Sensor FP300","fuente":"us.aqara.com","uso":false},
+  'aqara-g4': {"credito":"us.aqara.com · Video Doorbell G4","fuente":"us.aqara.com","uso":false},
+  'aqara-g5pro': {"credito":"us.aqara.com · Camera Hub G5 Pro","fuente":"us.aqara.com","uso":true},
+  'aqara-hub-m3': {"credito":"us.aqara.com · Hub M3","fuente":"us.aqara.com","uso":false},
+  'aqara-leak': {"credito":"us.aqara.com · Water Leak Sensor","fuente":"us.aqara.com","uso":false},
+  'aqara-p2': {"credito":"us.aqara.com · Door and Window Sensor P2","fuente":"us.aqara.com","uso":false},
+  'aqara-t1m': {"credito":"us.aqara.com · Ceiling Light T1M","fuente":"us.aqara.com","uso":false},
+  'aqara-th': {"credito":"us.aqara.com · Temperature and Humidity Sensor","fuente":"us.aqara.com","uso":false},
+  'aqara-tvoc': {"credito":"Aqara","fuente":"fabricante","uso":false},
+  'aqara-valve': {"credito":"us.aqara.com · Valve Controller T1","fuente":"us.aqara.com","uso":false},
+  'echo-dot': {"credito":"Amazon","fuente":"fabricante","uso":false},
+  'echo-show8': {"credito":"Japanwikisan · CC BY 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'ecobee-premium': {"credito":"Xynorath · CC BY-SA 3.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'eufy-indoor': {"credito":"us.eufy.com · eufyCam S4 + Indoor Cam S350","fuente":"us.eufy.com","uso":false},
+  'hisense-u7': {"credito":"KASMYSZIEpago MEIGAUM · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'homepod-mini': {"credito":"— aconcagua (talk) · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'hue-bridge': {"credito":"Harborsparrow · CC0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'hue-lightstrip': {"credito":"AG20044018 · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'inovelli-blue': {"credito":"inovelli.com · Blue Series (Zigbee) - Smart Fan Switch","fuente":"inovelli.com","uso":true},
+  'int-ficus': {"credito":"Smatu · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'int-monstera': {"credito":"H. Zell · CC BY 3.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'int-olivo': {"credito":"Fallaner · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'int-pothos': {"credito":"Joydeep · CC BY-SA 3.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'int-sansevieria': {"credito":"Enzo Rippa · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'kasa-kp303': {"credito":"TP-Link","fuente":"fabricante","uso":false},
+  'levoit-core': {"credito":"levoit.com · Levoit Core® 400S-P Smart Air Purifier","fuente":"levoit.com","uso":true},
+  'lg-c5-oled': {"credito":"LG Electronics · CC BY 2.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'lg-thinq': {"credito":"Gb.select · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'lifx-color': {"credito":"www.lifx.com · LIFX A19 Smart Light 4-Pack - HomeKit","fuente":"www.lifx.com","uso":true},
+  'meross-plug': {"credito":"shop.meross.com · Meross Matter Smart Plug with Energy Monitor, MSS315MA, 2-Pack(AU Version)","fuente":"shop.meross.com","uso":false},
+  'nanoleaf-essentials': {"credito":"nanoleaf.me · Nanoleaf Smart LED Bulbs","fuente":"nanoleaf.me","uso":false},
+  'nanoleaf-lines': {"credito":"nanoleaf.me · Nanoleaf Lines","fuente":"nanoleaf.me","uso":false},
+  'nanoleaf-shapes': {"credito":"nanoleaf.me · Nanoleaf Shapes","fuente":"nanoleaf.me","uso":false},
+  'nest-hub2': {"credito":"Grace Duggan · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'nuki-4': {"credito":"Nuki Smart Lock (Flickr User) · CC BY 2.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'patch-panel': {"credito":"Robert.Harker · CC BY-SA 3.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'petkit-fountain': {"credito":"petkit.com · YumShare Dual-Hopper 2 & EverSweet Fountain","fuente":"petkit.com","uso":true},
+  'petlibro-granary': {"credito":"petlibro.com · Granary Smart Camera Feeder","fuente":"petlibro.com","uso":false},
+  'reolink-810a': {"credito":"Reolink","fuente":"fabricante","uso":false},
+  'reolink-nvr': {"credito":"Reolink","fuente":"fabricante","uso":false},
+  'roborock-s8': {"credito":"us.roborock.com · S8 MaxV Ultra 2 Years","fuente":"us.roborock.com","uso":false},
+  'samsung-qn90': {"credito":"Bretwa · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'sensibo-air': {"credito":"sensibo.com · Sensibo Air PRO","fuente":"sensibo.com","uso":false},
+  'shelly-1mini': {"credito":"shelly.com · Shelly 1 Mini Gen4","fuente":"shelly.com","uso":true},
+  'shelly-dimmer': {"credito":"shelly.com · Shelly Dimmer Gen4","fuente":"shelly.com","uso":false},
+  'shelly-em': {"credito":"shelly.com · Shelly Pro 3EM","fuente":"shelly.com","uso":false},
+  'sonoff-dongle-max': {"credito":"sonoff.tech · SONOFF Zigbee/Thread USB Dongle | Dongle Plus MG24","fuente":"sonoff.tech","uso":false},
+  'sonoff-ihost': {"credito":"sonoff.tech · SONOFF iHost Smart Home Hub","fuente":"sonoff.tech","uso":false},
+  'sonoff-m5': {"credito":"sonoff.tech · SONOFF SwitchMan R5 Scene Controller","fuente":"sonoff.tech","uso":false},
+  'sonoff-mini-pm': {"credito":"sonoff.tech · SONOFF MINI ONE PM Zigbee Smart Switch | MINI-ZB1GSP","fuente":"sonoff.tech","uso":false},
+  'sonoff-minir4m': {"credito":"sonoff.tech · SONOFF MINI Extreme Wi-Fi Smart Switch (Matter-enabled) | MINIR4M","fuente":"sonoff.tech","uso":false},
+  'sonoff-minirbs': {"credito":"sonoff.tech · SONOFF Smart Roller Shutter Switch | MINI-RBS","fuente":"sonoff.tech","uso":false},
+  'sonoff-nspanel-pro': {"credito":"sonoff.tech · Desk Enclosure Stand for NSPanel & NSPanel Pro","fuente":"sonoff.tech","uso":false},
+  'sonoff-s60-matter': {"credito":"sonoff.tech · SONOFF iPlug Zigbee Smart Plug | S60 Series","fuente":"sonoff.tech","uso":false},
+  'sonoff-snzb-02p': {"credito":"sonoff.tech · SONOFF AirGuard TH Lite Zigbee Temperature Humidity Sensor | SNZB-02B","fuente":"sonoff.tech","uso":false},
+  'sonoff-snzb-03p': {"credito":"sonoff.tech · SONOFF Zigbee Motion Sensor | SNZB-03P","fuente":"sonoff.tech","uso":false},
+  'sonoff-snzb-04p': {"credito":"sonoff.tech · SONOFF Zigbee Door/Window Sensor | SNZB-04P","fuente":"sonoff.tech","uso":false},
+  'sonoff-snzb-05p': {"credito":"sonoff.tech · SONOFF Zigbee Water Leak Sensor | SNZB-05P","fuente":"sonoff.tech","uso":false},
+  'sonoff-t6-120m': {"credito":"sonoff.tech · SONOFF TX Gen2 Smart Touch Wall Switch | T6 120 Type","fuente":"sonoff.tech","uso":false},
+  'sonoff-zbbridge-u': {"credito":"sonoff.tech · SONOFF Zigbee Bridge Ultra | ZBBridge-U","fuente":"sonoff.tech","uso":false},
+  'sonoff-zbmini-l2': {"credito":"sonoff.tech · SONOFF ZBMINI Extreme Zigbee Smart Switch ZBMINIL2","fuente":"sonoff.tech","uso":false},
+  'sonos-arc': {"credito":"Sonos","fuente":"fabricante","uso":false},
+  'sonos-era100': {"credito":"Sonos","fuente":"fabricante","uso":false},
+  'sureflap-hub': {"credito":"Sure Petcare","fuente":"fabricante","uso":false},
+  'switchbot-curtain3': {"credito":"switch-bot.com · SwitchBot Curtain 2","fuente":"switch-bot.com","uso":false},
+  'switchbot-hub2': {"credito":"switch-bot.com · SwitchBot Hub 3","fuente":"switch-bot.com","uso":true},
+  'switchbot-keypad': {"credito":"switch-bot.com · SwitchBot Keypad Vision","fuente":"switch-bot.com","uso":false},
+  'switchbot-roller': {"credito":"switch-bot.com · SwitchBot Roller Shade","fuente":"switch-bot.com","uso":false},
+  'tado-ac': {"credito":"tado°","fuente":"fabricante","uso":false},
+  'tapo-l930': {"credito":"TP-Link","fuente":"fabricante","uso":false},
+  'thirdreality-plug': {"credito":"3reality.com · Smart Plug E3","fuente":"3reality.com","uso":false},
+  'thirdreality-switch': {"credito":"3reality.com · Smart Switch Gen3","fuente":"3reality.com","uso":true},
+  'thirdreality-vibration': {"credito":"3reality.com · Vibration Sensor","fuente":"3reality.com","uso":false},
+  'tplink-deco': {"credito":"Project Kei · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'tractive-gps': {"credito":"Tractive","fuente":"fabricante","uso":false},
+  'ultraloq-bolt': {"credito":"u-tec.com · ULTRALOQ Latch 5 Fingerprint","fuente":"u-tec.com","uso":true},
+  'unifi-cloudgw': {"credito":"Ubiquiti","fuente":"fabricante","uso":false},
+  'unifi-g5': {"credito":"Ubiquiti","fuente":"fabricante","uso":false},
+  'unifi-switch8': {"credito":"Ubiquiti","fuente":"fabricante","uso":false},
+  'unifi-u7': {"credito":"Sabbo91 · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+  'yale-assure2': {"credito":"Lockitron/Apigy, Inc. · CC BY-SA 4.0 · Wikimedia Commons","fuente":"commons","uso":false},
+}
+
+/** Ruta de la foto, o `null` si a este producto todavía le falta. */
+export const photoOf = (id) => (PHOTOS[id] ? `/catalogo/${id}.webp` : null)
+
+/** El aparato instalado y funcionando. `null` si el fabricante no publicó una. */
+export const usoOf = (id) => (PHOTOS[id]?.uso ? `/catalogo/${id}-uso.webp` : null)
+
+/** Crédito para pintar bajo la foto. */
+export const creditOf = (id) => PHOTOS[id] ?? null

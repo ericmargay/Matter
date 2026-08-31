@@ -41,6 +41,27 @@ const ADMIN_ONLY = import.meta.env.VITE_ADMIN === 'on'
 const Admin = ADMIN_ENABLED ? lazy(() => import('./ui/admin/Admin')) : null
 const Quote = lazy(() => import('./ui/admin/Quote'))
 
+/** El plano de un solo cuarto, en su propia URL — ver PlanoStandalone.jsx.
+ *  Va aparte de `Admin` para que abrirlo no arrastre el levantamiento ni la
+ *  cotización del proyecto entero cuando lo único que hace falta es ESE
+ *  cuarto. */
+const PlanoStandalone = ADMIN_ENABLED ? lazy(() => import('./ui/admin/PlanoStandalone')) : null
+
+/** El catálogo para clientes SÍ es público: es lo que se manda por WhatsApp
+ *  cuando preguntan qué se le puede poner a la casa. Va en su propio chunk
+ *  porque arrastra las fichas de 91 productos y el sitio no lo necesita para
+ *  pintar el hero. */
+const Catalogo = lazy(() => import('./ui/Catalogo'))
+
+/** El anexador que llena el cliente. Va en el build público porque es un
+ *  enlace que se manda por WhatsApp, y no arrastra nada de operaciones: su
+ *  catálogo es el de lo que la gente YA tiene, no el de lo que vendemos. */
+const MiEquipo = lazy(() => import('./ui/MiEquipo'))
+
+/** La guía de qué le puede pedir a su casa. Se arma desde el levantamiento,
+ *  así que no envejece: cambia cuando cambia la instalación. */
+const MiCasa = lazy(() => import('./ui/MiCasa'))
+
 /** Ruteo por hash: #/admin abre el panel. Sin router ni servidor extra. */
 function useHashRoute() {
   const [hash, setHash] = useState(() => window.location.hash)
@@ -67,16 +88,20 @@ function detectQuality() {
 export default function App() {
   const route = useHashRoute()
 
-  // en la compilación del panel, entrar sin hash abre el levantamiento
+  // en la compilación del panel, entrar sin hash abre la lista de proyectos:
+  // es el primer paso del trabajo y desde ahí se entra al levantamiento
   if (ADMIN_ONLY && !route.startsWith('#/')) {
     return (
       <Suspense fallback={<div className="min-h-screen bg-ink" />}>
-        <Admin section="levantamiento" />
+        <Admin section="proyectos" />
       </Suspense>
     )
   }
 
-  // #/cotizacion?d=<payload> — la cotización viaja dentro del propio enlace
+  /* #/cotizacion?d=<payload> — la cotización viaja dentro del propio enlace.
+     Ya no hay demo: la de ejemplo servía para enseñar el formato una vez y
+     quedarse ahí la volvía la cotización más vista del sitio, con precios
+     inventados. Ahora solo abre lo que se generó de un levantamiento real. */
   if (route.startsWith('#/cotizacion')) {
     const token = new URLSearchParams(route.split('?')[1] ?? '').get('d') ?? ''
     return (
@@ -86,9 +111,48 @@ export default function App() {
     )
   }
 
+  // #/mi-equipo?t=<token> — el cliente anexa lo que ya tiene en casa
+  if (route.startsWith('#/mi-equipo')) {
+    const t = new URLSearchParams(route.split('?')[1] ?? '').get('t') ?? ''
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-ink" />}>
+        <MiEquipo token={t} />
+      </Suspense>
+    )
+  }
+
+  // #/mi-casa?t=<token> — qué le puede pedir a su casa
+  if (route.startsWith('#/mi-casa')) {
+    const t = new URLSearchParams(route.split('?')[1] ?? '').get('t') ?? ''
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-ink" />}>
+        <MiCasa token={t} />
+      </Suspense>
+    )
+  }
+
+  // #/catalogo — el catálogo que se le enseña al cliente
+  if (route.startsWith('#/catalogo')) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-ink" />}>
+        <Catalogo />
+      </Suspense>
+    )
+  }
+
+  // #/plano?proyecto=<id>&plano=<id> — un cuarto, sin el proyecto alrededor
+  if (route.startsWith('#/plano')) {
+    if (!ADMIN_ENABLED) return <AdminOff />
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-ink" />}>
+        <PlanoStandalone />
+      </Suspense>
+    )
+  }
+
   if (route.startsWith('#/admin')) {
     if (!ADMIN_ENABLED) return <AdminOff />
-    const section = route.split('/')[2]?.split('?')[0] || 'levantamiento'
+    const section = route.split('/')[2]?.split('?')[0] || 'proyectos'
     return (
       <Suspense fallback={<div className="min-h-screen bg-ink" />}>
         <Admin section={section} />

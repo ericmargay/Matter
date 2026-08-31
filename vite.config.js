@@ -13,9 +13,40 @@ import tailwindcss from '@tailwindcss/vite'
  */
 const BASE = process.env.BASE_PATH ?? '/Matter/'
 
+/**
+ * En desarrollo el panel necesita lo mismo que en Railway: el login, el
+ * registro de cambios y el WebSocket por el que los socios se sincronizan.
+ * En vez de levantar un segundo proceso y andar con dos puertos, se monta el
+ * servidor de verdad dentro del de Vite. Se prueba lo que se despliega.
+ *
+ * El import es dinámico y va dentro del hook: en `vite build` este plugin no
+ * corre, y no tiene por qué arrastrar Express al proceso de compilación.
+ */
+function servidorDeOperaciones() {
+  return {
+    name: 'matter-operaciones',
+    apply: 'serve',
+    async configureServer(vite) {
+      const [{ crearApp }, registro, { eventosIniciales }, { montarSync }] = await Promise.all([
+        import('./server/app.js'),
+        import('./server/registro.js'),
+        import('./server/seed.js'),
+        import('./server/sync.js'),
+      ])
+
+      await registro.cargar()
+      await registro.sembrar(eventosIniciales())
+
+      // sin montarEstaticos: en desarrollo los archivos los sirve Vite
+      vite.middlewares.use(crearApp())
+      montarSync(vite.httpServer)
+    },
+  }
+}
+
 export default defineConfig(({ command }) => ({
   base: command === 'build' ? BASE : '/',
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), servidorDeOperaciones()],
   build: {
     rollupOptions: {
       output: {

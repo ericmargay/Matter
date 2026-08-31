@@ -11,7 +11,6 @@
  * cotización que ya se mandó sigue diciendo lo que se cotizó.
  */
 
-import { DEMO_QUOTE } from './demoQuote'
 
 /** Sube este número cada vez que cambie la forma del paquete. */
 export const SCHEMA = 2
@@ -97,8 +96,7 @@ export function encodeQuote(payload) {
  */
 export function decodeQuote(token) {
   try {
-    // #/cotizacion?d=demo abre el ejemplo fijo, sin tener que generarlo
-    const p = token === 'demo' ? DEMO_QUOTE : JSON.parse(b64url.decode(token))
+    const p = JSON.parse(b64url.decode(token))
 
     // un enlace de antes de SCHEMA 2 traía los ids del catálogo en vez de
     // las partidas resueltas; pintarlo daría totales en cero y "Invalid Date"

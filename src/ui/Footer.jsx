@@ -25,11 +25,12 @@ export default function Footer() {
               </a>
             ))}
             <a
-              href="#/cotizacion?d=demo"
+              href="#/catalogo"
               className="text-[13px] text-cream-2 transition-colors duration-300 hover:text-ember"
             >
-              Cotización de ejemplo
+              Catálogo de productos
             </a>
+            
             {import.meta.env.VITE_ADMIN !== 'off' && (
               <a
                 href="#/admin"

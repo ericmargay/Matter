@@ -14,6 +14,7 @@ import { DEVICES } from './catalog'
    rates.local.js si existe (real, en .gitignore). import.meta.glob no
    truena cuando el archivo no está: devuelve un objeto vacío. */
 import { LABOR_TIERS as DEMO_LABOR, RATES as DEMO_RATES } from './rates'
+import { acomodoDeCables, instalacionDelProyecto } from './instalacion'
 
 const overrides = import.meta.glob('./rates.local.js', { eager: true })
 const local = Object.values(overrides)[0]
@@ -26,6 +27,9 @@ export const RATES = { ...DEMO_RATES, ...(local?.RATES ?? {}) }
 
 /** Reglas por categoría; ganan sobre la inferencia por alimentación. */
 const LABOR_BY_CAT = {
+  /* El material de acomodo no cobra mano de obra propia: se instala dentro del
+     acomodo de cable, que ya se cobra por punto. */
+  cableado: 'material',
   cortinas: 'alto',
   acceso: 'alto',
   camaras: 'alto',
@@ -97,13 +101,15 @@ export function quote(survey) {
   }
 
   const equipo = []
-  let laborTotal = 0
-  const laborCount = {}
 
   for (const [id, qty] of Object.entries(counts)) {
     const d = DEVICES.find((x) => x.id === id)
     if (!d) continue
-    const unit = unitPrice(d)
+    /* El precio real es el que se corrigió en Compras —"lo compramos en tal
+       tienda a tal precio"—, no el de catálogo. Si nadie lo tocó, cae al de
+       catálogo igual que siempre. */
+    const sobrescrito = survey.compras?.productos?.[id]?.precio
+    const unit = sobrescrito ?? unitPrice(d)
     equipo.push({
       id,
       concepto: `${d.name} — ${d.brand}`,
@@ -114,12 +120,18 @@ export function quote(survey) {
       importe: unit * qty,
       link: d.link,
       cat: d.cat,
+      editado: sobrescrito != null,
     })
 
-    const tier = laborTier(d)
-    laborCount[tier] = (laborCount[tier] ?? 0) + qty
-    laborTotal += LABOR_TIERS[tier].price * qty
   }
+
+  /* La instalación se cobra por ESPACIO, no por pieza. Cobrar por pieza
+     inflaba la cotización hasta volverla irreal —el sexto foco de una
+     recámara no cuesta lo mismo que el primero— y además no es como se
+     trabaja: el instalador llega a un cuarto y resuelve lo que haya en esa
+     visita. */
+  const inst = instalacionDelProyecto(survey.rooms ?? [])
+  const laborTotal = inst.total
 
   equipo.sort((a, b) => b.importe - a.importe)
 
@@ -130,6 +142,15 @@ export function quote(survey) {
   const levantamiento =
     rates.levantamientoBase + extraM2 * rates.levantamientoM2 + (niveles - 1) * rates.levantamientoNivel
 
+  /* Acomodo de cables: se cuentan los aparatos a los que se les definió cable
+     en el taller. Es la partida que casi nadie cotiza y todo mundo reclama
+     cuando ve seis cables cruzando el zoclo de su recámara nueva. */
+  const conCable = (survey.rooms ?? []).reduce(
+    (a, r) => a + (r.plano?.items ?? []).filter((i) => i.cable).length,
+    0,
+  )
+  const acomodo = acomodoDeCables(conCable, survey.extras?.acomodoCables ?? 'ninguno')
+
   const puntosRed = Number(survey.extras?.puntosRed) || 0
   const escenas = Number(survey.extras?.escenas) || 0
   const km = Number(survey.extras?.km) || 0
@@ -137,70 +158,102 @@ export function quote(survey) {
   const equipoTotal = equipo.reduce((a, l) => a + l.importe, 0)
   const puestaEnMarcha = round(equipoTotal * rates.puestaEnMarchaPct)
 
+  /* Cada servicio se calcula con su fórmula de siempre, pero el número final
+     se puede corregir por proyecto —la visita costó más porque había que
+     subir tinacos, el acomodo de cables se negoció aparte, etc.—. Igual que
+     el precio de un producto en Compras: el cálculo es el punto de partida,
+     no la última palabra. `id` es la clave con la que se guarda esa
+     corrección; sin ella no hay dónde amarrar el override. */
+  const overridesServicios = survey.extras?.serviciosOverride ?? {}
+  const conCosto = (id, linea) => {
+    const sobrescrito = overridesServicios[id]
+    if (sobrescrito == null) return { id, ...linea, editado: false }
+    const qty = linea.qty || 1
+    return { id, ...linea, unit: round(sobrescrito / qty), importe: round(sobrescrito), editado: true }
+  }
+
   const servicios = [
-    {
+    conCosto('levantamiento', {
       concepto: `Levantamiento en sitio — ${m2 || '—'} m², ${niveles} nivel${niveles > 1 ? 'es' : ''}`,
       detalle: 'Mapa de calor por nivel, plano de dispositivos, revisión eléctrica y de neutro',
       qty: 1,
       unit: round(levantamiento),
       importe: round(levantamiento),
-    },
-    {
-      concepto: 'Instalación y puesta en obra',
-      detalle: Object.entries(laborCount)
-        .map(([t, n]) => `${n} × ${LABOR_TIERS[t].label.toLowerCase()}`)
-        .join(' · ') || 'Sin piezas todavía',
+    }),
+    conCosto('instalacion', {
+      concepto: `Instalación — ${inst.porEspacio.length} espacio${inst.porEspacio.length === 1 ? '' : 's'}`,
+      detalle:
+        inst.porEspacio.map((x) => `${x.room.nombre} $${round(x.total).toLocaleString('es-MX')}`).join(' · ') ||
+        'Sin piezas todavía',
       qty: 1,
       unit: round(laborTotal),
       importe: round(laborTotal),
-    },
+    }),
   ]
 
+  if (acomodo.importe > 0 || overridesServicios.acomodo != null) {
+    servicios.push(
+      conCosto('acomodo', {
+        concepto: `Acomodo de cables — ${acomodo.label.toLowerCase()}`,
+        detalle: `${acomodo.porque} Se cobra por punto: ${acomodo.puntos} aparato${acomodo.puntos === 1 ? '' : 's'} con cable${acomodo.puntos < 3 ? ', con mínimo de 3' : ''}.`,
+        qty: Math.max(acomodo.puntos, 3),
+        unit: acomodo.precio,
+        importe: acomodo.importe,
+      }),
+    )
+  }
+
   if (puntosRed > 0) {
-    servicios.push({
-      concepto: 'Puntos de red estructurada Cat6',
-      detalle: 'Cable, jack, ponchado, patch panel y certificación por punto',
-      qty: puntosRed,
-      unit: rates.puntoRed,
-      importe: puntosRed * rates.puntoRed,
-    })
+    servicios.push(
+      conCosto('puntosRed', {
+        concepto: 'Puntos de red estructurada Cat6',
+        detalle: 'Cable, jack, ponchado, patch panel y certificación por punto',
+        qty: puntosRed,
+        unit: rates.puntoRed,
+        importe: puntosRed * rates.puntoRed,
+      }),
+    )
   }
 
   if (escenas > 0) {
-    servicios.push({
-      concepto: 'Diseño y programación de escenas',
-      detalle: 'Incluye ajuste con el cliente presente y una revisión posterior',
-      qty: escenas,
-      unit: rates.escena,
-      importe: escenas * rates.escena,
-    })
+    servicios.push(
+      conCosto('escenas', {
+        concepto: 'Diseño y programación de escenas',
+        detalle: 'Incluye ajuste con el cliente presente y una revisión posterior',
+        qty: escenas,
+        unit: rates.escena,
+        importe: escenas * rates.escena,
+      }),
+    )
   }
 
   servicios.push(
-    {
+    conCosto('puestaEnMarcha', {
       concepto: 'Puesta en marcha y afinación',
       detalle: 'Actualización de firmware, pruebas de cobertura y corrección de rutas',
       qty: 1,
       unit: puestaEnMarcha,
       importe: puestaEnMarcha,
-    },
-    {
+    }),
+    conCosto('entrenamiento', {
       concepto: 'Entrenamiento y documentación',
       detalle: 'Sesión con la familia, planos as-built, credenciales y etiquetado del rack',
       qty: 1,
       unit: rates.entrenamiento + rates.documentacion,
       importe: rates.entrenamiento + rates.documentacion,
-    },
+    }),
   )
 
   if (km > 0) {
-    servicios.push({
-      concepto: 'Viáticos fuera de zona metropolitana',
-      detalle: `${km} km ida y vuelta`,
-      qty: km,
-      unit: rates.viaticoKm,
-      importe: km * rates.viaticoKm,
-    })
+    servicios.push(
+      conCosto('viaticos', {
+        concepto: 'Viáticos fuera de zona metropolitana',
+        detalle: `${km} km ida y vuelta`,
+        qty: km,
+        unit: rates.viaticoKm,
+        importe: km * rates.viaticoKm,
+      }),
+    )
   }
 
   const serviciosTotal = servicios.reduce((a, l) => a + l.importe, 0)
@@ -219,7 +272,9 @@ export function quote(survey) {
     servicios,
     equipoTotal,
     serviciosTotal,
-    laborCount,
+    /* El desglose de instalación ahora es por espacio, no un conteo de piezas
+       por dificultad. Quien lo pinte tiene el detalle aquí. */
+    instalacion: inst,
     bruto,
     descuento,
     descPct,

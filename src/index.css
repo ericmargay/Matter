@@ -2,26 +2,40 @@
 
 /* ─────────────────────────────────────────────────────────────
    Matter — sistema de diseño
-   La tesis visual: la casa es cálida (ámbar, madera, crema),
-   la red es fría (azul thread). Todo el sitio vive en esa tensión.
+
+   La tesis visual es la noche, no la madera. El fondo café leía a viejo —a
+   catálogo impreso— y la casa inteligente no es eso: es una casa de noche,
+   con luz artificial. De ahí el azul profundo del fondo y el azul eléctrico
+   de lo que responde al tacto.
+
+   Los NOMBRES de los tokens no cambiaron a propósito, solo sus valores. Así
+   el cambio es de verdad estructural: se toca un archivo y se mueve el sitio
+   entero, el panel y los planos, sin ir a corregir clases una por una.
+   `ember` ya no es ámbar y `cream` ya no es crema — pero renombrar trescientos
+   usos para ganar exactitud en la etiqueta no vale el riesgo de romper algo.
    ───────────────────────────────────────────────────────────── */
 @theme {
-  --color-ink: #0a0908;
-  --color-ink-2: #131110;
-  --color-ink-3: #1d1a17;
-  --color-line: #2a2521;
+  /* el fondo: azul de medianoche, no negro. El negro puro aplana las sombras */
+  --color-ink: #080b12;
+  --color-ink-2: #0f1420;
+  --color-ink-3: #18202f;
+  --color-line: #25304a;
 
-  --color-cream: #f7f2ea;
-  /* cream-2 y cream-3 quedan sobre #131110: 8.9:1 y 5.4:1 de contraste */
-  --color-cream-2: #d6cdc0;
-  --color-cream-3: #9c9388;
+  /* el texto es frío: un blanco cálido sobre azul se ve sucio */
+  --color-cream: #eef3fb;
+  /* cream-2 y cream-3 quedan sobre #0f1420: 11.4:1 y 5.6:1 de contraste */
+  --color-cream-2: #c2ccdd;
+  --color-cream-3: #8896ac;
 
-  --color-ember: #ff9a4d;
-  --color-ember-2: #ffc48a;
-  --color-ember-3: #7a3f14;
+  /* el acento primario: azul eléctrico. Es lo que responde al tacto */
+  --color-ember: #4d9fff;
+  --color-ember-2: #a3c9ff;
+  --color-ember-3: #14396e;
 
-  --color-thread: #7fa6ff;
-  --color-thread-2: #b9cdff;
+  /* el secundario se va al verde azulado para que se distinga del primario
+     sin salirse de la familia fría */
+  --color-thread: #5eead4;
+  --color-thread-2: #a7f3e4;
 
   --font-display: 'Fraunces', ui-serif, Georgia, serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
@@ -243,6 +257,7 @@ canvas {
 
 @media (prefers-reduced-motion: reduce) {
   .orb-siri, .orb-dot, .orb-ring, .orb-pulse { animation: none !important; }
+  .glifo-orbe, .glifo-anillo, .glifo-puntos, .glifo-on { animation: none !important; }
 }
 
 /* ── hotspots del 3D ────────────────────────────────────────── */
@@ -320,4 +335,345 @@ canvas {
   }
   .logo-halo { opacity: 0.3; }
   * { scroll-behavior: auto !important; }
+}
+
+/* ── borrar: el botón crece y se llena antes de soltar ────────────
+   Borrar es lo único que no se deshace en el levantamiento. Un tache de
+   diez píxeles al lado de cada renglón se toca sin querer, sobre todo en
+   iPad y sobre todo en obra. Este crece al acercarse, se pinta de rojo y
+   se rellena en medio segundo: hay tiempo de sobra para retirar el dedo, y
+   el que sí quiere borrar apenas lo nota. */
+.borrar {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.4rem;
+  overflow: hidden;
+  color: var(--color-cream-3);
+  transition:
+    width 0.18s var(--ease-out-expo),
+    height 0.18s var(--ease-out-expo),
+    color 0.18s ease,
+    background-color 0.18s ease;
+}
+.borrar > * {
+  position: relative;
+  z-index: 1;
+}
+.borrar:hover,
+.borrar:focus-visible {
+  width: 2rem;
+  height: 2rem;
+  color: #fff;
+  background-color: color-mix(in srgb, oklch(0.62 0.21 17) 22%, transparent);
+}
+
+/* el relleno que avanza mientras el puntero sigue encima */
+.borrar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: oklch(0.58 0.21 17);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.5s linear;
+}
+.borrar:hover::after,
+.borrar:focus-visible::after {
+  transform: scaleY(1);
+}
+
+/* al soltarlo, la pieza se va encogiendo en vez de desaparecer de golpe */
+@keyframes se-va {
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+    max-height: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+.se-va {
+  animation: se-va 0.26s var(--ease-out-expo) forwards;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .borrar,
+  .borrar::after,
+  .se-va {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ── el asistente ─────────────────────────────────────────────────
+   El marco es un degradado cónico girando bajo el contenido: es lo que hace
+   que el mensaje se sienta vivo sin animar el texto, igual que el borde que
+   se enciende en el teléfono. El orbe cambia de comportamiento por fase —late
+   al oír, gira al trabajar, se asienta al terminar— porque eso es lo que
+   comunica en qué va, sin una sola palabra de más. */
+
+@keyframes asistente-entra {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.95);
+  }
+  62% {
+    transform: translateY(-3px) scale(1.012);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes marco-gira {
+  to {
+    --angulo: 360deg;
+  }
+}
+
+@property --angulo {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.asistente-marco {
+  --angulo: 0deg;
+  position: relative;
+  padding: 1.5px;
+  border-radius: 16px;
+  background:
+    conic-gradient(
+      from var(--angulo),
+      var(--color-thread),
+      var(--color-ember),
+      #c084fc,
+      var(--color-thread)
+    );
+  animation:
+    asistente-entra 0.4s var(--ease-out-expo) both,
+    marco-gira 3.6s linear infinite;
+  box-shadow: 0 12px 40px -12px color-mix(in srgb, var(--color-ember) 40%, transparent);
+}
+.asistente-marco.trabajando {
+  animation:
+    asistente-entra 0.4s var(--ease-out-expo) both,
+    marco-gira 1.1s linear infinite;
+}
+
+/* ── los asistentes ──
+   Tres glifos, uno por asistente. No son logos: son la lectura de cada uno
+   —Siri gira, Alexa enciende un aro, Google son cuatro puntos— con los
+   colores de la casa. Van en el botón que corre una ambientación, para que se
+   vea A QUIÉN se le está pidiendo. */
+.glifo-orbe,
+.glifo-anillo,
+.glifo-puntos {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  border-radius: 999px;
+}
+
+.glifo-orbe {
+  background:
+    radial-gradient(circle at 32% 30%, #fff 0%, transparent 44%),
+    conic-gradient(from var(--angulo), var(--color-thread), #c084fc, var(--color-ember), var(--color-thread));
+  animation: marco-gira 6s linear infinite;
+}
+.glifo-orbe.glifo-on {
+  animation: marco-gira 1.6s linear infinite;
+  box-shadow: 0 0 10px color-mix(in srgb, #c084fc 65%, transparent);
+}
+
+.glifo-anillo {
+  border: 2.5px solid color-mix(in srgb, var(--color-ember) 70%, transparent);
+  background: transparent;
+}
+.glifo-anillo.glifo-on {
+  border-color: var(--color-ember);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-ember) 75%, transparent),
+    inset 0 0 6px color-mix(in srgb, var(--color-ember) 45%, transparent);
+  animation: anillo-late 1.2s ease-in-out infinite;
+}
+@keyframes anillo-late {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.glifo-puntos i {
+  position: absolute;
+  width: 34%;
+  height: 34%;
+  border-radius: 999px;
+}
+.glifo-puntos i:nth-child(1) { top: 0; left: 33%; background: #6aa2ff; }
+.glifo-puntos i:nth-child(2) { right: 0; top: 33%; background: #ff6b5e; }
+.glifo-puntos i:nth-child(3) { bottom: 0; left: 33%; background: #ffc63d; }
+.glifo-puntos i:nth-child(4) { left: 0; top: 33%; background: #4ade80; }
+.glifo-puntos.glifo-on { animation: marco-gira 1.8s linear infinite; }
+
+/* ── el orbe ──
+   Tres capas de degradado girando a distinta velocidad. No intenta ser el
+   logo de nadie: busca la misma lectura —algo que respira y responde— con
+   los colores de la casa. */
+.siri {
+  position: relative;
+  display: block;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 30%, #fff 0%, transparent 42%),
+    conic-gradient(from var(--angulo), var(--color-thread), #c084fc, var(--color-ember), var(--color-thread));
+  animation: marco-gira 2.4s linear infinite;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-thread) 55%, transparent);
+}
+
+@keyframes siri-late {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.14); }
+}
+@keyframes siri-trabaja {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(0.9) rotate(180deg); }
+}
+
+.siri-oyendo {
+  animation: marco-gira 2.4s linear infinite, siri-late 0.75s ease-in-out infinite;
+}
+.siri-haciendo {
+  animation: marco-gira 0.9s linear infinite, siri-trabaja 0.85s ease-in-out infinite;
+}
+.siri-listo {
+  animation: marco-gira 4s linear infinite;
+  box-shadow: 0 0 16px color-mix(in srgb, #4ade80 60%, transparent);
+}
+
+/* El cursor del dictado: parpadea como el del teléfono mientras la frase se
+   escribe sola. Sin él el texto que aparece por palabras se ve a error de
+   carga; con él se lee como dictado en curso. */
+.siri-cursor {
+  animation: siri-cursor 1.05s steps(1, end) infinite;
+}
+
+/* ── el borde de Siri ─────────────────────────────────────────────
+   Un cónico que da la vuelta, recortado a un anillo con dos máscaras que se
+   restan, y desenfocado para que se lea como luz y no como marco. El ángulo
+   va en una variable registrada: es lo único que deja animar un cónico. */
+@property --siri-ang {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.siri-bordes {
+  --siri-ang: 0deg;
+  padding: 24px; /* el grosor del anillo */
+  background: conic-gradient(from var(--siri-ang), #4d9fff, #8b5cf6, #f0a3c8, #5eead4, #4d9fff);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  filter: blur(15px);
+  animation: siri-vuelta 5.2s linear infinite;
+  transition: opacity 0.5s ease;
+}
+@keyframes siri-vuelta {
+  to {
+    --siri-ang: 360deg;
+  }
+}
+
+/* El teléfono llega subiendo y creciendo un pelo, como cuando uno lo levanta
+   de la mesa, y se va por el mismo camino. */
+.siri-entra {
+  animation: siri-entra 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.siri-sale {
+  animation: siri-sale 0.45s cubic-bezier(0.4, 0, 1, 1) both;
+}
+@keyframes siri-entra {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes siri-sale {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+}
+
+/* Cada aparato que se movió entra por su cuenta, con retraso. */
+.siri-tarjeta {
+  animation: siri-tarjeta 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes siri-tarjeta {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes siri-cursor {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asistente-marco,
+  .asistente-marco.trabajando,
+  .siri,
+  .siri-oyendo,
+  .siri-haciendo,
+  .siri-listo {
+    animation: asistente-entra 0.01s both;
+  }
+  .siri-cursor {
+    animation: none;
+    opacity: 1;
+  }
+  .siri-tarjeta {
+    animation: none;
+  }
+  .siri-entra {
+    animation: none;
+  }
+  .siri-sale {
+    animation: siri-sale 0.01s both;
+  }
+  .siri-bordes {
+    animation: none;
+  }
 }

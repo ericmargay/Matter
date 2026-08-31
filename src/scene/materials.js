@@ -32,25 +32,28 @@ const std = (color, opts = {}) =>
 
 export const M = {
   // ── envolvente ──────────────────────────────────────────────
-  facade: pbr(T.plaster, 3, '#3a322c', { roughness: 0.95, bump: 0.5 }),
-  wallOut: pbr(T.plaster, 3, '#463c34', { roughness: 0.92, bump: 0.5 }),
-  wallIn: pbr(T.plaster, 2.4, '#4d4239', { roughness: 0.9, bump: 0.45 }),
+  /* Azul de noche, no café. El aplanado café leía a casa vieja, y lo que se
+     vende es lo contrario: una casa de siempre que además responde. */
+  facade: pbr(T.plaster, 3, '#2b3348', { roughness: 0.95, bump: 0.5 }),
+  wallOut: pbr(T.plaster, 3, '#333d55', { roughness: 0.92, bump: 0.5 }),
+  wallIn: pbr(T.plaster, 2.4, '#3b465f', { roughness: 0.9, bump: 0.45 }),
   wallAccent: pbr(T.wood, 0.6, '#8a5433', { roughness: 0.62, bump: 0.5 }),
-  roof: std('#1f1a16', { roughness: 0.9 }),
-  slab: std('#191512', { roughness: 1 }),
+  roof: std('#161c28', { roughness: 0.9 }),
+  slab: std('#11151e', { roughness: 1 }),
 
   // ── pisos ───────────────────────────────────────────────────
   woodFloor: pbr(T.wood, 3.2, '#9a6741', { roughness: 0.48, bump: 0.9 }),
   woodFloorDark: pbr(T.wood, 3.2, '#6b4630', { roughness: 0.52, bump: 0.9 }),
   tile: pbr(T.tile, 3, '#8f867a', { roughness: 0.32, bump: 0.5 }),
   tileWall: pbr(T.tile, 2, '#7d766c', { roughness: 0.25, bump: 0.4 }),
-  concrete: pbr(T.plaster, 4, '#4a453f', { roughness: 0.85, bump: 0.6 }),
+  concrete: pbr(T.plaster, 4, '#414a5c', { roughness: 0.85, bump: 0.6 }),
   deck: pbr(T.wood, 3, '#7a6550', { roughness: 0.7, bump: 1.1 }),
-  terrain: std('#12100e', { roughness: 1 }),
+  terrain: std('#0c1018', { roughness: 1 }),
 
   // ── mobiliario ──────────────────────────────────────────────
   wood: pbr(T.wood, 1.4, '#b5794a', { roughness: 0.55, bump: 0.7 }),
   woodDark: pbr(T.wood, 1.4, '#59402e', { roughness: 0.6, bump: 0.7 }),
+  woodLight: pbr(T.wood, 1.4, '#e3c39c', { roughness: 0.5, bump: 0.6 }),
   fabric: pbr(T.fabric, 4, '#39415e', { roughness: 0.95, bump: 0.6 }),
   fabricLight: pbr(T.fabric, 4, '#cfc4b1', { roughness: 0.95, bump: 0.6 }),
   metal: std('#1d1d20', { roughness: 0.35, metalness: 0.8 }),

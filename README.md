@@ -15,10 +15,55 @@ frase de verdad sobre la escena 3D.
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev      # http://localhost:5173 — sitio, panel y sincronización
+./abrir.command  # abre toda la superficie en una ventana, ya con sesión
 npm run build
 npm run preview
 ```
+
+## Abrir la superficie de un golpe
+
+```bash
+./abrir.command
+```
+
+Levanta el servidor si está caído, entra con la sesión de un socio y abre una
+ventana con doce pestañas:
+
+| | |
+| --- | --- |
+| Cara al cliente | sitio público · catálogo · cotización de ejemplo |
+| Operaciones | proyectos · catálogo · proveedores · levantamiento |
+| Planos | planta completa · y el plano 3D de **tres cuartos de tipos distintos** |
+
+Los planos necesitan datos reales, así que el script se los pregunta al servidor
+(`/api/estado`, ver `scripts/superficie.mjs`) y arma los enlaces con los ids que
+existen: elige el proyecto con más cuartos dibujados y, de él, un cuarto por
+tipo — una recámara, un baño, una cocina. El acomodo automático se porta
+distinto en cada uno y revisar tres recámaras no dice nada nuevo.
+
+Si todavía no hay planos, esas pestañas se saltan y lo dice, en vez de abrir
+una pantalla vacía.
+
+```bash
+USUARIO=carpio ./abrir.command                    # entrar como el otro socio
+URL=https://www.matter.com.mx ./abrir.command     # contra Railway
+PLANOS=6 ./abrir.command                          # más planos 3D
+VENTANA=0 ./abrir.command                         # sin ventana nueva
+AUTOSTART=0 ./abrir.command                       # no levantar el servidor
+```
+
+### Enlaces directos
+
+El panel es direccionable, así que también sirve para mandarle a un socio la
+pantalla exacta de la que estás hablando:
+
+| Enlace | Abre |
+| --- | --- |
+| `#/admin/levantamiento?proyecto=<id>` | Ese proyecto |
+| `#/admin/levantamiento?proyecto=<id>&plano=<cuartoId>` | El plano 3D de ese cuarto |
+| `#/admin/levantamiento?proyecto=<id>&plano=1` | El primer cuarto que tenga plano |
+| `#/admin/levantamiento?proyecto=<id>&planta=1` | La planta completa |
 
 ## Cómo está armado
 
@@ -40,7 +85,16 @@ assets externos son unos modelos CC0 de plantas y cerámica (ver abajo).
 src/
 ├─ content/site.js      ← copy de la página de marketing
 ├─ content/tour.js      ← capítulos, controles por cuarto y comandos de voz
+├─ content/catalog.js   ← catálogo público: ficha, precio y para qué sirve
+├─ content/opsCatalog.js ← nota del instalador, canal y proveedores (interno)
+├─ content/photos.js    ← manifiesto de fotos — lo genera `npm run photos`
+├─ sync/eventos.js      ← el modelo de cambios; lo corren navegador Y servidor
+├─ store/survey.js      ← proyectos y levantamiento, sobre el registro
+├─ store/conexion.js    ← el WebSocket, con cola y reconexión
 ├─ store/store.js      ← estado; `scrollState` es mutable a propósito
+├─ ui/Catalogo.jsx      ← catálogo para clientes · `#/catalogo`
+├─ ui/catalog/          ← galería, ficha y foto; se comparten cliente ⇄ ops
+├─ ui/admin/            ← panel de operaciones (incluye Historial.jsx)
 ├─ scene/
 │  ├─ layout.js         ← planta de los dos niveles y sus cuartos
 │  ├─ chapters.js       ← coreografía de cámara, un keyframe por capítulo
@@ -176,20 +230,126 @@ sitio empieza a pesar de más para lo que se ve en pantalla.
   el control. Es una decisión, no un bug — en un teléfono el copy vende más
   que el render.
 
+```
+server/
+├─ index.js      ← arranque: carga el registro y abre el puerto
+├─ app.js        ← rutas HTTP y login (Vite la monta igual en desarrollo)
+├─ auth.js       ← usuarios, scrypt y cookie de sesión firmada
+├─ sync.js       ← WebSocket: reparte los cambios entre socios
+├─ registro.js   ← el registro de eventos en disco
+├─ socios.js     ← quiénes somos
+└─ seed.js       ← los ocho proyectos iniciales
+```
+
 ## Panel de operaciones · `#/admin`
 
-Herramienta interna, **sin autenticación todavía**. Dos secciones:
+Herramienta interna, detrás del login que sirve `server/index.js`. Cuatro
+secciones, en el orden en que se trabaja:
 
-- **Levantamiento** — cliente con sus datos fiscales, la propiedad, las
-  habitaciones con sus metros y notas de obra, el diagnóstico de red y el
-  resumen de costos en vivo. De aquí sale la cotización.
-- **Catálogo** — 88 productos filtrables por etiqueta. El `+` los mete al
-  cuarto activo del levantamiento, no a una lista aparte.
+- **Proyectos** — la puerta. Un levantamiento pertenece a un proyecto, y sin
+  proyecto abierto la sección de levantamiento no deja entrar. No es rigor
+  burocrático: antes había un solo levantamiento suelto en localStorage, así
+  que levantar otra casa significaba pisar el anterior.
+- **Levantamiento** — habitaciones con sus metros y notas de obra, la
+  propiedad, el diagnóstico de red, el cliente con sus datos fiscales y el
+  resumen de costos en vivo. Cada cuarto trae su propio **+ Agregar equipo**,
+  que abre el catálogo ya apuntado a ese cuarto: se captura caminando la casa,
+  no saltando entre pestañas.
+- **Catálogo** — 91 productos en galería con foto, o en tabla si lo que se
+  quiere es comparar precios. El `+` los mete al cuarto activo, no a una lista
+  aparte. La ficha trae la nota de instalación y a qué proveedor llamarle.
+- **Proveedores** — Amazon, MercadoLibre, Unit Electronics y AG Electrónica,
+  con sus tiempos, sus advertencias y qué parte del catálogo cubre cada uno.
+
+Cada tarjeta del levantamiento lleva colgado el historial de SU sección, y al
+final está el del proyecto completo, filtrable por sección y por socio.
 
 El botón *Generar cotización web* abre `#/cotizacion?d=<payload>`: el
 levantamiento va **codificado dentro del propio enlace** (~800 caracteres),
 así que se manda por WhatsApp y abre en cualquier dispositivo sin servidor.
 Cuando haya backend, se cambia por un folio corto.
+
+### Cómo se sincronizan los socios
+
+Los proyectos **no viven en el navegador**: viven en el servidor, y cada panel
+abierto mantiene un WebSocket contra él. Cuando alguien cambia algo, el cambio
+viaja, el servidor le pone autor y hora, y lo reparte a los demás. No hay botón
+de guardar.
+
+La pieza que hace que todo esto sea simple: **no se sincroniza el estado, se
+sincronizan los cambios**. Cada cosa que alguien toca es un evento —`src/sync/eventos.js`,
+el único módulo que corren igual el navegador y Node— y el estado de un
+proyecto es lo que queda de aplicarlos en orden.
+
+De ahí salen tres cosas sin trabajo extra:
+
+- **El historial no hay que escribirlo.** Es la misma lista con la que se arma
+  el estado, así que no puede quedarse incompleto ni desfasado. El texto de
+  cada cambio se redacta al leerlo, no se guarda: un evento de marzo se sigue
+  describiendo bien aunque hoy cambiemos la redacción.
+- **Las fechas tampoco.** "Creado" es el primer evento y "último cambio" es el
+  último; no hay un campo que actualizar y que algún día se olvide.
+- **Se puede trabajar sin señal.** Lo que no alcanza a salir se forma en cola y
+  sale al reconectar. Todos los eventos son idempotentes a propósito —las
+  cantidades viajan absolutas, no como incrementos— así que reenviar la cola no
+  descuadra nada aunque el evento ya hubiera llegado.
+
+El autor lo pone **el servidor**, a partir de la sesión, nunca el cliente. Si
+el navegador pudiera declarar su propio nombre el historial no probaría nada.
+
+Quién es quién está en `server/socios.js`, un renglón por socio. El id tiene
+que coincidir con `PANEL_USERS`.
+
+### El registro
+
+`DATA_DIR/eventos.jsonl` — un renglón por cambio, se escribe agregando al
+final y nunca se reescribe. Se puede leer con `cat` y entender:
+
+```bash
+railway volume files list /            # qué hay en el disco
+tail -3 .data/eventos.jsonl | jq .     # en local
+```
+
+Son dos socios y unos miles de eventos: un archivo que se entiende a simple
+vista vale más aquí que un motor con migraciones. Cuando crezca, se reemplaza
+`server/registro.js` dejando la misma interfaz — nada más lo toca.
+
+⚠️ **DATA_DIR tiene que apuntar a un disco que sobreviva al reinicio.** En
+Railway eso es un Volume; sin él el contenedor se borra en cada despliegue y
+con él todos los proyectos. Ya está montado en `/data` y `DATA_DIR=/data`. Si
+la variable falta, el servidor lo avisa al arrancar.
+
+### Los ocho proyectos iniciales
+
+`server/seed.js` siembra ocho levantamientos —casas, departamentos y oficinas,
+en distintos puntos del proceso— la primera vez que el registro está vacío. No
+son maquetas: son tiras de eventos fechados en el pasado y repartidos entre los
+dos socios, para que el historial tenga desde el primer día algo real que
+mirar. En cuanto haya un cambio de verdad, no se vuelven a tocar.
+
+### Fotos del catálogo
+
+```bash
+npm run photos            # solo los que faltan
+npm run photos -- --all   # vuelve a bajar todo
+npm run photos -- hue-a19 # uno o varios por id
+```
+
+Hoy: **62 de 91 productos con foto**, ~1 MB en `public/catalogo/`. Los 29
+restantes se pintan con un mosaico procedural de su categoría.
+
+Amazon y MercadoLibre quedaron descartados como fuente: los dos bloquean la
+descarga automática (403 / "tráfico sospechoso") y la API de MercadoLibre ya
+pide credenciales. Las fotos salen de tres lugares públicos —el catálogo
+Shopify del fabricante, su CDN cuando no usa Shopify, y Wikimedia Commons para
+la marca grande— y el crédito queda guardado en `content/photos.js`, porque
+parte del material de Commons pide atribución y la ficha la muestra.
+
+Lo que no se encontró **no se rellena con una foto parecida**: en un catálogo
+que se usa para comprar, la foto de otro modelo es peor que un hueco. Los
+casos revisados a mano y descartados están anotados con su motivo en el mapa
+`FUENTES` del script, así que la siguiente corrida no los vuelve a intentar.
+Para llenar uno basta cambiar su entrada por `{ url: '…' }`.
 
 ### Costos
 
@@ -275,6 +435,7 @@ Variables en Railway:
 PANEL_USERS=margay:scrypt$sal$hash,carpio:scrypt$sal$hash
 SESSION_SECRET=<64 hex>
 NODE_ENV=production
+DATA_DIR=/data          # el Volume; sin esto se pierden los proyectos
 ```
 
 Para agregar o cambiar a alguien:
@@ -291,8 +452,17 @@ en el repo ni en las variables.
 
 Está en **privado** a propósito. Aunque el panel no se compila, el código
 fuente sí incluye `src/content/pricing.js` con tarifas de mano de obra y
-márgenes, y `src/content/catalog.js` con canales de proveedor. En un repo
-público eso es legible por cualquiera.
+`src/content/opsCatalog.js` con canales de proveedor y notas internas. En un
+repo público eso es legible por cualquiera.
+
+En el **bundle** sí están separados: el catálogo para clientes solo importa
+`content/catalog.js`, así que ni las notas de instalación ni los proveedores
+ni las tarifas viajan al navegador de nadie. Se puede comprobar:
+
+```bash
+VITE_ADMIN=off npx vite build --outDir dist-pub
+grep -rl "uelectronics\|LABOR_TIERS" dist-pub/assets/   # no debe dar nada
+```
 
 GitHub Pages desde un repo privado requiere plan Pro. Si prefieres el plan
 gratuito, hay que hacerlo público — y antes de eso conviene sacar los
