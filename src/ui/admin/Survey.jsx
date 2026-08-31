@@ -314,7 +314,7 @@ export default function Survey() {
   const [verConjunto, setVerConjunto] = useState(false)
   const [menuEspacios, setMenuEspacios] = useState(false)
 
-  const { cliente, obra, rooms, extras, activeRoom } = proyecto
+  const { cliente, obra, rooms, extras, compras, activeRoom } = proyecto
 
   /* useMemo con el objeto por defecto adentro: si se creara en cada render,
      las sugerencias se recalcularían siempre aunque nada haya cambiado. */
@@ -336,7 +336,7 @@ export default function Survey() {
     [proyecto.perfil],
   )
 
-  const q = useMemo(() => quote({ obra, rooms, extras }), [obra, rooms, extras])
+  const q = useMemo(() => quote({ obra, rooms, extras, compras }), [obra, rooms, extras, compras])
 
 
   // se relee del proyecto en cada render para que el selector vea las piezas

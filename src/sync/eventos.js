@@ -312,6 +312,7 @@ const CAMPOS = {
   vigencia: 'la vigencia',
   notas: 'las notas',
   folio: 'el folio',
+  serviciosOverride: 'el costo de un servicio',
 }
 
 const lista = (patch) =>

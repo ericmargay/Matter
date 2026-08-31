@@ -105,7 +105,11 @@ export function quote(survey) {
   for (const [id, qty] of Object.entries(counts)) {
     const d = DEVICES.find((x) => x.id === id)
     if (!d) continue
-    const unit = unitPrice(d)
+    /* El precio real es el que se corrigió en Compras —"lo compramos en tal
+       tienda a tal precio"—, no el de catálogo. Si nadie lo tocó, cae al de
+       catálogo igual que siempre. */
+    const sobrescrito = survey.compras?.productos?.[id]?.precio
+    const unit = sobrescrito ?? unitPrice(d)
     equipo.push({
       id,
       concepto: `${d.name} — ${d.brand}`,
@@ -116,6 +120,7 @@ export function quote(survey) {
       importe: unit * qty,
       link: d.link,
       cat: d.cat,
+      editado: sobrescrito != null,
     })
 
   }
@@ -153,15 +158,29 @@ export function quote(survey) {
   const equipoTotal = equipo.reduce((a, l) => a + l.importe, 0)
   const puestaEnMarcha = round(equipoTotal * rates.puestaEnMarchaPct)
 
+  /* Cada servicio se calcula con su fórmula de siempre, pero el número final
+     se puede corregir por proyecto —la visita costó más porque había que
+     subir tinacos, el acomodo de cables se negoció aparte, etc.—. Igual que
+     el precio de un producto en Compras: el cálculo es el punto de partida,
+     no la última palabra. `id` es la clave con la que se guarda esa
+     corrección; sin ella no hay dónde amarrar el override. */
+  const overridesServicios = survey.extras?.serviciosOverride ?? {}
+  const conCosto = (id, linea) => {
+    const sobrescrito = overridesServicios[id]
+    if (sobrescrito == null) return { id, ...linea, editado: false }
+    const qty = linea.qty || 1
+    return { id, ...linea, unit: round(sobrescrito / qty), importe: round(sobrescrito), editado: true }
+  }
+
   const servicios = [
-    {
+    conCosto('levantamiento', {
       concepto: `Levantamiento en sitio — ${m2 || '—'} m², ${niveles} nivel${niveles > 1 ? 'es' : ''}`,
       detalle: 'Mapa de calor por nivel, plano de dispositivos, revisión eléctrica y de neutro',
       qty: 1,
       unit: round(levantamiento),
       importe: round(levantamiento),
-    },
-    {
+    }),
+    conCosto('instalacion', {
       concepto: `Instalación — ${inst.porEspacio.length} espacio${inst.porEspacio.length === 1 ? '' : 's'}`,
       detalle:
         inst.porEspacio.map((x) => `${x.room.nombre} $${round(x.total).toLocaleString('es-MX')}`).join(' · ') ||
@@ -169,64 +188,72 @@ export function quote(survey) {
       qty: 1,
       unit: round(laborTotal),
       importe: round(laborTotal),
-    },
+    }),
   ]
 
-  if (acomodo.importe > 0) {
-    servicios.push({
-      concepto: `Acomodo de cables — ${acomodo.label.toLowerCase()}`,
-      detalle: `${acomodo.porque} Se cobra por punto: ${acomodo.puntos} aparato${acomodo.puntos === 1 ? '' : 's'} con cable${acomodo.puntos < 3 ? ', con mínimo de 3' : ''}.`,
-      qty: Math.max(acomodo.puntos, 3),
-      unit: acomodo.precio,
-      importe: acomodo.importe,
-    })
+  if (acomodo.importe > 0 || overridesServicios.acomodo != null) {
+    servicios.push(
+      conCosto('acomodo', {
+        concepto: `Acomodo de cables — ${acomodo.label.toLowerCase()}`,
+        detalle: `${acomodo.porque} Se cobra por punto: ${acomodo.puntos} aparato${acomodo.puntos === 1 ? '' : 's'} con cable${acomodo.puntos < 3 ? ', con mínimo de 3' : ''}.`,
+        qty: Math.max(acomodo.puntos, 3),
+        unit: acomodo.precio,
+        importe: acomodo.importe,
+      }),
+    )
   }
 
   if (puntosRed > 0) {
-    servicios.push({
-      concepto: 'Puntos de red estructurada Cat6',
-      detalle: 'Cable, jack, ponchado, patch panel y certificación por punto',
-      qty: puntosRed,
-      unit: rates.puntoRed,
-      importe: puntosRed * rates.puntoRed,
-    })
+    servicios.push(
+      conCosto('puntosRed', {
+        concepto: 'Puntos de red estructurada Cat6',
+        detalle: 'Cable, jack, ponchado, patch panel y certificación por punto',
+        qty: puntosRed,
+        unit: rates.puntoRed,
+        importe: puntosRed * rates.puntoRed,
+      }),
+    )
   }
 
   if (escenas > 0) {
-    servicios.push({
-      concepto: 'Diseño y programación de escenas',
-      detalle: 'Incluye ajuste con el cliente presente y una revisión posterior',
-      qty: escenas,
-      unit: rates.escena,
-      importe: escenas * rates.escena,
-    })
+    servicios.push(
+      conCosto('escenas', {
+        concepto: 'Diseño y programación de escenas',
+        detalle: 'Incluye ajuste con el cliente presente y una revisión posterior',
+        qty: escenas,
+        unit: rates.escena,
+        importe: escenas * rates.escena,
+      }),
+    )
   }
 
   servicios.push(
-    {
+    conCosto('puestaEnMarcha', {
       concepto: 'Puesta en marcha y afinación',
       detalle: 'Actualización de firmware, pruebas de cobertura y corrección de rutas',
       qty: 1,
       unit: puestaEnMarcha,
       importe: puestaEnMarcha,
-    },
-    {
+    }),
+    conCosto('entrenamiento', {
       concepto: 'Entrenamiento y documentación',
       detalle: 'Sesión con la familia, planos as-built, credenciales y etiquetado del rack',
       qty: 1,
       unit: rates.entrenamiento + rates.documentacion,
       importe: rates.entrenamiento + rates.documentacion,
-    },
+    }),
   )
 
   if (km > 0) {
-    servicios.push({
-      concepto: 'Viáticos fuera de zona metropolitana',
-      detalle: `${km} km ida y vuelta`,
-      qty: km,
-      unit: rates.viaticoKm,
-      importe: km * rates.viaticoKm,
-    })
+    servicios.push(
+      conCosto('viaticos', {
+        concepto: 'Viáticos fuera de zona metropolitana',
+        detalle: `${km} km ida y vuelta`,
+        qty: km,
+        unit: rates.viaticoKm,
+        importe: km * rates.viaticoKm,
+      }),
+    )
   }
 
   const serviciosTotal = servicios.reduce((a, l) => a + l.importe, 0)

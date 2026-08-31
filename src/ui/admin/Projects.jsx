@@ -185,7 +185,7 @@ function Fila({ proyecto, abierto, fechas }) {
   const setEstado = useSurvey((s) => s.setEstado)
 
   const q = useMemo(
-    () => quote({ obra: proyecto.obra, rooms: proyecto.rooms, extras: proyecto.extras }),
+    () => quote({ obra: proyecto.obra, rooms: proyecto.rooms, extras: proyecto.extras, compras: proyecto.compras }),
     [proyecto],
   )
 

@@ -347,6 +347,37 @@ export const useSurvey = create((set, get) => ({
     })
   },
 
+  /** Cambia UN producto por otro en todos los cuartos donde aparezca, con
+   *  la misma cantidad. Es "cambiar alternativa" en Compras: la plataforma
+   *  propuso un modelo y se decide llevar otro —mismo lugar, mismo hueco en
+   *  la instalación, distinto aparato—. Reusa 'equipo.cantidad', que ya es
+   *  absoluto por cuarto: poner el viejo en 0 y sumar el nuevo a lo que ya
+   *  hubiera de él no es una operación nueva, es la misma dos veces. */
+  cambiarAlternativa: (deviceIdViejo, deviceIdNuevo) => {
+    const s = get()
+    const p = s.proyectos.find((x) => x.id === s.activoId)
+    if (!p || deviceIdViejo === deviceIdNuevo) return
+    for (const cuarto of p.rooms) {
+      const anterior = cuarto.items?.[deviceIdViejo] ?? 0
+      if (anterior <= 0) continue
+      const yaTenia = cuarto.items?.[deviceIdNuevo] ?? 0
+      despachar('equipo.cantidad', p.id, {
+        cuartoId: cuarto.id,
+        cuartoNombre: cuarto.nombre,
+        deviceId: deviceIdViejo,
+        qty: 0,
+        anterior,
+      })
+      despachar('equipo.cantidad', p.id, {
+        cuartoId: cuarto.id,
+        cuartoNombre: cuarto.nombre,
+        deviceId: deviceIdNuevo,
+        qty: yaTenia + anterior,
+        anterior: yaTenia,
+      })
+    }
+  },
+
   totalOf: (deviceId) => {
     const s = get()
     const p = s.proyectos.find((x) => x.id === s.activoId)

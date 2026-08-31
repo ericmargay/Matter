@@ -175,7 +175,7 @@ export default function Admin({ section = 'proyectos' }) {
   }, [cargado, abrirProyecto])
 
   const q = proyecto
-    ? quote({ obra: proyecto.obra, rooms: proyecto.rooms, extras: proyecto.extras })
+    ? quote({ obra: proyecto.obra, rooms: proyecto.rooms, extras: proyecto.extras, compras: proyecto.compras })
     : null
 
   const seccion = SECCIONES.find((s) => s.id === tab) ?? SECCIONES[0]
