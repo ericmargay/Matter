@@ -382,6 +382,44 @@ export function registrarPropios(lista = []) {
   }
 }
 
+/* Cómo nace cada aparato, ANTES de que la tarifa del negocio lo toque —
+   una foto de las de origen, tomada UNA vez al cargar el módulo. Sin esto,
+   "volver al precio de catálogo" no tendría a qué volver: ya se habría
+   escrito encima del original. */
+const ORIGEN = new Map(DEVICES.map((d) => [d.id, { name: d.name, price: [...d.price] }]))
+
+/**
+ * Aplica las tarifas del negocio directo sobre el catálogo en memoria.
+ *
+ * Lo que se corrige en Compras —precio real, nombre cuando lo que se
+ * instaló no es exactamente el genérico, la foto de la caja que llegó—
+ * antes solo cambiaba la cotización. Pero el mismo aparato se enseña en
+ * media docena de lugares más: el navegador de catálogo, "Mi equipo" del
+ * cliente, el catálogo público, las sugerencias del levantamiento. Todos
+ * leen `DEVICE_BY_ID` directo, así que corregirlo aquí —una sola vez,
+ * cuando cambian las tarifas— los corrige a todos sin tocar cada uno.
+ *
+ * Idempotente a propósito: se puede llamar con las mismas tarifas cien
+ * veces y el resultado es el mismo, porque siempre parte de `ORIGEN` y
+ * nunca del valor que dejó la llamada anterior.
+ */
+export function aplicarTarifas(productos = {}) {
+  for (const [id, patch] of Object.entries(productos)) {
+    const d = DEVICE_BY_ID[id]
+    const origen = ORIGEN.get(id)
+    if (!d || !origen || !patch) continue
+
+    d.name = patch.nombre || origen.name
+    d.modelo = patch.modelo || undefined
+    // un precio real y exacto no es un rango: los dos extremos iguales,
+    // que es como hayRango() sabe que ya no es un estimado
+    d.price = patch.precio != null ? [patch.precio, patch.precio] : [...origen.price]
+    d.urlCompra = patch.url || undefined
+    d.fotoReal = patch.foto || undefined
+    d.paquetes = patch.paquetes?.length ? patch.paquetes : undefined
+  }
+}
+
 /** Precio de referencia del equipo: el punto medio del rango. */
 export const refPrice = (d) => Math.round((d.price[0] + d.price[1]) / 2)
 

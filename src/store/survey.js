@@ -10,7 +10,7 @@ import {
   seccionDe,
   uid,
 } from '../sync/eventos'
-import { registrarPropios } from '../content/catalog'
+import { aplicarTarifas, registrarPropios } from '../content/catalog'
 import { conectar, enCola, mandar } from './conexion'
 
 export { ESTADOS, nuevoFolio }
@@ -77,6 +77,40 @@ function agrupar(clave, tipo, proyectoId, mezclar, extra = {}) {
   buffers.set(clave, { patch, enviar, timer: setTimeout(enviar, ESPERA) })
 }
 
+/** Como `agrupar`, pero para cuando el patch real vive ANIDADO —
+ *  `productos[deviceId]` o `materiales[id]` dentro de `tarifas.editar`— y
+ *  no en la raíz. El shallow-merge normal de `agrupar` pisaría por
+ *  completo la corrección anterior en vez de combinarse con ella: corregir
+ *  el nombre y enseguida el precio del mismo producto perdía el nombre,
+ *  porque `{...{productos:{x:{nombre}}}, ...{productos:{x:{precio}}}}`
+ *  reemplaza la llave `productos` entera, no la mezcla campo por campo.
+ *  Aquí se acumula el patch PLANO (nombre, precio, url…) y solo se envuelve
+ *  en `productos`/`materiales` al momento de mandarlo. */
+function agruparTarifa(clave, envolver, mezclar) {
+  const previo = buffers.get(clave)
+  clearTimeout(previo?.timer)
+
+  /* Un borrado (mezclar === null, "quitar este material") no es un campo
+     más que se pueda acumular con `{...previo, ...null}` —eso no hace
+     nada, y el borrado se perdería en silencio—. Se manda de inmediato,
+     igual que quitar un producto de Compras no espera a que alguien deje
+     de teclear. */
+  if (mezclar === null) {
+    buffers.delete(clave)
+    despachar('tarifas.editar', null, { patch: envolver(null) })
+    return
+  }
+
+  const patch = { ...(previo?.patch ?? {}), ...mezclar }
+
+  const enviar = () => {
+    buffers.delete(clave)
+    despachar('tarifas.editar', null, { patch: envolver(patch) })
+  }
+
+  buffers.set(clave, { patch, enviar, timer: setTimeout(enviar, ESPERA) })
+}
+
 /** Saca de inmediato lo que esté esperando: al cerrar la pestaña o al
  *  cambiar de proyecto no se puede quedar un cambio a medio camino. */
 export function vaciarPendientes() {
@@ -120,6 +154,10 @@ export const useSurvey = create((set, get) => ({
       /* Los propios de TODOS los proyectos, de una vez: el catálogo es global
          y el levantador se mueve entre proyectos sin recargar. */
       for (const p of base.proyectos ?? []) registrarPropios(p.devices ?? [])
+      // el precio, nombre y foto reales corregidos en Compras pisan el
+      // catálogo en memoria: así los ve el navegador de catálogo, Mi
+      // equipo, el catálogo público — no solo la cotización.
+      aplicarTarifas(base.tarifas?.productos ?? {})
       return {
         yo: usuario,
         socios,
@@ -134,6 +172,7 @@ export const useSurvey = create((set, get) => ({
     set((s) => {
       const estado = aplicar({ proyectos: s.proyectos, tarifas: s.tarifas }, ev)
       if (ev.tipo === 'device.crear') registrarPropios([ev.datos.device])
+      if (ev.tipo === 'tarifas.editar') aplicarTarifas(estado.tarifas?.productos ?? {})
       // si es el eco de algo nuestro, se sustituye el optimista por el sellado
       const i = s.eventos.findIndex((e) => e.id === ev.id)
       const eventos = i === -1 ? [...s.eventos, ev] : s.eventos.with(i, ev)
@@ -284,7 +323,7 @@ export const useSurvey = create((set, get) => ({
    *  la próxima semana. */
   editarProductoGlobal: (deviceId, patch) => {
     aplicarYa(set, get, 'tarifas.editar', null, { patch: { productos: { [deviceId]: patch } } })
-    agrupar(`global:producto:${deviceId}`, 'tarifas.editar', null, { productos: { [deviceId]: patch } })
+    agruparTarifa(`global:producto:${deviceId}`, (p) => ({ productos: { [deviceId]: p } }), patch)
   },
 
   /** El precio por unidad de un material o insumo — cable, canaleta,
@@ -292,7 +331,7 @@ export const useSurvey = create((set, get) => ({
    *  mismo en cualquier proyecto. */
   editarMaterialTarifa: (materialId, patch) => {
     aplicarYa(set, get, 'tarifas.editar', null, { patch: { materiales: { [materialId]: patch } } })
-    agrupar(`global:material:${materialId}`, 'tarifas.editar', null, { materiales: { [materialId]: patch } })
+    agruparTarifa(`global:material:${materialId}`, (p) => ({ materiales: { [materialId]: p } }), patch)
   },
 
   /** Cuánto de un material hace falta en ESTE proyecto — a diferencia de su
@@ -510,6 +549,7 @@ function despachar(tipo, proyectoId, datos) {
 /** Para los campos que se agrupan: se ve el cambio ya, el evento sale luego. */
 function aplicarYa(set, get, tipo, proyectoId, datos) {
   const estado = aplicar({ proyectos: get().proyectos, tarifas: get().tarifas }, { tipo, proyectoId, datos })
+  if (tipo === 'tarifas.editar') aplicarTarifas(estado.tarifas?.productos ?? {})
   set({ proyectos: estado.proyectos, tarifas: estado.tarifas })
 }
 
