@@ -36,10 +36,11 @@ const TINTE = {
 }
 
 export default function DevicePhoto({ device, className = '', sizes, eager = false, srcOverride }) {
-  /* srcOverride: la foto real que alguien pegó para ESTE proyecto —la caja
-     que de verdad llegó, no el catálogo genérico—. Gana sobre la del
-     catálogo cuando existe. */
-  const src = srcOverride || photoOf(device.id)
+  /* Tres capas: srcOverride (una pantalla que ya trae su propia corrección
+     a la mano), device.fotoReal (la tarifa del negocio, aplicarTarifas() la
+     escribe encima del catálogo en memoria y así llega aquí sin que este
+     componente sepa nada de tarifas), y la del catálogo genérico. */
+  const src = srcOverride || device.fotoReal || photoOf(device.id)
   const [rota, setRota] = useState(false)
   // si alguien pega una URL nueva después de que la anterior falló, hay que
   // volver a intentar — sin esto, una vez rota se quedaba rota para siempre.
