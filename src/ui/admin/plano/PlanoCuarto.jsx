@@ -11,12 +11,14 @@ import { useEstilo } from './estilo'
 import {
   agrandarSiNoCabe,
   anclaAuto,
+  anclaEnEsquina,
   anclaEnMuro,
   comoSeLlama,
   GIRO_MURO,
   limitarPorSolape,
   murosCerca,
   resolverAnclas,
+  sonContiguos,
 } from './anclas'
 import { MUEBLES_DE_MURO } from './muros'
 import { comoAloja, dispositivosDe } from './aloja'
@@ -513,6 +515,59 @@ export default function PlanoCuarto({ room, onCerrar }) {
     setSeleccion(id)
   }
 
+  /**
+   * Tocar un muro en la escena, con algo seleccionado.
+   *
+   * Sin nada seleccionado, tocar un muro selecciona el cuarto —lo de
+   * siempre—. Con una pieza seleccionada, el muro deja de ser un botón de
+   * selección y se vuelve la manija de su vínculo:
+   *
+   *   - tocar el muro al que YA está pegada la despega — un clic, no un
+   *     viaje al panel a buscar "Despegar".
+   *   - tocar un muro distinto la pega ahí.
+   *   - tocar un SEGUNDO muro, contiguo al primero, la esquina entre los
+   *     dos —con separación de cada uno, no encajada adentro de ninguno—,
+   *     que es justo el gesto de "métela en esta esquina" que no existía.
+   */
+  const onTocarMuro = (muroTocado) => {
+    const item = seleccion && plano.items.find((i) => i.id === seleccion)
+    if (!item) {
+      seleccionar(ID_MUROS)
+      return
+    }
+
+    // Cuarto3D habla en 'norte'/'sur'/'oeste'/'este' —el vocabulario de
+    // muros.js, por dónde se ve un muro—; el ancla habla en 'x-'/'x+'/'z-'/
+    // 'z+' —el de anclas.js, con qué eje y signo se calcula la posición—.
+    // Son el mismo muro, pero sin esta traducción ninguna comparación de
+    // aquí para abajo encontraría nunca coincidencia.
+    const muroId = ANCLA_DE_MURO[muroTocado] ?? muroTocado
+
+    const muroActual = item.ancla?.a === 'muro' ? item.ancla.muro : null
+    const esMuroDeMuro = MUEBLES_DE_MURO.has(item.tipo)
+
+    if (muroActual === muroId) {
+      parchar(item.id, { ancla: undefined, suelta: true }, 'Despegó una pieza del muro')
+      return
+    }
+
+    if (muroActual && sonContiguos(muroActual, muroId)) {
+      const ancla = anclaEnEsquina(item, plano, muroActual, muroId, item.ancla.sep, 0.02)
+      if (ancla) {
+        parchar(item.id, { ancla, suelta: undefined }, 'Esquinó una pieza entre dos muros')
+        return
+      }
+    }
+
+    const ancla = anclaEnMuro(item, plano, muroId)
+    if (!ancla) return
+    parchar(
+      item.id,
+      { ancla, suelta: undefined, ...(esMuroDeMuro ? { rot: GIRO_MURO[muroId] ?? item.rot } : {}) },
+      'Vinculó una pieza a un muro',
+    )
+  }
+
   /** El id que llega es el del APARATO al que pertenece el cable, no un id
       propio del cable —no lo tiene. */
   const seleccionarCable = (id) => {
@@ -680,13 +735,6 @@ export default function PlanoCuarto({ room, onCerrar }) {
       }),
       modulo === 'luminaria' ? 'Puso el módulo en la luminaria' : modulo === 'atras' ? 'Puso el módulo detrás del apagador' : 'Cambió a apagador inteligente',
     )
-  }
-
-  /** Giro libre, en radianes: lo usa el aro que se arrastra en la escena. */
-
-  const girar = (id) => {
-    const it = plano.items.find((i) => i.id === id)
-    if (it) parchar(id, { rot: ((it.rot ?? 0) + Math.PI / 8) % (Math.PI * 2) }, 'Giró una pieza')
   }
 
   /* Una sola escritura, no dos. Cuando esto borraba los items en un `guardar`
@@ -1017,6 +1065,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
               plano={plano}
               seleccion={seleccion}
               onSeleccionar={seleccionar}
+              onTocarMuro={onTocarMuro}
               cableSeleccionado={cableSeleccionado}
               onSeleccionarCable={seleccionarCable}
               onMover={mover}
@@ -1299,7 +1348,6 @@ export default function PlanoCuarto({ room, onCerrar }) {
               item={seleccionado}
               plano={plano}
               onParchar={parchar}
-              onGirar={girar}
               onQuitar={quitar}
               onUnir={() => setUniendo(seleccionado.id)}
               tramos={plano.tramos ?? []}
@@ -2237,7 +2285,6 @@ function Inspector({
   item,
   plano,
   onParchar,
-  onGirar,
   onQuitar,
   onUnir,
   tramos,
@@ -2287,15 +2334,6 @@ function Inspector({
           {dev.brand} · {CATEGORIES.find((c) => c.id === dev.cat)?.label}
         </p>
       )}
-
-      <div className="flex gap-2">
-        <button
-          onClick={() => onGirar(item.id)}
-          className="flex-1 rounded-lg border border-line px-2 py-1 text-[11.5px] text-cream-2 hover:border-cream/35"
-        >
-          Girar 22°
-        </button>
-      </div>
 
       {/* ── a qué está pegada ──
           Lo importante no es el dato, es poder soltarla: una pieza que se
