@@ -243,6 +243,17 @@ export const useSurvey = create((set, get) => ({
     agrupar(`${id}:perfil`, 'perfil.editar', id, patch)
   },
 
+  /** Precio y URL de compra de UN aparato, para el proyecto activo. Se
+   *  agrupa por aparato: corregir el precio y luego la URL del mismo
+   *  producto en el mismo instante manda un solo evento; el de al lado no
+   *  se mezcla con éste. */
+  editarCompra: (deviceId, patch) => {
+    const id = get().activoId
+    if (!id) return
+    aplicarYa(set, get, 'compras.editar', id, { deviceId, patch })
+    agrupar(`${id}:compras:${deviceId}`, 'compras.editar', id, patch, { deviceId })
+  },
+
   setFolio: (folio) => {
     const id = get().activoId
     if (id) despachar('proyecto.editar', id, { patch: { folio } })

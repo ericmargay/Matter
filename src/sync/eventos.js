@@ -28,6 +28,7 @@ export const SECCIONES = {
   equipo: 'Equipo',
   plano: 'Plano',
   servicios: 'Servicios',
+  compras: 'Compras',
 }
 
 /**
@@ -251,6 +252,24 @@ export function aplicar(estado, ev) {
         ),
       }))
 
+    /* ── compras ─────────────────────────────────────────────────────
+       Precio y URL de compra, por dispositivo y por PROYECTO —no por
+       catálogo, que es de todos los clientes, ni por cuarto, porque el
+       mismo aparato en dos espacios se compra en el mismo lugar al mismo
+       precio—. Un evento por aparato, mezclado sobre lo que ya hubiera:
+       corregir el precio no borra la URL que alguien ya había puesto. */
+    case 'compras.editar':
+      return toca((p) => ({
+        ...p,
+        compras: {
+          ...p.compras,
+          productos: {
+            ...(p.compras?.productos ?? {}),
+            [ev.datos.deviceId]: { ...(p.compras?.productos?.[ev.datos.deviceId] ?? {}), ...ev.datos.patch },
+          },
+        },
+      }))
+
     default:
       return estado
   }
@@ -349,6 +368,11 @@ export function resumen(ev, nombreDe = (id) => id) {
       return 'Vació todas las piezas del proyecto'
     case 'plano.editar':
       return `${d.que ?? 'Modificó el plano'} de ${d.cuartoNombre ?? 'una habitación'}`
+    case 'compras.editar': {
+      const nombre = nombreDe(d.deviceId)
+      const campo = 'precio' in (d.patch ?? {}) ? 'el precio' : 'url' in (d.patch ?? {}) ? 'la URL de compra' : 'la compra'
+      return `Cambió ${campo} de ${nombre}`
+    }
     default:
       return ev.tipo
   }
@@ -365,5 +389,6 @@ export function seccionDe(tipo) {
   if (tipo.startsWith('equipo.')) return 'equipo'
   if (tipo.startsWith('plano.')) return 'plano'
   if (tipo.startsWith('servicios.')) return 'servicios'
+  if (tipo.startsWith('compras.')) return 'compras'
   return 'proyecto'
 }
