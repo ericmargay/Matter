@@ -174,8 +174,16 @@ export default function Admin({ section = 'proyectos' }) {
     return () => window.removeEventListener('hashchange', aplicar)
   }, [cargado, abrirProyecto])
 
+  const tarifas = useSurvey((s) => s.tarifas)
   const q = proyecto
-    ? quote({ obra: proyecto.obra, rooms: proyecto.rooms, extras: proyecto.extras, compras: proyecto.compras })
+    ? quote({
+        obra: proyecto.obra,
+        rooms: proyecto.rooms,
+        extras: proyecto.extras,
+        compras: proyecto.compras,
+        materiales: proyecto.materiales,
+        tarifas,
+      })
     : null
 
   const seccion = SECCIONES.find((s) => s.id === tab) ?? SECCIONES[0]

@@ -29,6 +29,7 @@ export const SECCIONES = {
   plano: 'Plano',
   servicios: 'Servicios',
   compras: 'Compras',
+  tarifas: 'Tarifas del negocio',
 }
 
 /**
@@ -233,6 +234,56 @@ export function aplicar(estado, ev) {
     case 'equipo.vaciar':
       return toca((p) => ({ ...p, rooms: p.rooms.map((r) => ({ ...r, items: {} })) }))
 
+    /* Un material o insumo (cable, canaleta, tornillería…) no vive en un
+       cuarto como un dispositivo —nadie pregunta "cuántos tornillos hay en
+       la cocina"—, vive en el PROYECTO completo. Mismo patrón de cantidad
+       absoluta que equipo.cantidad, por la misma razón. */
+    case 'materiales.cantidad':
+      return toca((p) => ({
+        ...p,
+        materiales: { ...(p.materiales ?? {}), [ev.datos.materialId]: Math.max(0, ev.datos.qty) },
+      }))
+
+    /* ── tarifas del negocio ─────────────────────────────────────────
+       NO es por proyecto: vive en `estado.tarifas`, un nivel arriba de
+       `estado.proyectos`, así que `toca()` —que solo sabe tocar UN
+       proyecto— no sirve aquí. Es a propósito: el precio real de un foco
+       OREIN o el costo por punto de red no cambian porque el cliente
+       cambió; son del negocio, y corregirlos una vez los corrige para
+       cualquier levantamiento, el de ayer y el de mañana.
+
+       `patch` trae una o más de tres llaves —`productos`, `rates`,
+       `materiales`— y cada una se mezcla por su cuenta: corregir el precio
+       de un foco no toca el precio de otro, ni las tarifas de mano de
+       obra. En `materiales`, un valor `null` borra esa llave —así se quita
+       un material que ya no se usa sin dejar un hueco con datos viejos. */
+    case 'tarifas.editar': {
+      const p = ev.datos.patch ?? {}
+      const t = estado.tarifas ?? {}
+      const siguiente = { ...t }
+
+      if (p.rates) siguiente.rates = { ...t.rates, ...p.rates }
+
+      if (p.productos) {
+        const productos = { ...(t.productos ?? {}) }
+        for (const [id, campos] of Object.entries(p.productos)) {
+          productos[id] = { ...(productos[id] ?? {}), ...campos }
+        }
+        siguiente.productos = productos
+      }
+
+      if (p.materiales) {
+        const materiales = { ...(t.materiales ?? {}) }
+        for (const [id, campos] of Object.entries(p.materiales)) {
+          if (campos === null) delete materiales[id]
+          else materiales[id] = { ...(materiales[id] ?? {}), ...campos }
+        }
+        siguiente.materiales = materiales
+      }
+
+      return { ...estado, tarifas: siguiente }
+    }
+
     /* ── plano 3D ────────────────────────────────────────────────────
        Un solo tipo de evento para todo el plano en vez de uno por cada
        cosa que se puede mover. Es a propósito: colocar un mueble y
@@ -374,6 +425,15 @@ export function resumen(ev, nombreDe = (id) => id) {
       const campo = 'precio' in (d.patch ?? {}) ? 'el precio' : 'url' in (d.patch ?? {}) ? 'la URL de compra' : 'la compra'
       return `Cambió ${campo} de ${nombre}`
     }
+    case 'materiales.cantidad':
+      return `Puso ${d.qty} de ${nombreDe(d.materialId)}`
+    case 'tarifas.editar': {
+      const p = d.patch ?? {}
+      if (p.productos) return `Corrigió ${Object.keys(p.productos).map(nombreDe).join(', ')} para todos los proyectos`
+      if (p.materiales) return `Corrigió tarifas de materiales para todos los proyectos`
+      if (p.rates) return `Corrigió tarifas del negocio para todos los proyectos`
+      return 'Corrigió tarifas del negocio'
+    }
     default:
       return ev.tipo
   }
@@ -391,5 +451,7 @@ export function seccionDe(tipo) {
   if (tipo.startsWith('plano.')) return 'plano'
   if (tipo.startsWith('servicios.')) return 'servicios'
   if (tipo.startsWith('compras.')) return 'compras'
+  if (tipo.startsWith('materiales.')) return 'compras'
+  if (tipo.startsWith('tarifas.')) return 'tarifas'
   return 'proyecto'
 }

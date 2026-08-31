@@ -93,6 +93,10 @@ const ui = leerUI()
 export const useSurvey = create((set, get) => ({
   proyectos: [],
   eventos: [],
+  /* Tarifas del negocio: precio real de un producto, de un material, y
+     tarifas de servicio — se aplican a TODOS los proyectos, no a uno. Vive
+     aparte de `proyectos` porque no es de ninguno en particular. */
+  tarifas: {},
 
   yo: null,
   socios: {},
@@ -120,6 +124,7 @@ export const useSurvey = create((set, get) => ({
         yo: usuario,
         socios,
         proyectos: base.proyectos,
+        tarifas: base.tarifas ?? {},
         eventos: [...eventos, ...sinConfirmar],
         cargado: true,
       }
@@ -127,12 +132,12 @@ export const useSurvey = create((set, get) => ({
 
   _evento: (ev) =>
     set((s) => {
-      const estado = aplicar({ proyectos: s.proyectos }, ev)
+      const estado = aplicar({ proyectos: s.proyectos, tarifas: s.tarifas }, ev)
       if (ev.tipo === 'device.crear') registrarPropios([ev.datos.device])
       // si es el eco de algo nuestro, se sustituye el optimista por el sellado
       const i = s.eventos.findIndex((e) => e.id === ev.id)
       const eventos = i === -1 ? [...s.eventos, ev] : s.eventos.with(i, ev)
-      return { proyectos: estado.proyectos, eventos, enCola: enCola() }
+      return { proyectos: estado.proyectos, tarifas: estado.tarifas, eventos, enCola: enCola() }
     }),
 
   _presencia: (conectados) => set({ conectados }),
@@ -270,6 +275,33 @@ export const useSurvey = create((set, get) => ({
     }
     aplicarYa(set, get, 'compras.editar', p.id, { deviceId, patch: { precio: null, url: null, foto: null, paquetes: null } })
     agrupar(`${p.id}:compras:${deviceId}`, 'compras.editar', p.id, { precio: null, url: null, foto: null, paquetes: null }, { deviceId })
+  },
+
+  /** Precio, URL, foto y paquetes REALES de un producto — para todos los
+   *  proyectos, no solo el que está abierto. `proyectoId` va en null a
+   *  propósito: es una tarifa del negocio, no de un levantamiento; corregir
+   *  el precio del foco OREIN aquí lo corrige para la casa de hoy y la de
+   *  la próxima semana. */
+  editarProductoGlobal: (deviceId, patch) => {
+    aplicarYa(set, get, 'tarifas.editar', null, { patch: { productos: { [deviceId]: patch } } })
+    agrupar(`global:producto:${deviceId}`, 'tarifas.editar', null, { productos: { [deviceId]: patch } })
+  },
+
+  /** El precio por unidad de un material o insumo — cable, canaleta,
+   *  tornillería—. También del negocio: un metro de canaleta cuesta lo
+   *  mismo en cualquier proyecto. */
+  editarMaterialTarifa: (materialId, patch) => {
+    aplicarYa(set, get, 'tarifas.editar', null, { patch: { materiales: { [materialId]: patch } } })
+    agrupar(`global:material:${materialId}`, 'tarifas.editar', null, { materiales: { [materialId]: patch } })
+  },
+
+  /** Cuánto de un material hace falta en ESTE proyecto — a diferencia de su
+   *  precio, la cantidad sí es de cada levantamiento: la casa grande necesita
+   *  más metros de cable que el estudio de un cuarto. */
+  setCantidadMaterial: (materialId, qty) => {
+    const id = get().activoId
+    if (!id) return
+    despachar('materiales.cantidad', id, { materialId, qty: Math.max(0, qty) })
   },
 
   setFolio: (folio) => {
@@ -477,8 +509,8 @@ function despachar(tipo, proyectoId, datos) {
 
 /** Para los campos que se agrupan: se ve el cambio ya, el evento sale luego. */
 function aplicarYa(set, get, tipo, proyectoId, datos) {
-  const estado = aplicar({ proyectos: get().proyectos }, { tipo, proyectoId, datos })
-  set({ proyectos: estado.proyectos })
+  const estado = aplicar({ proyectos: get().proyectos, tarifas: get().tarifas }, { tipo, proyectoId, datos })
+  set({ proyectos: estado.proyectos, tarifas: estado.tarifas })
 }
 
 /* ── selectores ───────────────────────────────────────────────── */
@@ -502,6 +534,10 @@ export function paramsDelHash() {
  * render haría que React se queje del snapshot y vuelva a renderizar en bucle.
  */
 export const useProyecto = () => useSurvey((s) => s.proyectos.find((p) => p.id === s.activoId) ?? null)
+
+/** Las tarifas del negocio: precio real de productos y materiales, y
+ *  tarifas de servicio — las mismas para cualquier proyecto abierto. */
+export const useTarifas = () => useSurvey((s) => s.tarifas)
 
 /** Quién hizo un cambio, listo para pintarse. */
 export const useSocio = (usuario) =>
