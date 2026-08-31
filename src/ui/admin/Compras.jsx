@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useProyecto, useSurvey } from '../../store/survey'
 import { CATEGORIES, DEVICES, DEVICE_BY_ID } from '../../content/catalog'
 import { quote, unitPrice } from '../../content/pricing'
+import { instalacionDelProyecto } from '../../content/instalacion'
 import { planCompra } from '../../content/paquetes'
 import DevicePhoto, { PhotoFrame } from '../catalog/DevicePhoto'
 
@@ -34,7 +35,9 @@ export default function Compras() {
   const [cambiando, setCambiando] = useState(null) // deviceId con el picker de alternativas abierto
   const [editandoFoto, setEditandoFoto] = useState(null) // deviceId con el campo de foto abierto
   const [editandoPaquetes, setEditandoPaquetes] = useState(null) // deviceId con el editor de paquetes abierto
+  const [menuAbierto, setMenuAbierto] = useState(null) // deviceId con el menú de "más acciones" abierto
   const [agregando, setAgregando] = useState(false)
+  const [vista, setVista] = useState('producto') // 'producto' (una lista, junta) | 'espacio' (por cuarto)
 
   if (!proyecto) return null
 
@@ -76,15 +79,29 @@ export default function Compras() {
         es de este proyecto, no del catálogo general, y mueve el total de la cotización.
       </p>
 
-      <div className="mt-6 flex items-baseline justify-between border-b border-line pb-3">
-        <span className="text-[11px] tracking-[0.12em] text-cream-3 uppercase">
-          Productos
-          {filas.length > 0 &&
-            ` · ${filas.length} producto${filas.length === 1 ? '' : 's'} · ${filas.reduce((a, f) => a + f.qty, 0)} piezas`}
-        </span>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+        <div className="flex items-center gap-1 rounded-lg border border-line p-0.5 text-[11.5px]">
+          <button
+            onClick={() => setVista('producto')}
+            className={`rounded-md px-2.5 py-1 transition-colors ${
+              vista === 'producto' ? 'bg-cream/10 text-cream' : 'text-cream-3 hover:text-cream-2'
+            }`}
+          >
+            Por producto
+          </button>
+          <button
+            onClick={() => setVista('espacio')}
+            className={`rounded-md px-2.5 py-1 transition-colors ${
+              vista === 'espacio' ? 'bg-cream/10 text-cream' : 'text-cream-3 hover:text-cream-2'
+            }`}
+          >
+            Por espacio
+          </button>
+        </div>
         <div className="flex items-center gap-3">
           {filas.length > 0 && (
-            <span className="text-[15px] text-cream">
+            <span className="text-[13px] text-cream-2">
+              {filas.length} producto{filas.length === 1 ? '' : 's'} ·{' '}
               <strong className="text-ember">${Math.round(totalGeneral).toLocaleString('es-MX')}</strong> equipo
             </span>
           )}
@@ -107,6 +124,8 @@ export default function Compras() {
 
       {filas.length === 0 ? (
         <p className="mt-10 text-center text-[13px] text-cream-3">Todavía no hay equipo levantado en ningún espacio.</p>
+      ) : vista === 'espacio' ? (
+        <PorEspacio proyecto={proyecto} overrides={overrides} q={q} />
       ) : (
         <>
           <div className="mt-4 space-y-2.5">
@@ -125,9 +144,33 @@ export default function Compras() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
                       <p className="truncate text-[14px] text-cream">{f.dev.name}</p>
-                      <span className="text-[11.5px] tabular-nums text-cream-3">
-                        {f.qty} pieza{f.qty === 1 ? '' : 's'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11.5px] tabular-nums text-cream-3">
+                          {f.qty} pieza{f.qty === 1 ? '' : 's'}
+                        </span>
+                        <MenuAcciones
+                          abierto={menuAbierto === f.id}
+                          onAbrir={() => setMenuAbierto(f.id)}
+                          onCerrar={() => setMenuAbierto(null)}
+                          opciones={[
+                            alternativas.length > 0 && {
+                              label: 'Cambiar por otra opción',
+                              onClick: () => setCambiando(f.id),
+                            },
+                            { label: over.foto ? 'Cambiar foto' : 'Poner foto real', onClick: () => setEditandoFoto(f.id) },
+                            {
+                              label: over.paquetes?.length ? 'Editar paquetes' : 'Se vende en paquetes',
+                              onClick: () => setEditandoPaquetes(f.id),
+                            },
+                            {
+                              label: 'Quitar de compras',
+                              peligro: true,
+                              onClick: () =>
+                                confirm(`¿Quitar "${f.dev.name}" de la lista de compras?`) && eliminarCompra(f.id),
+                            },
+                          ].filter(Boolean)}
+                        />
+                      </div>
                     </div>
                     <p className="text-[11.5px] text-cream-3">
                       {f.dev.brand} · {cat?.label ?? f.dev.cat}
@@ -177,35 +220,6 @@ export default function Compras() {
                       )}
                     </div>
 
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px]">
-                      {alternativas.length > 0 && (
-                        <button
-                          onClick={() => setCambiando(cambiando === f.id ? null : f.id)}
-                          className="text-cream-3 underline decoration-dotted underline-offset-2 hover:text-ember"
-                        >
-                          cambiar por otra opción
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setEditandoFoto(editandoFoto === f.id ? null : f.id)}
-                        className="text-cream-3 underline decoration-dotted underline-offset-2 hover:text-ember"
-                      >
-                        {over.foto ? 'cambiar foto' : 'poner foto real'}
-                      </button>
-                      <button
-                        onClick={() => setEditandoPaquetes(editandoPaquetes === f.id ? null : f.id)}
-                        className="text-cream-3 underline decoration-dotted underline-offset-2 hover:text-ember"
-                      >
-                        {over.paquetes?.length ? 'editar paquetes' : 'se vende en paquetes'}
-                      </button>
-                      <button
-                        onClick={() => confirm(`¿Quitar "${f.dev.name}" de la lista de compras?`) && eliminarCompra(f.id)}
-                        className="text-cream-3/70 underline decoration-dotted underline-offset-2 hover:text-red-400"
-                      >
-                        quitar
-                      </button>
-                    </div>
-
                     {cambiando === f.id && (
                       <select
                         autoFocus
@@ -247,6 +261,7 @@ export default function Compras() {
                       <EditorPaquetes
                         paquetes={over.paquetes ?? []}
                         onCambiar={(paquetes) => editarCompra(f.id, { paquetes: paquetes.length ? paquetes : null })}
+                        onCerrar={() => setEditandoPaquetes(null)}
                       />
                     )}
 
@@ -289,6 +304,14 @@ export default function Compras() {
           <div key={linea.id} className="rounded-xl border border-line bg-ink p-3">
             <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
               <p className="text-[13px] text-cream">{linea.concepto}</p>
+              {!linea.editado && (
+                <span
+                  title="Calculado con la fórmula estándar del negocio, no capturado a mano para este proyecto. Corrígelo si no aplica."
+                  className="rounded-full border border-line px-2 py-0.5 text-[10px] tracking-wide text-cream-3 uppercase"
+                >
+                  estimado
+                </span>
+              )}
             </div>
             <p className="mt-0.5 text-[10.5px] text-cream-3/80">{linea.detalle}</p>
 
@@ -320,11 +343,124 @@ export default function Compras() {
   )
 }
 
+/** Lo mismo que la lista de arriba, pero acomodado por cuarto en vez de
+ *  junto: cuánto cuesta CADA espacio, equipo más instalación. Es la
+ *  pregunta que se hace al presupuestar por partes o al explicarle al
+ *  cliente por qué la cocina sale más cara que la recámara.
+ *
+ *  La instalación de cada cuarto sale de la misma fórmula que ya usa la
+ *  cotización (`instalacionDelProyecto`), pero escalada para que la suma
+ *  de los cuartos dé EXACTO lo que de verdad se está cobrando —el de la
+ *  fila "Instalación" de Servicios, que puede traer un costo corregido a
+ *  mano o el mínimo de proyecto aplicado—. Sin ese ajuste, los espacios
+ *  sumarían un número y la cotización real otro. */
+function PorEspacio({ proyecto, overrides, q }) {
+  const formula = instalacionDelProyecto(proyecto.rooms ?? [])
+  const lineaInstalacion = q.servicios.find((l) => l.id === 'instalacion')
+  const factor = formula.suma > 0 ? (lineaInstalacion?.importe ?? formula.total) / formula.suma : 0
+
+  const espacios = (proyecto.rooms ?? [])
+    .map((room) => {
+      const productos = Object.entries(room.items ?? {})
+        .filter(([, qty]) => qty > 0)
+        .map(([id, qty]) => {
+          const dev = DEVICE_BY_ID[id]
+          if (!dev) return null
+          const precio = overrides[id]?.precio ?? unitPrice(dev)
+          return { id, dev, qty, importe: precio * qty }
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.importe - a.importe)
+      const subtotalProductos = productos.reduce((a, p) => a + p.importe, 0)
+      const costoInstalacion = (formula.porEspacio.find((x) => x.room.id === room.id)?.total ?? 0) * factor
+      return { room, productos, subtotalProductos, costoInstalacion, total: subtotalProductos + costoInstalacion }
+    })
+    .filter((e) => e.productos.length > 0)
+
+  if (espacios.length === 0) {
+    return <p className="mt-10 text-center text-[13px] text-cream-3">Todavía no hay equipo levantado en ningún espacio.</p>
+  }
+
+  return (
+    <div className="mt-4 space-y-2.5 pb-4">
+      {espacios.map((e) => (
+        <div key={e.room.id} className="rounded-xl border border-line bg-ink p-3">
+          <div className="flex items-baseline justify-between">
+            <p className="text-[13.5px] text-cream">{e.room.nombre}</p>
+            <p className="text-[13.5px] text-cream">
+              <strong className="text-ember">${Math.round(e.total).toLocaleString('es-MX')}</strong>
+            </p>
+          </div>
+          <div className="mt-2 space-y-1 text-[11.5px]">
+            {e.productos.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-2 text-cream-2">
+                <span className="truncate">
+                  {p.dev.name} ×{p.qty}
+                </span>
+                <span className="flex-none tabular-nums text-cream-3">
+                  ${Math.round(p.importe).toLocaleString('es-MX')}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between gap-2 border-t border-line/60 pt-1 text-cream-3">
+              <span>Instalación de este espacio</span>
+              <span className="tabular-nums">${Math.round(e.costoInstalacion).toLocaleString('es-MX')}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+      <p className="pt-1 text-[10.5px] text-cream-3/80">
+        La instalación de cada espacio es una proporción del costo real de "Instalación" en Servicios, más abajo —
+        corrígelo ahí si no es el correcto, no aquí.
+      </p>
+    </div>
+  )
+}
+
+/** El botón "⋯" de cada producto: agrupa lo que antes eran cuatro links
+ *  sueltos —cambiar de alternativa, foto, paquetes, quitar— en un solo
+ *  menú, para que la tarjeta no se vea como una lista de vínculos azules. */
+function MenuAcciones({ abierto, onAbrir, onCerrar, opciones }) {
+  return (
+    <div className="relative">
+      <button
+        onClick={() => (abierto ? onCerrar() : onAbrir())}
+        aria-label="Más acciones"
+        className={`rounded-md px-1.5 py-0.5 text-[13px] leading-none transition-colors ${
+          abierto ? 'bg-cream/10 text-cream' : 'text-cream-3 hover:bg-cream/8 hover:text-cream-2'
+        }`}
+      >
+        ⋯
+      </button>
+      {abierto && (
+        <>
+          {/* capa invisible para cerrar el menú al hacer click afuera */}
+          <div className="fixed inset-0 z-10" onClick={onCerrar} />
+          <div className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-lg border border-line bg-ink-2 py-1 text-[11.5px] shadow-lg">
+            {opciones.map((o) => (
+              <button
+                key={o.label}
+                onClick={() => {
+                  o.onClick()
+                  onCerrar()
+                }}
+                className={`block w-full px-3 py-1.5 text-left hover:bg-cream/8 ${o.peligro ? 'text-red-400' : 'text-cream-2'}`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 /** Los tamaños de paquete en los que se vende esto, cada uno con su precio.
  *  Amazon casi nunca vende un aparato de smart home suelto y a granel: viene
  *  en 2, 4, 6 — y el precio por pieza cambia entre paquetes. Sin esto no hay
  *  con qué calcular `planCompra`. */
-function EditorPaquetes({ paquetes, onCambiar }) {
+function EditorPaquetes({ paquetes, onCambiar, onCerrar }) {
   const set = (i, campo, valor) => {
     const copia = paquetes.map((p, j) => (j === i ? { ...p, [campo]: valor } : p))
     onCambiar(copia)
@@ -334,7 +470,12 @@ function EditorPaquetes({ paquetes, onCambiar }) {
 
   return (
     <div className="mt-1.5 rounded-lg border border-line bg-ink-2 p-2">
-      <p className="text-[10px] text-cream-3">Tamaño de paquete y precio, tal como se vende</p>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-cream-3">Tamaño de paquete y precio, tal como se vende</p>
+        <button onClick={onCerrar} className="text-[10.5px] text-cream-3 hover:text-cream">
+          cerrar
+        </button>
+      </div>
       <div className="mt-1.5 space-y-1">
         {paquetes.map((p, i) => (
           <div key={i} className="flex items-center gap-1.5 text-[11.5px]">

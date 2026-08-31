@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { brand } from '../../content/site'
-import { USING_DEMO_RATES, quote } from '../../content/pricing'
+import { quote } from '../../content/pricing'
 import { paramsDelHash, useProyecto, useSurvey } from '../../store/survey'
 import Logo from '../Logo'
 import Catalog from './Catalog'
@@ -255,15 +255,6 @@ export default function Admin({ section = 'proyectos' }) {
       </header>
 
       <main className="mx-auto max-w-[1600px] px-5 py-6">
-        {USING_DEMO_RATES && (
-          <p className="mb-4 rounded-lg border border-ember/30 bg-ember/8 px-3 py-2 text-[12px] text-cream-2">
-            <strong className="text-ember">Tarifas de demostración.</strong> Los costos de mano de obra y
-            servicios son inventados y están en el repositorio público. Para trabajar con los reales:{' '}
-            <code className="text-cream">cp src/content/rates.local.example.js src/content/rates.local.js</code>{' '}
-            — ese archivo no se versiona.
-          </p>
-        )}
-
         {conexion === 'sin-sesion' || conexion === 'sin-servidor' ? (
           <SinConexion conexion={conexion} />
         ) : !cargado ? (
