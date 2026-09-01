@@ -624,6 +624,7 @@ function huellasDePiso(items) {
       const c = Math.abs(Math.cos(it.rot ?? 0))
       const s = Math.abs(Math.sin(it.rot ?? 0))
       return {
+        id: it.id,
         x: it.x,
         z: it.z,
         hw: ((def.w ?? 0.4) * c + (def.d ?? 0.4) * s) / 2,
@@ -631,6 +632,62 @@ function huellasDePiso(items) {
       }
     })
     .filter(Boolean)
+}
+
+/**
+ * ¿Cabe esta pieza EN (x, z) sin encimarse con otra?
+ *
+ * La misma huella de canto a canto que ya usa `haySolape` para el cuarto que
+ * encoge, pero para una sola pieza contra el resto —al arrastrarla con el
+ * gizmo, con el arrastre rápido, o al soltarla nueva desde el catálogo—.
+ * Sólo compite lo que de verdad tiene huella propia en el piso: lo que
+ * cuelga de un muro no estorba a nadie ahí abajo, y lo que ya está encima de
+ * otro mueble no compite por el mismo piso que su anfitrión.
+ */
+export function cabeSinSolape(item, items, x, z) {
+  if (item.clase !== 'mueble' || item.ancla?.a === 'mueble') return true
+  const def = MUEBLES[item.tipo]
+  if (!def || MUEBLES_DE_MURO.has(item.tipo)) return true
+  const c = Math.abs(Math.cos(item.rot ?? 0))
+  const s = Math.abs(Math.sin(item.rot ?? 0))
+  const hw = ((def.w ?? 0.4) * c + (def.d ?? 0.4) * s) / 2
+  const hd = ((def.w ?? 0.4) * s + (def.d ?? 0.4) * c) / 2
+  for (const otro of huellasDePiso(items)) {
+    if (otro.id === item.id) continue
+    const solapaX = hw + otro.hw - Math.abs(otro.x - x)
+    const solapaZ = hd + otro.hd - Math.abs(otro.z - z)
+    if (solapaX > 0.001 && solapaZ > 0.001) return false
+  }
+  return true
+}
+
+/**
+ * El punto más cercano a (x, z) donde esta pieza cabe sin encimarse.
+ *
+ * Para cuando se SUELTA una pieza nueva —no para arrastrar una que ya
+ * existe, ahí basta con quedarse quieto—: si de plano se soltó encima de
+ * otra, es mejor dejarla justo al lado de donde se apuntó que rechazar el
+ * clic en silencio, que se siente como que la herramienta no respondió.
+ * Prueba en espiral, de más cerca a más lejos; si nada libre aparece en
+ * dos metros —un cuarto ya saturado—, se rinde y regresa el punto pedido:
+ * mejor una pieza encimada, visible y corregible a mano, que una que
+ * desapareció sin explicación.
+ */
+export function lugarLibre(item, items, plano, x, z) {
+  if (cabeSinSolape(item, items, x, z)) return { x, z }
+  const hx = (plano?.ancho ?? 4) / 2 - 0.1
+  const hz = (plano?.largo ?? 4) / 2 - 0.1
+  const paso = 0.12
+  for (let radio = paso; radio <= 2; radio += paso) {
+    const vueltas = Math.max(8, Math.round((2 * Math.PI * radio) / paso))
+    for (let i = 0; i < vueltas; i++) {
+      const ang = (i / vueltas) * Math.PI * 2
+      const cx = Math.max(-hx, Math.min(hx, x + Math.cos(ang) * radio))
+      const cz = Math.max(-hz, Math.min(hz, z + Math.sin(ang) * radio))
+      if (cabeSinSolape(item, items, cx, cz)) return { x: cx, z: cz }
+    }
+  }
+  return { x, z }
 }
 
 /** ¿Ya se encima algún par de muebles en el piso de este plano? */

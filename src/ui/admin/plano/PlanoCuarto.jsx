@@ -17,6 +17,7 @@ import {
   DEL_TECHO,
   GIRO_MURO,
   limitarPorSolape,
+  lugarLibre,
   murosCerca,
   resolverAnclas,
   sonContiguos,
@@ -728,10 +729,16 @@ export default function PlanoCuarto({ room, onCerrar }) {
     }
 
     if (colocando.clase === 'mueble') {
-      item =
-        superficie === 'muro'
-          ? enMuro({ clase: 'mueble', tipo: colocando.tipo })
-          : { id, x: punto.x, y: 0, z: punto.z, rot: 0, clase: 'mueble', tipo: colocando.tipo }
+      if (superficie === 'muro') {
+        item = enMuro({ clase: 'mueble', tipo: colocando.tipo })
+      } else {
+        const base = { id, x: punto.x, y: 0, z: punto.z, rot: 0, clase: 'mueble', tipo: colocando.tipo }
+        /* Nada nace encimado con otra pieza: si el punto exacto ya está
+           ocupado, se busca el hueco libre más cercano en vez de dejarla
+           ahí adentro o de que el clic no haga nada. */
+        const libre = lugarLibre(base, plano.items, plano, base.x, base.z)
+        item = { ...base, x: libre.x, z: libre.z }
+      }
       que = `Colocó ${MUEBLES[colocando.tipo]?.label?.toLowerCase() ?? 'un mueble'}`
     } else if (colocando.clase === 'equipo') {
       const dev = DEVICE_BY_ID[colocando.deviceId]
