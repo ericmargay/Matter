@@ -1087,3 +1087,68 @@ export function LamparaBuro({ position, rotation }) {
     </group>
   )
 }
+
+/* ── ventana ───────────────────────────────────────────────────── */
+
+/**
+ * La ventana, en sus tres versiones —justo como existen de verdad—.
+ *
+ * `vidrio` decide qué va DENTRO del marco, que es siempre el mismo:
+ *
+ *   'simple'   un solo cristal fijo, de muro a muro del hueco.
+ *   'hueca'    nada. Un vano con marco y sin cristal — la que está
+ *              esperando su vidrio, o la que de plano no lo necesita.
+ *   'abatible' dos hojas con bisagra en cada lado, que abren hacia
+ *              afuera con `angulo` —en grados, 0 cerrada—. Un parteluz al
+ *              centro es lo que sostiene la bisagra de cada una: sin él
+ *              las dos hojas girarían sobre el aire.
+ *
+ * El marco no cambia entre las tres: es la misma diferencia que hay en una
+ * ventana real entre "pedir el vano" y "pedir cómo se resuelve el cristal".
+ */
+export function Ventana({ position, rotation, w = 1.4, h = 1.5, vidrio = 'simple', angulo = 0 }) {
+  const marco = (
+    <>
+      <B p={[0, h / 2, 0]} s={[w + 0.1, 0.07, 0.12]} m={M.woodDark} shadow={false} />
+      <B p={[0, -h / 2, 0]} s={[w + 0.1, 0.07, 0.12]} m={M.woodDark} shadow={false} />
+      {[-1, 1].map((s) => (
+        <B key={s} p={[(s * w) / 2, 0, 0]} s={[0.07, h, 0.12]} m={M.woodDark} shadow={false} />
+      ))}
+    </>
+  )
+
+  if (vidrio === 'hueca') {
+    return (
+      <group position={position} rotation={rotation}>
+        {marco}
+      </group>
+    )
+  }
+
+  if (vidrio === 'abatible') {
+    // grados a radianes, y sin pasar de 90°: una hoja no gira más que eso
+    const rad = (Math.min(90, Math.max(0, angulo)) * Math.PI) / 180
+    const hojaW = w / 2 - 0.05
+    return (
+      <group position={position} rotation={rotation}>
+        {marco}
+        {/* parteluz: sostiene la bisagra de cada hoja */}
+        <B p={[0, 0, 0]} s={[0.06, h, 0.1]} m={M.woodDark} shadow={false} />
+        {[-1, 1].map((s) => (
+          <group key={s} position={[(s * w) / 2 - s * 0.035, 0, 0]} rotation={[0, -s * rad, 0]}>
+            <B p={[(s * hojaW) / 2, h / 2 - 0.035, 0]} s={[hojaW, 0.05, 0.1]} m={M.woodDark} shadow={false} />
+            <B p={[(s * hojaW) / 2, -h / 2 + 0.035, 0]} s={[hojaW, 0.05, 0.1]} m={M.woodDark} shadow={false} />
+            <B p={[(s * hojaW) / 2, 0, 0]} s={[hojaW - 0.06, h - 0.14, 0.05]} m={M.glass} shadow={false} />
+          </group>
+        ))}
+      </group>
+    )
+  }
+
+  return (
+    <group position={position} rotation={rotation}>
+      {marco}
+      <B p={[0, 0, 0]} s={[w, h, 0.06]} m={M.glass} shadow={false} />
+    </group>
+  )
+}

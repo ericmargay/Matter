@@ -1023,7 +1023,7 @@ export const MUEBLES = {
     props: {},
   },
   piezaPropia: { label: 'Pieza propia', Comp: null, w: 0.4, d: 0.4, alto: 0.4, props: {}, propia: true },
-  ventana: { ...(A('Ventana', P.WindowUnit, 1.4, 0.1, 1.5)), variantes: [
+  ventana: { ...(A('Ventana', X.Ventana, 1.4, 0.1, 1.5, { angulo: 0 })), variantes: [
     V('v080', '0.80 × 1.20', 'De baño o de cocina. Alta y chica.', { w: 0.8, h: 1.2, alto: 1.2 }),
     V('v120', '1.20 × 1.40', 'La de recámara de siempre.', { w: 1.2, h: 1.4, alto: 1.4 }),
     V('v150', '1.50 × 1.50', 'Cuadrada. La más común de sala.', { w: 1.5, h: 1.5, alto: 1.5 }),
@@ -1034,6 +1034,8 @@ export const MUEBLES = {
     V('pisoTecho', 'De piso a techo', '1.20 × 2.30. Cortina de 2.60 y motor de riel largo.', { w: 1.2, h: 2.3, alto: 2.3 }),
     V('dobleAltura', 'Doble altura', '1.80 × 3.20. Motorizada por fuerza: no se alcanza a mano.', { w: 1.8, h: 3.2, alto: 3.2 }),
     V('esquina', 'De esquina', '2.00 × 1.50 doblando el muro. Dos rieles independientes.', { w: 2.0, h: 1.5, alto: 1.5 }),
+    V('hueca', 'Hueca · sin cristal', 'Solo el marco y el vano. La que está esperando su vidrio.', { w: 1.2, h: 1.4, alto: 1.4, vidrio: 'hueca' }),
+    V('abatible', 'Abatible · dos hojas', 'Dos cristales con bisagra que abren en ángulo, como una ventana de verdad.', { w: 1.2, h: 1.4, alto: 1.4, vidrio: 'abatible', angulo: 45 }),
   ] },
   persiana: { ...(A('Persiana', P.Blinds, 1.4, 0.1, 1.5)), variantes: [
     V('p140', '1.40 × 1.50', 'La de una ventana estándar.', { w: 1.4, alto: 1.5, d: 0.1 }),
