@@ -2014,13 +2014,37 @@ function magnetizar(rad) {
  * pero lo que SÍ tiene un `ancla` se recorta de vuelta a esa superficie
  * antes de guardarse, así que nunca se ve flotando donde no va.
  */
+/* Los límites del cuarto son los muros: nada se arrastra hasta quedar del
+   otro lado de una pared, sin importar a qué esté pegada la pieza —o a
+   nada—. Antes esto solo se aplicaba a lo pegado a un muro o al plafón; lo
+   suelto en el piso, o sin ancla siquiera, se podía arrastrar hasta afuera
+   del cuarto sin que nada lo detuviera. */
+function dentroDelCuarto(plano, x, y, z) {
+  const hx = (plano.ancho ?? 4) / 2
+  const hz = (plano.largo ?? 4) / 2
+  return {
+    x: Math.max(-hx + 0.1, Math.min(hx - 0.1, x)),
+    y: Math.max(0, Math.min((plano.alto ?? 2.6) - 0.05, y)),
+    z: Math.max(-hz + 0.1, Math.min(hz - 0.1, z)),
+  }
+}
+
 function restringirASuperficie(item, items, plano, x, y, z) {
   const a = item.ancla
-  if (!a) return { x, y, z }
+  if (!a) return dentroDelCuarto(plano, x, y, z)
 
   if (a.a === 'mueble') {
     const host = items.find((i) => i.id === a.id)
     if (!host) return { x, y, z }
+    /* A un costado, no encima: el banco junto al tocador se arrastra por el
+       piso alrededor de él, no recortado dentro de su tapa. Ahí no aplica
+       el recorte a la huella del anfitrión —eso es justo lo que ENCIMA sí
+       necesita—, solo se le pega su misma altura de piso y el límite pasa a
+       ser el cuarto, como cualquier otra pieza suelta. */
+    if (a.piso) {
+      const libre = dentroDelCuarto(plano, x, y, z)
+      return { ...libre, y: host.y ?? 0 }
+    }
     const def = MUEBLES[host.tipo]
     const variante = def?.variantes?.find((v) => v.id === host.variante)
     const w = variante?.props?.w ?? def?.w ?? 0.4
@@ -2060,7 +2084,9 @@ function restringirASuperficie(item, items, plano, x, y, z) {
     }
   }
 
-  return { x, y, z }
+  // 'piso', o cualquier otra cosa: sigue siendo el cuarto quien pone el
+  // límite, aunque la pieza no esté pegada a nada en particular.
+  return dentroDelCuarto(plano, x, y, z)
 }
 
 function Gizmo({ item, items, plano, modo, onParchar, onFin, tamano = 1 }) {

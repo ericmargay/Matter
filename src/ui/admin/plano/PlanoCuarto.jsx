@@ -14,6 +14,7 @@ import {
   anclaEnEsquina,
   anclaEnMuro,
   comoSeLlama,
+  DEL_TECHO,
   GIRO_MURO,
   limitarPorSolape,
   murosCerca,
@@ -410,29 +411,46 @@ export default function PlanoCuarto({ room, onCerrar }) {
      puso a mano donde quería. */
   const anclado = useRef(null)
   useEffect(() => {
-    if (!plano?.items?.length || anclado.current === room.id) return
-    anclado.current = room.id
-    let tocados = 0
-    const items = plano.items.map((it) => {
-      if (it.ancla || it.suelta) return it
-      const ancla = anclaAuto(it, plano, plano.items)
-      if (!ancla) return it
-      tocados += 1
-      return { ...it, ancla }
-    })
-    if (tocados) {
-      guardar({ items }, `Pegó ${tocados} ${tocados === 1 ? 'pieza' : 'piezas'} a su muro o su mueble`)
-      return
+    if (!plano?.items?.length) return
+
+    /* Adivinar el vínculo de lo que nunca lo tuvo: una sola vez por cuarto,
+       y de verdad una sola vez —adivinar de más movería a mano lo que
+       alguien despegó a propósito—. Esta parte SÍ necesita el candado. */
+    if (anclado.current !== room.id) {
+      anclado.current = room.id
+      let tocados = 0
+      const items = plano.items.map((it) => {
+        if (it.ancla || it.suelta) return it
+        const ancla = anclaAuto(it, plano, plano.items)
+        if (!ancla) return it
+        tocados += 1
+        return { ...it, ancla }
+      })
+      if (tocados) {
+        guardar({ items }, `Pegó ${tocados} ${tocados === 1 ? 'pieza' : 'piezas'} a su muro o su mueble`)
+        return
+      }
     }
 
     /* Y aunque no haya nada que pegar, se vuelve a resolver una vez con las
        alturas ya MEDIDAS de la geometría. Al abrir, la primera resolución usa
        el número del catálogo porque los muebles todavía no se han dibujado; un
        instante después ya se sabe dónde quedó cada tapa, y es entonces cuando
-       lo que va encima se sienta de verdad. */
+       lo que va encima se sienta de verdad.
+
+       Esta parte NO comparte el candado de arriba: React monta, desmonta y
+       vuelve a montar cada efecto una vez de más en desarrollo (StrictMode),
+       justo para cazar bugs como el que había aquí —el primer montaje
+       cancelaba este temporizador en su limpieza antes de que tiqueara, y
+       con el candado ya puesto arriba, el segundo montaje nunca llegaba a
+       programar uno nuevo: "asentar lo que va encima" no corría jamás en
+       desarrollo—. resolverAnclas es idempotente, así que reintentarlo no
+       tiene costo real: si ya no hay nada que mover, `cambioAlgo` sale en
+       falso y no se guarda nada. */
     const t = setTimeout(() => {
       const puestos = resolverAnclas(plano)
-      if (puestos !== plano.items) {
+      const cambioAlgo = puestos.some((it, i) => it !== plano.items[i])
+      if (cambioAlgo) {
         guardar({ items: puestos }, 'Asentó lo que va sobre un mueble')
       }
     }, 600)
@@ -593,7 +611,7 @@ export default function PlanoCuarto({ room, onCerrar }) {
     if (muroActual && sonContiguos(muroActual, muroId)) {
       const ancla = anclaEnEsquina(item, plano, muroActual, muroId, item.ancla.sep, 0.02)
       if (ancla) {
-        parchar(item.id, { ancla, suelta: undefined }, 'Esquinó una pieza entre dos muros')
+        parchar(item.id, { ancla: { ...ancla, esquina: muroId }, suelta: undefined }, 'Esquinó una pieza entre dos muros')
         return
       }
     }
@@ -674,8 +692,20 @@ export default function PlanoCuarto({ room, onCerrar }) {
    * (`anclaEnMuro`), así que da igual si se picó a la altura de un
    * interruptor o de una ventana: queda pegada donde se picó.
    */
-  const colocar = (punto) => {
-    if (!colocando || !punto) return
+  const colocar = (puntoCrudo) => {
+    if (!colocando || !puntoCrudo) return
+    /* El piso que recoge el clic es más grande que el cuarto —hace también
+       de mesa de trabajo para medir y arrastrar—, así que un clic cerca del
+       borde puede caer fuera de las cuatro paredes. Los límites del cuarto
+       son los muros: se recorta ANTES de decidir nada, para que ninguna
+       pieza nazca ya del otro lado de una pared. */
+    const hx = (plano.ancho ?? 4) / 2
+    const hz = (plano.largo ?? 4) / 2
+    const punto = {
+      ...puntoCrudo,
+      x: Math.max(-hx + 0.1, Math.min(hx - 0.1, puntoCrudo.x)),
+      z: Math.max(-hz + 0.1, Math.min(hz - 0.1, puntoCrudo.z)),
+    }
     const id = uid('i')
     const permitidas = superficiesDe(colocando)
     const superficie = permitidas.includes(punto.superficie) ? punto.superficie : permitidas[0]
@@ -2170,7 +2200,7 @@ const Amarre = ({ activo, onClick, children }) => (
 
 function Vinculo({ item, items, plano, onParchar, onSeleccionar }) {
   const a = item.ancla
-  const nombre = comoSeLlama(a, items)
+  const nombre = comoSeLlama(a, items, item)
   const suelta = !!item.suelta
 
   return (
@@ -2199,14 +2229,54 @@ function Vinculo({ item, items, plano, onParchar, onSeleccionar }) {
             .map((m) => (
               <Amarre
                 key={m.muro}
-                activo={a?.a === 'muro' && a.muro === m.muro}
-                onClick={() => onParchar(item.id, { ancla: anclaEnMuro(item, plano, m.muro) })}
+                activo={a?.a === 'muro' && (a.muro === m.muro || a.esquina === m.muro)}
+                onClick={() => {
+                  /* Elegir a mano un muro no es solo ponerle nombre a la
+                     relación: la pieza tiene que QUEDAR ahí. Antes esto
+                     recalculaba el ancla a partir de la posición actual —que
+                     podía estar del otro lado del cuarto— y el resultado era
+                     una etiqueta nueva sin que la pieza se moviera un
+                     milímetro. Con guardar() ya reafirmando el ancla solo
+                     cuando el PARCHE mueve algo (ver PlanoCuarto guardar()),
+                     aquí basta con dar el ancla correcta: resolverAnclas
+                     hace el resto y la lleva al muro. */
+                  const yaEnMuro = a?.a === 'muro'
+                  const contiguo = yaEnMuro && a.muro !== m.muro && sonContiguos(a.muro, m.muro)
+                  if (contiguo) {
+                    const esquinada = anclaEnEsquina(item, plano, a.muro, m.muro, a.sep ?? 0.02, 0.02)
+                    if (esquinada) {
+                      onParchar(item.id, {
+                        ancla: { ...esquinada, esquina: m.muro },
+                        suelta: undefined,
+                      })
+                      return
+                    }
+                  }
+                  const sep = yaEnMuro ? (a.sep ?? 0.02) : 0.02
+                  onParchar(item.id, {
+                    ancla: { ...anclaEnMuro(item, plano, m.muro), sep },
+                    suelta: undefined,
+                  })
+                }}
               >
                 {m.label} · {Math.round(m.dist * 100)} cm
               </Amarre>
             ))}
           <Amarre
-            activo={a?.a === 'piso'}
+            /* Un mueble de piso pegado a un muro sigue en el piso —las dos
+               relaciones se cargan juntas, ver resolverAnclas—, así que
+               esta pastilla se enciende en los dos casos: es informativa.
+               Picarle igual desvincula el muro y la deja solo en el piso,
+               que es una elección distinta a "está en el piso de todos
+               modos". */
+            activo={
+              a?.a === 'piso' ||
+              (a?.a === 'muro' &&
+                a.y == null &&
+                item.clase === 'mueble' &&
+                !MUEBLES_DE_MURO.has(item.tipo) &&
+                !DEL_TECHO.has(item.tipo))
+            }
             onClick={() => onParchar(item.id, { ancla: { a: 'piso' }, y: 0 })}
           >
             el piso
