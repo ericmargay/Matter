@@ -441,6 +441,20 @@ export function ponerEnMuro(item, plano) {
 export function agrandarSiNoCabe(plano) {
   let ancho = plano.ancho ?? 4
   let largo = plano.largo ?? 4
+  const porId = new Map((plano.items ?? []).map((i) => [i.id, i]))
+  /* El muro del que de verdad cuelga una pieza, aunque sea de segunda mano:
+     lo mismo si está anclada AL muro que si está encima de un mueble que a
+     su vez está anclado al muro —un monitor sobre un escritorio arrimado a
+     la pared hereda el muro del escritorio—. Solo un nivel, como en
+     resolverAnclas: nadie apila un mueble sobre otro sobre otro. */
+  const muroDeVerdad = (it) => {
+    if (it.ancla?.a === 'muro') return MUROS[it.ancla.muro]
+    if (it.ancla?.a === 'mueble') {
+      const host = porId.get(it.ancla.id)
+      if (host?.ancla?.a === 'muro') return MUROS[host.ancla.muro]
+    }
+    return null
+  }
   for (const it of plano.items ?? []) {
     if (it.clase !== 'mueble') continue
     const def = MUEBLES[it.tipo]
@@ -449,8 +463,23 @@ export function agrandarSiNoCabe(plano) {
     const s = Math.abs(Math.sin(it.rot ?? 0))
     const ew = ((def.w ?? 0.4) * c + (def.d ?? 0.4) * s) / 2
     const ed = ((def.w ?? 0.4) * s + (def.d ?? 0.4) * c) / 2
-    ancho = Math.max(ancho, (Math.abs(it.x) + ew) * 2 + 0.06)
-    largo = Math.max(largo, (Math.abs(it.z) + ed) * 2 + 0.06)
+    /* Si la pieza está pegada a un muro —directo, o de segunda mano por estar
+       encima de algo que sí lo está— su x o su z —el eje perpendicular a ESE
+       muro— no es un lugar libre: sale de restarle su separación a la mitad
+       del cuarto (fijo = hx·signo − signo·sep), así que crece solo cuando el
+       cuarto ya creció. Medir "le falta espacio" en ese eje con su huella de
+       canto a canto es contarla dos veces, y en cuanto el fondo de la pieza
+       es mayor que su separación al muro, cada acomodo la vuelve a alejar
+       del centro y el cuarto no deja de crecer solo —esto se vio de verdad
+       con un monitor sobre un escritorio arrimado al muro, que iba estirando
+       el cuarto en cada arrastre de una ventana en el otro extremo, sin que
+       nadie tocara ni el escritorio ni el monitor.
+       El eje A LO LARGO del muro sigue contando: es la regla real de obra —un
+       clóset de 1.80 contra la pared pide una pared de por lo menos 1.80—, y
+       ese eje sí es un lugar libre aunque la pieza esté pegada al muro. */
+    const muro = muroDeVerdad(it)
+    if (muro?.eje !== 'x') ancho = Math.max(ancho, (Math.abs(it.x) + ew) * 2 + 0.06)
+    if (muro?.eje !== 'z') largo = Math.max(largo, (Math.abs(it.z) + ed) * 2 + 0.06)
   }
   const redondo = (n) => Math.round(n * 100) / 100
   return { ancho: redondo(ancho), largo: redondo(largo) }
