@@ -33,6 +33,8 @@ const NOMBRES = {
   talla: ['Talla', '×'],
   niveles: ['Entrepaños', ''],
   hojas: ['Hojas', ''],
+  angulo: ['Ángulo de apertura', '°'],
+  vidrio: ['Cristal', ''],
   quemadores: ['Quemadores', ''],
   racimo: ['Piezas del racimo', ''],
   v: ['Forma', ''],
