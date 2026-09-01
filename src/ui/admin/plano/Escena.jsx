@@ -8,7 +8,7 @@ import * as THREE from 'three'
 import { DEVICE_BY_ID } from '../../../content/catalog'
 
 import { ID_MUROS, MUEBLES } from './catalogo'
-import { GROSOR_MURO, piezaSeVe } from './muros'
+import { GROSOR_MURO, MUEBLES_DE_MURO, piezaSeVe } from './muros'
 import { altoDe, MUROS as MUROS_ANCLA } from './anclas'
 import Animar from './animacion.jsx'
 import PiezaPropia from './PiezaPropia'
@@ -1117,9 +1117,25 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = t
         <planeGeometry args={[w, d]} />
         <meshBasicMaterial color="#ff9a4d" transparent opacity={0.25} depthWrite={false} />
       </mesh>
-      <mesh position={[0, 0.6, 0]} visible={false}>
-        <boxGeometry args={[w, 1.2, d]} />
-      </mesh>
+      {/* La huella de arriba cubre lo que se PISA; ésta cubre lo que se
+          AGARRA con el puntero, y ahí el piso miente para lo que cuelga del
+          muro. El mueble de piso dibuja desde el suelo hacia arriba —por
+          eso la caja centrada en 0.6 y alta 1.2 lo cubre bien—, pero una
+          ventana o un cuadro se dibuja CENTRADO en su propia altura, con
+          `item.y` ya puesto ahí por el grupo de afuera. Con la caja de
+          piso, la mitad de abajo de la ventana quedaba sin nada que
+          agarrar —el clic se colaba al muro de atrás—, y de ahí el
+          desastre real: seleccionaba el CUARTO en vez de la ventana, y
+          arrastrar de ahí no movía la pieza, estiraba el muro. */}
+      {MUEBLES_DE_MURO.has(item.tipo) ? (
+        <mesh position={[0, 0, 0]} visible={false}>
+          <boxGeometry args={[w + 0.06, (props.h ?? props.alto ?? def?.alto ?? 1.2) + 0.1, d + 0.2]} />
+        </mesh>
+      ) : (
+        <mesh position={[0, 0.6, 0]} visible={false}>
+          <boxGeometry args={[w, 1.2, d]} />
+        </mesh>
+      )}
     </group>
   )
 }

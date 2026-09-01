@@ -1023,7 +1023,7 @@ export const MUEBLES = {
     props: {},
   },
   piezaPropia: { label: 'Pieza propia', Comp: null, w: 0.4, d: 0.4, alto: 0.4, props: {}, propia: true },
-  ventana: { ...(A('Ventana', X.Ventana, 1.4, 0.1, 1.5, { angulo: 0 })), variantes: [
+  ventana: { ...(A('Ventana', X.Ventana, 1.4, 0.1, 1.5, { angulo: 0, vidrio: 'simple' })), variantes: [
     V('v080', '0.80 × 1.20', 'De baño o de cocina. Alta y chica.', { w: 0.8, h: 1.2, alto: 1.2 }),
     V('v120', '1.20 × 1.40', 'La de recámara de siempre.', { w: 1.2, h: 1.4, alto: 1.4 }),
     V('v150', '1.50 × 1.50', 'Cuadrada. La más común de sala.', { w: 1.5, h: 1.5, alto: 1.5 }),
