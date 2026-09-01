@@ -146,8 +146,10 @@ export default function Cuarto3D({
             ? (ev) => {
                 ev.stopPropagation()
                 // el muro en concreto primero: si nadie lo usa, cae al
-                // genérico de "se tocó un muro cualquiera"
-                if (onTocarMuro) onTocarMuro(m.id)
+                // genérico de "se tocó un muro cualquiera". El punto viaja
+                // también: es lo que deja decir A DÓNDE del muro, no solo
+                // A CUÁL.
+                if (onTocarMuro) onTocarMuro(m.id, { x: ev.point.x, y: ev.point.y, z: ev.point.z })
                 else onTocar()
               }
             : undefined

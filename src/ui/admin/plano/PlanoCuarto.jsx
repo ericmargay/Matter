@@ -520,16 +520,22 @@ export default function PlanoCuarto({ room, onCerrar }) {
    *
    * Sin nada seleccionado, tocar un muro selecciona el cuarto —lo de
    * siempre—. Con una pieza seleccionada, el muro deja de ser un botón de
-   * selección y se vuelve la manija de su vínculo:
+   * selección y se vuelve la manija de su posición:
    *
-   *   - tocar el muro al que YA está pegada la despega — un clic, no un
-   *     viaje al panel a buscar "Despegar".
-   *   - tocar un muro distinto la pega ahí.
+   *   - tocar el muro al que YA está pegada la mueve a lo largo de ESE
+   *     muro, justo al punto donde se picó —"muévela aquí", que es lo que
+   *     alguien espera al picarle al muro con la pieza en la mano—.
+   *   - tocar un muro distinto la pega ahí, también en el punto exacto.
    *   - tocar un SEGUNDO muro, contiguo al primero, la esquina entre los
-   *     dos —con separación de cada uno, no encajada adentro de ninguno—,
-   *     que es justo el gesto de "métela en esta esquina" que no existía.
+   *     dos —con separación de cada uno, no encajada adentro de ninguno—.
+   *
+   * Desvincular NO vive aquí —es "Despegar" en el panel—: la primera
+   * versión de esto hacía que tocar el muro propio la despegara, y
+   * despegar es exactamente lo que NO se quiere cuando lo que se busca es
+   * moverla. Un vínculo que se rompe solo porque se picó de más en el
+   * mismo muro es peor que no tener el gesto.
    */
-  const onTocarMuro = (muroTocado) => {
+  const onTocarMuro = (muroTocado, punto) => {
     const item = seleccion && plano.items.find((i) => i.id === seleccion)
     if (!item) {
       seleccionar(ID_MUROS)
@@ -546,10 +552,10 @@ export default function PlanoCuarto({ room, onCerrar }) {
     /* Sólo cuenta como gesto de vincular si el muro tocado es de verdad uno
        de los dos más cercanos a la pieza seleccionada —los mismos que ya
        ofrece el panel—. Sin este filtro, picarle a un mueble DISTINTO y
-       fallar por poco —dar en el muro de atrás— volvía a vincular o a
-       esquinar la pieza que ya estaba seleccionada, en silencio: el clic
-       hacía algo, pero no lo que la persona quería. Con el filtro, ese
-       fallo no toca nada y el clic cae en la selección de siempre. */
+       fallar por poco —dar en el muro de atrás— movía o esquinaba la
+       pieza que ya estaba seleccionada, en silencio: el clic hacía algo,
+       pero no lo que la persona quería. Con el filtro, ese fallo no toca
+       nada y el clic cae en la selección de siempre. */
     const cercanos = new Set(murosCerca(item, plano).slice(0, 2).map((m) => m.muro))
     if (!cercanos.has(muroId)) {
       seleccionar(ID_MUROS)
@@ -558,11 +564,10 @@ export default function PlanoCuarto({ room, onCerrar }) {
 
     const muroActual = item.ancla?.a === 'muro' ? item.ancla.muro : null
     const esMuroDeMuro = MUEBLES_DE_MURO.has(item.tipo)
-
-    if (muroActual === muroId) {
-      parchar(item.id, { ancla: undefined, suelta: true }, 'Despegó una pieza del muro')
-      return
-    }
+    // una pieza "virtual" en el punto que se picó, para que avanceEnMuro()
+    // calcule el avance A LO LARGO del muro contra ESE punto y no contra
+    // donde la pieza ya estaba
+    const virtual = punto ? { ...item, x: punto.x, z: punto.z } : item
 
     if (muroActual && sonContiguos(muroActual, muroId)) {
       const ancla = anclaEnEsquina(item, plano, muroActual, muroId, item.ancla.sep, 0.02)
@@ -572,12 +577,17 @@ export default function PlanoCuarto({ room, onCerrar }) {
       }
     }
 
-    const ancla = anclaEnMuro(item, plano, muroId)
-    if (!ancla) return
+    const base = anclaEnMuro(virtual, plano, muroId)
+    if (!base) return
+    // la separación del muro es de la pieza, no del punto donde cayó el
+    // clic —el clic está sobre la CARA del muro, no a la profundidad real
+    // en la que vive la pieza—; sólo se recalcula cuando de plano no había
+    // una todavía.
+    const ancla = { ...base, sep: muroActual === muroId ? (item.ancla?.sep ?? base.sep) : base.sep }
     parchar(
       item.id,
       { ancla, suelta: undefined, ...(esMuroDeMuro ? { rot: GIRO_MURO[muroId] ?? item.rot } : {}) },
-      'Vinculó una pieza a un muro',
+      muroActual === muroId ? 'Movió una pieza a lo largo del muro' : 'Vinculó una pieza a un muro',
     )
   }
 
