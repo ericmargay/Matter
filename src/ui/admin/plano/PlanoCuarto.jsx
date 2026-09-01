@@ -554,11 +554,15 @@ export default function PlanoCuarto({ room, onCerrar }) {
        ofrece el panel—. Sin este filtro, picarle a un mueble DISTINTO y
        fallar por poco —dar en el muro de atrás— movía o esquinaba la
        pieza que ya estaba seleccionada, en silencio: el clic hacía algo,
-       pero no lo que la persona quería. Con el filtro, ese fallo no toca
-       nada y el clic cae en la selección de siempre. */
+       pero no lo que la persona quería.
+       Y si SÍ hay algo seleccionado, un muro lejano no debe seleccionar el
+       cuarto tampoco: eso revela las flechas de redimensionar justo donde
+       el mouse sigue sostenido —arrastrando el gizmo de la pieza, por
+       ejemplo—, y ese arrastre termina agarrando una flecha de medida en
+       vez de soltar la pieza. Con algo ya seleccionado, un muro que no es
+       cercano no hace nada: ni mueve la pieza ni cambia la selección. */
     const cercanos = new Set(murosCerca(item, plano).slice(0, 2).map((m) => m.muro))
     if (!cercanos.has(muroId)) {
-      seleccionar(ID_MUROS)
       return
     }
 
