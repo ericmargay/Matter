@@ -543,6 +543,19 @@ export default function PlanoCuarto({ room, onCerrar }) {
     // aquí para abajo encontraría nunca coincidencia.
     const muroId = ANCLA_DE_MURO[muroTocado] ?? muroTocado
 
+    /* Sólo cuenta como gesto de vincular si el muro tocado es de verdad uno
+       de los dos más cercanos a la pieza seleccionada —los mismos que ya
+       ofrece el panel—. Sin este filtro, picarle a un mueble DISTINTO y
+       fallar por poco —dar en el muro de atrás— volvía a vincular o a
+       esquinar la pieza que ya estaba seleccionada, en silencio: el clic
+       hacía algo, pero no lo que la persona quería. Con el filtro, ese
+       fallo no toca nada y el clic cae en la selección de siempre. */
+    const cercanos = new Set(murosCerca(item, plano).slice(0, 2).map((m) => m.muro))
+    if (!cercanos.has(muroId)) {
+      seleccionar(ID_MUROS)
+      return
+    }
+
     const muroActual = item.ancla?.a === 'muro' ? item.ancla.muro : null
     const esMuroDeMuro = MUEBLES_DE_MURO.has(item.tipo)
 
