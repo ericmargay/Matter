@@ -379,6 +379,23 @@ export default function PlanoCuarto({ room, onCerrar }) {
          cliente ve en el campo es el que de verdad se guardó. */
       const limitado = limitarPorSolape({ ...plano, items: anclados }, patch)
       siguiente = { ...plano, ...limitado, items: anclados }
+    } else if (patch.items) {
+      /* Si el patch mueve una pieza a mano —el gizmo, o el campo de X/Y/Z del
+         panel— y esa pieza sigue anclada, resolverAnclas de abajo la iba a
+         regresar sola a donde estaba: recalcula su x/z/y desde el ancla
+         VIEJA, que todavía apunta al lugar de antes, y el resultado es que
+         arrastrar por el eje libre del muro —o escribir la Z a mano— no
+         hacía NADA, cuadro a cuadro, aunque el mouse sí se moviera. Aquí se
+         vuelve a atar el ancla a donde la pieza QUEDÓ, para que resolverla
+         después no la deshaga. */
+      const previos = new Map(plano.items.map((i) => [i.id, i]))
+      const items = patch.items.map((it) => {
+        const antes = previos.get(it.id)
+        if (!antes || !it.ancla || it.suelta) return it
+        if (antes.x === it.x && antes.z === it.z && antes.y === it.y) return it
+        return conAncla(it)
+      })
+      siguiente = { ...siguiente, items }
     }
 
     const items = resolverAnclas(siguiente)
