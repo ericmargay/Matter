@@ -113,6 +113,24 @@ export const FICHAS = [
     ],
   },
   {
+    id: 'puentes',
+    eco: 'Puentes',
+    titulo: 'Qué comprar cuando el hub que ya hay no trae radio propia',
+    entrada:
+      'Un Echo Dot, un Apple TV sin Ethernet, un Nest Hub Max: ninguno trae Zigbee, y varios tampoco traen Thread. Esto es lo que se suma cuando la central de la casa no alcanza sola —el aparato dedicado a resolver justo eso.',
+    pregunta: '¿Qué puente hace falta?',
+    variantes: [
+      V('sonoff-zbbridge-u', 'Sonoff Zigbee Bridge Ultra', ['zigbee', 'matter'],
+        'Toma cualquier sensor Zigbee y lo presenta como Matter: entra a Apple, Google o Alexa de una sola vez, sin que el hub del ecosistema necesite su propia radio Zigbee. Es la pieza que hace viable la estrategia de sensores baratos cuando lo que ya hay en casa es puro Echo Dot o puro Apple TV chico.'),
+      V('sonoff-ihost', 'Sonoff iHost', ['hub', 'zigbee', 'matter'],
+        'Zigbee integrado, controlador y puente Matter en un aparato que corre local: si se cae el internet o la empresa cierra, las automatizaciones siguen. Sirve de central completa, no solo de puente — la opción cuando no hay ecosistema de teléfono claro o se quiere independencia de la nube.'),
+      V('sonoff-nspanel-pro', 'Sonoff NSPanel Pro', ['zigbee', 'tablero'],
+        'Pantalla táctil de pared que reemplaza una placa doble y además hace de puente Zigbee: resuelve el puente y el tablero fijo en una sola compra, sin sumar un aparato aparte para cada cosa.'),
+      V('sonoff-dongle-max', 'Sonoff Dongle Max', ['zigbee', 'thread'],
+        'OJO: solo tiene sentido con Home Assistant corriendo detrás —es una antena, no una central—. En una casa sin servidor propio, el iHost o el puente Bridge Ultra resuelven mejor sin pedirle al cliente que mantenga un servidor.'),
+    ],
+  },
+  {
     id: 'red',
     eco: 'La red',
     titulo: 'Por qué la red decide si la casa funciona',
