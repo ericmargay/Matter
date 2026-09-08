@@ -100,6 +100,24 @@ function Proveedores({ device }) {
           pantalla, y solo uno se sostiene frente al cliente. */}
       <Visto device={device} />
 
+      {/* El enlace que alguien ya encontró y confirmó en Compras —a
+          diferencia de las búsquedas genéricas de abajo, que abren una
+          búsqueda porque un enlace directo se rompe en semanas, éste SÍ es
+          directo: alguien ya lo verificó a mano y prefirió guardarlo tal
+          cual. Se corrige o se borra desde la misma pantalla de Compras
+          donde se puso —aquí solo se muestra—. */}
+      {device.urlCompra && (
+        <a
+          href={device.urlCompra}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2.5 flex items-center justify-between gap-2 rounded-lg border border-ember/40 bg-ember/[0.06] px-2.5 py-2 transition-colors hover:border-ember"
+        >
+          <span className="text-[12px] text-cream-2">El que ya encontramos y confirmamos</span>
+          <span className="text-[11px] whitespace-nowrap text-ember">Abrir ↗</span>
+        </a>
+      )}
+
       <div className="mt-2.5 space-y-1.5">
         {linksDeCompra(device).map((p) => (
           <a
