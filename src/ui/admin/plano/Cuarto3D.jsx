@@ -146,19 +146,34 @@ export default function Cuarto3D({
             ? (ev) => {
                 ev.stopPropagation()
                 // el muro en concreto primero: si nadie lo usa, cae al
-                // genérico de "se tocó un muro cualquiera"
-                if (onTocarMuro) onTocarMuro(m.id)
+                // genérico de "se tocó un muro cualquiera". El punto viaja
+                // también: es lo que deja decir A DÓNDE del muro, no solo
+                // A CUÁL.
+                if (onTocarMuro) onTocarMuro(m.id, { x: ev.point.x, y: ev.point.y, z: ev.point.z })
                 else onTocar()
               }
             : undefined
 
+        /* Un muro con hueco no es un muro: son hasta cuatro cajas
+           independientes alrededor del vano. `caja()` redondea los DOCE
+           cantos de cada una —también los de corte, que antes de partirse
+           no existían—, y dos cajas por separado tocándose en su canto
+           redondeado dejan una ranura real, no un truco de luz: se ve
+           exactamente como una costura dibujada en el muro, justo donde
+           empieza y termina el hueco. Sin hueco, la pieza es una sola y
+           sus doce cantos son de verdad la orilla del muro —piso, plafón,
+           esquina con el muro vecino—, ahí el bisel se queda igual que
+           siempre. */
+        const piezas = pedazosDeMuro(m.w, alto, huecos?.[m.id])
+        const biselMuro = piezas.length > 1 ? 0 : e.bisel
+
         return (
           <group key={m.id} position={[m.pos[0], 0, m.pos[1]]} rotation={[0, m.rot, 0]}>
-            {pedazosDeMuro(m.w, alto, huecos?.[m.id]).map((p, i) => (
+            {piezas.map((p, i) => (
               <mesh
                 key={i}
                 visible={visible}
-                geometry={cja(p.sx, p.sy, t)}
+                geometry={caja(p.sx, p.sy, t, biselMuro, e.tono)}
                 material={mat(m.n[0] !== 0 ? pal.muroFrio : pal.muro, 'mate')}
                 position={[p.x, p.y, 0]}
                 castShadow

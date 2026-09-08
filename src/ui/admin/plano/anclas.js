@@ -25,12 +25,21 @@ import { MUEBLES_DE_MURO } from './muros'
  * molestas que puede hacer un editor.
  */
 
-/** Los cuatro muros, con el eje y el signo de cada uno. */
+/** Los cuatro muros, con el eje y el signo de cada uno.
+ *
+ * El nombre es del muro, no de la cámara: "izquierdo" o "de enfrente"
+ * describen dónde se ve un muro DESDE donde está mirando alguien en ESTE
+ * instante, y en un plano que se orbita libremente eso cambia con cada
+ * vuelta —el mismo muro es "el de enfrente" mirando desde una esquina y "el
+ * izquierdo" mirando desde otra—. Norte/sur/este/oeste no dependen de la
+ * cámara: es la misma convención que usa cualquier plano arquitectónico, y
+ * es la que ya vive por dentro en muros.js (`ANCLA_DE_MURO`) — esto solo le
+ * pone el mismo nombre en el rótulo que ya tenía en el dato. */
 export const MUROS = {
-  'x-': { eje: 'x', signo: -1, label: 'muro izquierdo' },
-  'x+': { eje: 'x', signo: 1, label: 'muro derecho' },
-  'z-': { eje: 'z', signo: -1, label: 'muro del fondo' },
-  'z+': { eje: 'z', signo: 1, label: 'muro de enfrente' },
+  'x-': { eje: 'x', signo: -1, label: 'muro oeste' },
+  'x+': { eje: 'x', signo: 1, label: 'muro este' },
+  'z-': { eje: 'z', signo: -1, label: 'muro norte' },
+  'z+': { eje: 'z', signo: 1, label: 'muro sur' },
 }
 
 /**
@@ -185,7 +194,16 @@ export function anclaEnMuro(item, plano, muro) {
   const m = MUROS[muro]
   if (!m) return null
   const sep = Math.abs(m.eje === 'x' ? item.x - hx * m.signo : item.z - hz * m.signo)
-  return { a: 'muro', muro, ...avanceEnMuro(item, plano, muro), y: item.y ?? 0.4, sep }
+  /* Guardar una 'y' aquí es guardar una ALTURA DE MONTAJE —la de una
+     ventana, un reloj, un sensor—, y eso manda para siempre: resolverAnclas
+     ya no se atreve a bajarla al piso después, porque no sabe si esa 'y' es
+     la de fábrica o la que alguien puso a mano. Un mueble de piso no monta
+     nada: si se le guarda aquí la 'y' que traía en ese instante —0, lo más
+     normal, pero podría no serlo por cualquier arrastre a medias—, esa
+     queda fija igual, y el piso deja de poder corregirla solo. Mejor no
+     guardar nada: sin 'y' en el ancla, el piso manda siempre. */
+  const cuelga = item.clase !== 'mueble' || MUEBLES_DE_MURO.has(item.tipo) || DEL_TECHO.has(item.tipo)
+  return { a: 'muro', muro, ...avanceEnMuro(item, plano, muro), ...(cuelga ? { y: item.y ?? 0.4 } : {}), sep }
 }
 
 /** ¿`muroA` y `muroB` se juntan en una esquina? Sólo si corren en ejes
@@ -273,6 +291,65 @@ export function muebleBajo(item, items) {
 }
 
 /**
+ * ¿Está pegada, en el piso, a UN LADO de otro mueble —no encima?
+ *
+ * Un banco arrimado al tocador, una mesa lateral junto al sillón: no están
+ * montados sobre nada, pero si el mueble grande se corre, se tienen que ir
+ * con él —igual que le pasa a lo que sí queda encima—. La diferencia con
+ * `muebleBajo` es la altura: aquí las dos piezas están en el piso, y lo que
+ * se mide es si el canto de una toca el canto de la otra en algún lado, no
+ * si una está parada sobre la cubierta de la otra.
+ */
+export function muebleAlLado(item, items) {
+  if (NUNCA_ENCIMA.has(item.tipo) || item.clase !== 'mueble') return null
+  if ((item.y ?? 0) > 0.08) return null
+  const defItem = MUEBLES[item.tipo]
+  if (!defItem) return null
+  /* El canto de la pieza que se mueve, ya girado. Sin esto el hueco se mide
+     del centro de la pieza al canto del anfitrión, y una pieza grande
+     "tocaría" el anfitrión estando en realidad a medio metro: el hueco que
+     importa es de canto a canto, no de canto a centro. */
+  const ci = Math.abs(Math.cos(item.rot ?? 0))
+  const si = Math.abs(Math.sin(item.rot ?? 0))
+  const ew = ((defItem.w ?? 0.4) * ci + (defItem.d ?? 0.4) * si) / 2
+  const ed = ((defItem.w ?? 0.4) * si + (defItem.d ?? 0.4) * ci) / 2
+  const areaItem = (defItem.w ?? 0.4) * (defItem.d ?? 0.4)
+  let mejor = null
+  for (const otro of items) {
+    if (otro.id === item.id || otro.clase !== 'mueble') continue
+    if ((otro.y ?? 0) > 0.08) continue
+    const def = MUEBLES[otro.tipo]
+    if (!def) continue
+    /* Solo el más grande de los dos hace de anfitrión. Sin esto, dos piezas
+       una junto a otra se anclan cada una a la otra —la cómoda "sigue" a la
+       maceta y la maceta "sigue" a la cómoda—, un círculo que no significa
+       nada: si las dos dependen de la otra, ninguna se mueve primero. Con
+       el desempate por área, la chica sigue a la grande y listo —y si
+       miden lo mismo, ninguna reclama a la otra, que es el default seguro. */
+    if ((def.w ?? 0.4) * (def.d ?? 0.4) <= areaItem) continue
+    const { w, d } = medio(def, otro)
+    // al marco local del anfitrión, para medir cantos y no un círculo
+    const rot = -(otro.rot ?? 0)
+    const dx = item.x - otro.x
+    const dz = item.z - otro.z
+    const lx = dx * Math.cos(rot) - dz * Math.sin(rot)
+    const lz = dx * Math.sin(rot) + dz * Math.cos(rot)
+    const fueraX = Math.abs(lx) - w - ew
+    const fueraZ = Math.abs(lz) - d - ed
+    // pegada a un costado: el hueco entre cantos es chico en UN eje —y
+    // puede ser negativo, un poco encimados no descalifica— y sigue
+    // alineada dentro del otro, con algo de holgura
+    const porX = fueraX > -0.05 && fueraX < 0.15 && Math.abs(lz) < d + ed + 0.05
+    const porZ = fueraZ > -0.05 && fueraZ < 0.15 && Math.abs(lx) < w + ew + 0.05
+    if (!porX && !porZ) continue
+    const hueco = Math.hypot(Math.max(0, fueraX), Math.max(0, fueraZ))
+    if (!mejor || hueco < mejor.hueco) mejor = { id: otro.id, lx, lz, hueco }
+  }
+  if (!mejor) return null
+  return { a: 'mueble', id: mejor.id, lx: mejor.lx, lz: mejor.lz, sobre: 0, piso: true }
+}
+
+/**
  * La relación que le toca a una pieza recién puesta o recién soltada.
  *
  * Primero el mueble y luego el muro: si algo está sobre el buró Y pegado a la
@@ -280,12 +357,18 @@ export function muebleBajo(item, items) {
  */
 /* Lo que cuelga del techo no se apoya en el piso por más que esté encima de
    él: una lámpara colgante a dos metros no está en el suelo. */
-const DEL_TECHO = new Set(['lamparaColgante', 'lamparaEsfera'])
+export const DEL_TECHO = new Set(['lamparaColgante', 'lamparaEsfera'])
 
 export function anclaAuto(item, plano, items) {
   if (item.clase === 'punto') return muroDe(item, plano)
-  const encima = muebleBajo(item, items) ?? muroDe(item, plano)
-  if (encima) return encima
+  /* El orden importa: encima de otro mueble gana siempre —es la relación
+     más específica—; luego el muro, porque un buró contra la pared sigue
+     siendo "el de la pared" aunque la cama esté justo al lado, que es como
+     ya se comportaba esto; y solo si no hay ni mueble encima ni muro cerca,
+     se prueba "a un costado" de otro mueble —una mesa lateral junto al
+     sillón en medio de la sala, donde no hay pared que la reclame primero. */
+  const relacion = muebleBajo(item, items) ?? muroDe(item, plano) ?? muebleAlLado(item, items)
+  if (relacion) return relacion
   /* Y lo que va en el plafón se amarra al plafón, guardando en qué parte de él
      está —de cero a uno en cada eje— y no en qué metro. Así seis empotrados
      repartidos en la sala se vuelven a repartir cuando la sala crece, en vez
@@ -307,14 +390,32 @@ export function anclaAuto(item, plano, items) {
   return null
 }
 
-/** Cómo se le dice al usuario a qué está pegada una pieza. */
-export function comoSeLlama(ancla, items) {
+/** Cómo se le dice al usuario a qué está pegada una pieza.
+ *
+ * Puede ser más de una superficie a la vez: una cama contra un muro sigue
+ * estando en el piso, y una pieza esquinada toca dos muros, no uno —el
+ * ancla sigue siendo una sola (`resolverAnclas` no cambia), pero lo que se
+ * le dice a quien mira el panel sí tiene que contar las tres cosas, o
+ * "esquinada" es una palabra que no dice nada. `item` es opcional para no
+ * romper una llamada vieja, pero sin él no se puede saber si de verdad es
+ * mueble de piso. */
+export function comoSeLlama(ancla, items, item) {
   if (!ancla) return null
   if (ancla.a === 'piso') return 'el piso'
   if (ancla.a === 'techo') return 'el plafón'
-  if (ancla.a === 'muro') return MUROS[ancla.muro]?.label ?? 'un muro'
+  if (ancla.a === 'muro') {
+    const muro = MUROS[ancla.muro]?.label ?? 'un muro'
+    const esquina = ancla.esquina && MUROS[ancla.esquina]?.label
+    const enPiso =
+      item?.clase === 'mueble' && ancla.y == null && !MUEBLES_DE_MURO.has(item.tipo) && !DEL_TECHO.has(item.tipo)
+    if (esquina && enPiso) return `el piso, esquinada entre ${muro} y ${esquina}`
+    if (esquina) return `${muro}, esquinada con ${esquina}`
+    if (enPiso) return `el piso y ${muro}`
+    return muro
+  }
   const m = items.find((i) => i.id === ancla.id)
-  return MUEBLES[m?.tipo]?.label ?? 'un mueble'
+  const nombre = MUEBLES[m?.tipo]?.label ?? 'un mueble'
+  return ancla.piso ? `un costado de ${nombre.toLowerCase()}` : nombre
 }
 
 /**
@@ -348,8 +449,25 @@ export function resolverAnclas(plano) {
       )
       const x = m.eje === 'x' ? fijo : corre
       const z = m.eje === 'x' ? corre : fijo
-      if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005) return it
-      return { ...it, x, z, ...(a.y != null ? { y: a.y } : {}) }
+      /* Pegado al muro Y al piso a la vez: lo que cuelga trae su propia 'y'
+         en el ancla (una ventana a metro y medio, un reloj a la altura de
+         los ojos) y esa manda. Lo que NO cuelga —una cama, un buró, un
+         espejo de pie arrimados a la pared— sigue siendo mueble de piso, y
+         las dos relaciones se cargan juntas: el muro no le quita el piso.
+         Sin esto nada garantizaba que su Y volviera a cero si por lo que
+         sea se corrió —a diferencia de lo que cuelga, que si trae su
+         propia 'y', o de lo suelto en el piso, que tiene su propio ancla
+         'piso' para exactamente esto. */
+      const y =
+        a.y != null
+          ? a.y
+          : it.clase === 'mueble' && !MUEBLES_DE_MURO.has(it.tipo) && !DEL_TECHO.has(it.tipo)
+            ? 0
+            : it.y
+      if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005 && Math.abs((y ?? 0) - (it.y ?? 0)) < 0.0005) {
+        return it
+      }
+      return { ...it, x, z, y }
     }
 
     if (a.a === 'techo') {
@@ -369,7 +487,13 @@ export function resolverAnclas(plano) {
     const rot = base.rot ?? 0
     const x = base.x + (a.lx ?? 0) * Math.cos(rot) + (a.lz ?? 0) * Math.sin(rot)
     const z = base.z - (a.lx ?? 0) * Math.sin(rot) + (a.lz ?? 0) * Math.cos(rot)
-    const y = altoDe(base) + (a.sobre ?? 0)
+    /* Dos formas de estar vinculado al mismo mueble: ENCIMA —la altura la
+       fija la cubierta del anfitrión, más lo que se pida de sobra— o A UN
+       COSTADO —la altura la fija el PISO del anfitrión, no su tapa, porque
+       la pieza no está montada sobre él, solo lo sigue a donde vaya—. Un
+       banco junto al tocador tiene que quedarse a su lado si el tocador se
+       corre, no subirse a la cubierta. */
+    const y = a.piso ? (base.y ?? 0) : altoDe(base) + (a.sobre ?? 0)
     if (Math.abs(x - it.x) < 0.0005 && Math.abs(z - it.z) < 0.0005 && Math.abs(y - (it.y ?? 0)) < 0.0005) {
       return it
     }
@@ -441,6 +565,20 @@ export function ponerEnMuro(item, plano) {
 export function agrandarSiNoCabe(plano) {
   let ancho = plano.ancho ?? 4
   let largo = plano.largo ?? 4
+  const porId = new Map((plano.items ?? []).map((i) => [i.id, i]))
+  /* El muro del que de verdad cuelga una pieza, aunque sea de segunda mano:
+     lo mismo si está anclada AL muro que si está encima de un mueble que a
+     su vez está anclado al muro —un monitor sobre un escritorio arrimado a
+     la pared hereda el muro del escritorio—. Solo un nivel, como en
+     resolverAnclas: nadie apila un mueble sobre otro sobre otro. */
+  const muroDeVerdad = (it) => {
+    if (it.ancla?.a === 'muro') return MUROS[it.ancla.muro]
+    if (it.ancla?.a === 'mueble') {
+      const host = porId.get(it.ancla.id)
+      if (host?.ancla?.a === 'muro') return MUROS[host.ancla.muro]
+    }
+    return null
+  }
   for (const it of plano.items ?? []) {
     if (it.clase !== 'mueble') continue
     const def = MUEBLES[it.tipo]
@@ -449,8 +587,23 @@ export function agrandarSiNoCabe(plano) {
     const s = Math.abs(Math.sin(it.rot ?? 0))
     const ew = ((def.w ?? 0.4) * c + (def.d ?? 0.4) * s) / 2
     const ed = ((def.w ?? 0.4) * s + (def.d ?? 0.4) * c) / 2
-    ancho = Math.max(ancho, (Math.abs(it.x) + ew) * 2 + 0.06)
-    largo = Math.max(largo, (Math.abs(it.z) + ed) * 2 + 0.06)
+    /* Si la pieza está pegada a un muro —directo, o de segunda mano por estar
+       encima de algo que sí lo está— su x o su z —el eje perpendicular a ESE
+       muro— no es un lugar libre: sale de restarle su separación a la mitad
+       del cuarto (fijo = hx·signo − signo·sep), así que crece solo cuando el
+       cuarto ya creció. Medir "le falta espacio" en ese eje con su huella de
+       canto a canto es contarla dos veces, y en cuanto el fondo de la pieza
+       es mayor que su separación al muro, cada acomodo la vuelve a alejar
+       del centro y el cuarto no deja de crecer solo —esto se vio de verdad
+       con un monitor sobre un escritorio arrimado al muro, que iba estirando
+       el cuarto en cada arrastre de una ventana en el otro extremo, sin que
+       nadie tocara ni el escritorio ni el monitor.
+       El eje A LO LARGO del muro sigue contando: es la regla real de obra —un
+       clóset de 1.80 contra la pared pide una pared de por lo menos 1.80—, y
+       ese eje sí es un lugar libre aunque la pieza esté pegada al muro. */
+    const muro = muroDeVerdad(it)
+    if (muro?.eje !== 'x') ancho = Math.max(ancho, (Math.abs(it.x) + ew) * 2 + 0.06)
+    if (muro?.eje !== 'z') largo = Math.max(largo, (Math.abs(it.z) + ed) * 2 + 0.06)
   }
   const redondo = (n) => Math.round(n * 100) / 100
   return { ancho: redondo(ancho), largo: redondo(largo) }
@@ -471,6 +624,7 @@ function huellasDePiso(items) {
       const c = Math.abs(Math.cos(it.rot ?? 0))
       const s = Math.abs(Math.sin(it.rot ?? 0))
       return {
+        id: it.id,
         x: it.x,
         z: it.z,
         hw: ((def.w ?? 0.4) * c + (def.d ?? 0.4) * s) / 2,
@@ -478,6 +632,62 @@ function huellasDePiso(items) {
       }
     })
     .filter(Boolean)
+}
+
+/**
+ * ¿Cabe esta pieza EN (x, z) sin encimarse con otra?
+ *
+ * La misma huella de canto a canto que ya usa `haySolape` para el cuarto que
+ * encoge, pero para una sola pieza contra el resto —al arrastrarla con el
+ * gizmo, con el arrastre rápido, o al soltarla nueva desde el catálogo—.
+ * Sólo compite lo que de verdad tiene huella propia en el piso: lo que
+ * cuelga de un muro no estorba a nadie ahí abajo, y lo que ya está encima de
+ * otro mueble no compite por el mismo piso que su anfitrión.
+ */
+export function cabeSinSolape(item, items, x, z) {
+  if (item.clase !== 'mueble' || item.ancla?.a === 'mueble') return true
+  const def = MUEBLES[item.tipo]
+  if (!def || MUEBLES_DE_MURO.has(item.tipo)) return true
+  const c = Math.abs(Math.cos(item.rot ?? 0))
+  const s = Math.abs(Math.sin(item.rot ?? 0))
+  const hw = ((def.w ?? 0.4) * c + (def.d ?? 0.4) * s) / 2
+  const hd = ((def.w ?? 0.4) * s + (def.d ?? 0.4) * c) / 2
+  for (const otro of huellasDePiso(items)) {
+    if (otro.id === item.id) continue
+    const solapaX = hw + otro.hw - Math.abs(otro.x - x)
+    const solapaZ = hd + otro.hd - Math.abs(otro.z - z)
+    if (solapaX > 0.001 && solapaZ > 0.001) return false
+  }
+  return true
+}
+
+/**
+ * El punto más cercano a (x, z) donde esta pieza cabe sin encimarse.
+ *
+ * Para cuando se SUELTA una pieza nueva —no para arrastrar una que ya
+ * existe, ahí basta con quedarse quieto—: si de plano se soltó encima de
+ * otra, es mejor dejarla justo al lado de donde se apuntó que rechazar el
+ * clic en silencio, que se siente como que la herramienta no respondió.
+ * Prueba en espiral, de más cerca a más lejos; si nada libre aparece en
+ * dos metros —un cuarto ya saturado—, se rinde y regresa el punto pedido:
+ * mejor una pieza encimada, visible y corregible a mano, que una que
+ * desapareció sin explicación.
+ */
+export function lugarLibre(item, items, plano, x, z) {
+  if (cabeSinSolape(item, items, x, z)) return { x, z }
+  const hx = (plano?.ancho ?? 4) / 2 - 0.1
+  const hz = (plano?.largo ?? 4) / 2 - 0.1
+  const paso = 0.12
+  for (let radio = paso; radio <= 2; radio += paso) {
+    const vueltas = Math.max(8, Math.round((2 * Math.PI * radio) / paso))
+    for (let i = 0; i < vueltas; i++) {
+      const ang = (i / vueltas) * Math.PI * 2
+      const cx = Math.max(-hx, Math.min(hx, x + Math.cos(ang) * radio))
+      const cz = Math.max(-hz, Math.min(hz, z + Math.sin(ang) * radio))
+      if (cabeSinSolape(item, items, cx, cz)) return { x: cx, z: cz }
+    }
+  }
+  return { x, z }
 }
 
 /** ¿Ya se encima algún par de muebles en el piso de este plano? */

@@ -26,10 +26,20 @@ const NORMAL = Object.fromEntries(MUROS.map((m) => [m.id, m.n]))
 
 export const muroSeVe = (n, camaraX, camaraZ) => n[0] * camaraX + n[1] * camaraZ <= 0
 
-/** Tipos de mobiliario que van colgados o embebidos en el muro. */
+/** Tipos de mobiliario que van colgados o embebidos en el muro.
+ *
+ * No entra aquí lo que a veces cuelga y a veces no —una tele con base, una
+ * campana de isla, una chimenea de esquina que sube por el centro de la
+ * casa—: meterlas obligaría a TODAS sus variantes a comportarse como si
+ * colgaran, y las que no cuelgan quedarían mal. Esas siguen el camino
+ * genérico: se pegan solas si se sueltan cerca de un muro, igual que
+ * cualquier otro mueble.
+ */
 export const MUEBLES_DE_MURO = new Set([
   'ventana',
+  'ventanalCorredizo',
   'persiana',
+  'cuadro',
   'cuadroSolo',
   'cuadroArte',
   'cuadroGrande',
@@ -38,6 +48,7 @@ export const MUEBLES_DE_MURO = new Set([
   'relojPared',
   'espejo',
   'toallero',
+  'alacena',
   'pizarron',
   'puerta',
 ])

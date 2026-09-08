@@ -8,8 +8,8 @@ import * as THREE from 'three'
 import { DEVICE_BY_ID } from '../../../content/catalog'
 
 import { ID_MUROS, MUEBLES } from './catalogo'
-import { GROSOR_MURO, piezaSeVe } from './muros'
-import { altoDe, MUROS as MUROS_ANCLA } from './anclas'
+import { GROSOR_MURO, MUEBLES_DE_MURO, piezaSeVe } from './muros'
+import { altoDe, cabeSinSolape, MUROS as MUROS_ANCLA } from './anclas'
 import Animar from './animacion.jsx'
 import PiezaPropia from './PiezaPropia'
 import { Cable, Clavija, puntaCable } from './cables.jsx'
@@ -459,7 +459,7 @@ function useMedidaPieza(id, item) {
  * salen las flechas del gizmo. Y tiene que vivir DENTRO del canvas: medir es
  * recorrer la escena montada, y fuera no hay escena que recorrer.
  */
-function Seleccion({ item, items, plano, modo, onParchar, onFin }) {
+function Seleccion({ item, items, plano, modo, onParchar, onFin, onArrastrando }) {
   const caja = useMedidaPieza(item.id, item)
   const mayor = caja ? Math.max(caja.w, caja.h, caja.d) : 1
 
@@ -474,6 +474,7 @@ function Seleccion({ item, items, plano, modo, onParchar, onFin }) {
           modo={modo}
           onParchar={onParchar}
           onFin={onFin}
+          onArrastrando={onArrastrando}
           tamano={Math.min(0.9, Math.max(0.38, 0.34 + mayor * 0.45))}
         />
       )}
@@ -1117,9 +1118,25 @@ function Mueble({ item, seleccionado, onTomar, colocando, onEncima, aLaVista = t
         <planeGeometry args={[w, d]} />
         <meshBasicMaterial color="#ff9a4d" transparent opacity={0.25} depthWrite={false} />
       </mesh>
-      <mesh position={[0, 0.6, 0]} visible={false}>
-        <boxGeometry args={[w, 1.2, d]} />
-      </mesh>
+      {/* La huella de arriba cubre lo que se PISA; ésta cubre lo que se
+          AGARRA con el puntero, y ahí el piso miente para lo que cuelga del
+          muro. El mueble de piso dibuja desde el suelo hacia arriba —por
+          eso la caja centrada en 0.6 y alta 1.2 lo cubre bien—, pero una
+          ventana o un cuadro se dibuja CENTRADO en su propia altura, con
+          `item.y` ya puesto ahí por el grupo de afuera. Con la caja de
+          piso, la mitad de abajo de la ventana quedaba sin nada que
+          agarrar —el clic se colaba al muro de atrás—, y de ahí el
+          desastre real: seleccionaba el CUARTO en vez de la ventana, y
+          arrastrar de ahí no movía la pieza, estiraba el muro. */}
+      {MUEBLES_DE_MURO.has(item.tipo) ? (
+        <mesh position={[0, 0, 0]} visible={false}>
+          <boxGeometry args={[w + 0.06, (props.h ?? props.alto ?? def?.alto ?? 1.2) + 0.1, d + 0.2]} />
+        </mesh>
+      ) : (
+        <mesh position={[0, 0.6, 0]} visible={false}>
+          <boxGeometry args={[w, 1.2, d]} />
+        </mesh>
+      )}
     </group>
   )
 }
@@ -1998,13 +2015,54 @@ function magnetizar(rad) {
  * pero lo que SÍ tiene un `ancla` se recorta de vuelta a esa superficie
  * antes de guardarse, así que nunca se ve flotando donde no va.
  */
+/* Los límites del cuarto son los muros: nada se arrastra hasta quedar del
+   otro lado de una pared, sin importar a qué esté pegada la pieza —o a
+   nada—. Antes esto solo se aplicaba a lo pegado a un muro o al plafón; lo
+   suelto en el piso, o sin ancla siquiera, se podía arrastrar hasta afuera
+   del cuarto sin que nada lo detuviera. */
+function dentroDelCuarto(plano, x, y, z) {
+  const hx = (plano.ancho ?? 4) / 2
+  const hz = (plano.largo ?? 4) / 2
+  return {
+    x: Math.max(-hx + 0.1, Math.min(hx - 0.1, x)),
+    y: Math.max(0, Math.min((plano.alto ?? 2.6) - 0.05, y)),
+    z: Math.max(-hz + 0.1, Math.min(hz - 0.1, z)),
+  }
+}
+
+/**
+ * Recorta a la superficie Y, si de plano no cabe ahí sin encimarse con otra
+ * pieza, se queda donde ya estaba.
+ *
+ * El recorte a la superficie (`resolverSuperficie`, de aquí abajo) dice
+ * DÓNDE puede estar la pieza en función de a qué está pegada; esta capa
+ * dice si ese lugar concreto ya lo ocupa otra. Van separadas porque son
+ * preguntas distintas —el muro no sabe qué hay en el piso, y el traslape no
+ * sabe de anclas— y porque el rechazo es el mismo sea cual sea la
+ * superficie: quedarse en el último lugar bueno, no calcular uno nuevo.
+ */
 function restringirASuperficie(item, items, plano, x, y, z) {
+  const libre = resolverSuperficie(item, items, plano, x, y, z)
+  if (cabeSinSolape(item, items, libre.x, libre.z)) return libre
+  return { x: item.x, y: libre.y, z: item.z }
+}
+
+function resolverSuperficie(item, items, plano, x, y, z) {
   const a = item.ancla
-  if (!a) return { x, y, z }
+  if (!a) return dentroDelCuarto(plano, x, y, z)
 
   if (a.a === 'mueble') {
     const host = items.find((i) => i.id === a.id)
     if (!host) return { x, y, z }
+    /* A un costado, no encima: el banco junto al tocador se arrastra por el
+       piso alrededor de él, no recortado dentro de su tapa. Ahí no aplica
+       el recorte a la huella del anfitrión —eso es justo lo que ENCIMA sí
+       necesita—, solo se le pega su misma altura de piso y el límite pasa a
+       ser el cuarto, como cualquier otra pieza suelta. */
+    if (a.piso) {
+      const libre = dentroDelCuarto(plano, x, y, z)
+      return { ...libre, y: host.y ?? 0 }
+    }
     const def = MUEBLES[host.tipo]
     const variante = def?.variantes?.find((v) => v.id === host.variante)
     const w = variante?.props?.w ?? def?.w ?? 0.4
@@ -2044,10 +2102,12 @@ function restringirASuperficie(item, items, plano, x, y, z) {
     }
   }
 
-  return { x, y, z }
+  // 'piso', o cualquier otra cosa: sigue siendo el cuarto quien pone el
+  // límite, aunque la pieza no esté pegada a nada en particular.
+  return dentroDelCuarto(plano, x, y, z)
 }
 
-function Gizmo({ item, items, plano, modo, onParchar, onFin, tamano = 1 }) {
+function Gizmo({ item, items, plano, modo, onParchar, onFin, onArrastrando, tamano = 1 }) {
   const proxy = useRef()
   const [listo, setListo] = useState(false)
 
@@ -2111,7 +2171,11 @@ function Gizmo({ item, items, plano, modo, onParchar, onFin, tamano = 1 }) {
              continuo y nunca caía en un ángulo redondo. */
           rotationSnap={Math.PI / 36}
           onObjectChange={aplicar}
-          onMouseUp={onFin}
+          onMouseDown={() => onArrastrando?.(true)}
+          onMouseUp={() => {
+            onArrastrando?.(false)
+            onFin?.()
+          }}
         />
       )}
     </>
@@ -2387,6 +2451,14 @@ export default function Escena({
      que ya tenía la cota del muro y se resuelve igual. */
   const [acomodando, setAcomodando] = useState(false)
   const [encima, setEncima] = useState(null)
+  /* Mientras se arrastra el gizmo de la pieza seleccionada, el mouse pasa
+     por encima de otras piezas sin querer —y cada una "despierta" su propio
+     resalte, un contorno que no pinta nada ahí: no se está por elegir otra
+     cosa, se está moviendo la que ya se eligió. Es una ref y no un estado
+     porque no hace falta re-render propio: el arrastre YA dispara render
+     en cada cuadro por su cuenta (onObjectChange → onParchar), así que el
+     valor se lee al vuelo sin pagar un re-render extra por cuadro. */
+  const arrastrandoGizmo = useRef(false)
   const [cam, setCam] = useState([1, 1])
   const camX = cam[0]
   const camZ = cam[1]
@@ -2665,8 +2737,20 @@ export default function Escena({
 
       {/* el aro de giro solo en lo seleccionado: cuatro aros a la vez serían
           ruido y además se pelearían con el arrastre */}
-      {/* el contorno de lo que está bajo el puntero, y el de lo seleccionado */}
-      <Realce item={(encima && encima !== seleccion && plano.items.find((i) => i.id === encima)) || null} />
+      {/* el contorno de lo que está bajo el puntero, y el de lo seleccionado.
+          Ninguno de los dos arrastres —el del gizmo, el rápido de doble
+          clic— necesita este resalte: ya se sabe qué pieza se está moviendo,
+          y prender el contorno de otra a medio camino solo distrae. */}
+      <Realce
+        item={
+          (!arrastrandoGizmo.current &&
+            !arrastrando &&
+            encima &&
+            encima !== seleccion &&
+            plano.items.find((i) => i.id === encima)) ||
+          null
+        }
+      />
 
       {/* Los cables de alimentación, de cada aparato a su contacto. */}
       <Cables
@@ -2701,6 +2785,9 @@ export default function Escena({
           modo={!midiendo && modoGizmo ? modoGizmo : null}
           onParchar={onParchar}
           onFin={onFinGizmo}
+          onArrastrando={(v) => {
+            arrastrandoGizmo.current = v
+          }}
         />
       )}
       </Suspense>

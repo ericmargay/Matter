@@ -573,15 +573,49 @@ export function revisarCompatibilidad(inv = [], items = {}, cat = {}) {
     }
   }
 
-  /* ── Thread: ¿hay router de borde? ── */
+  /* ── Thread: ¿hay router de borde? ──
+     Mismo problema que el puente Zigbee, con la misma trampa: "ya tengo un
+     Apple TV" no dice nada solo, porque el de 64 GB sin Ethernet NO trae
+     radio Thread y se ve idéntico al de 128 que sí la trae —y un Echo de
+     3ª generación tampoco, aunque "ya tengo Alexa" suene a que sí. Antes
+     esto se leía como un booleano por tipo de aparato (`border`), sin mirar
+     el modelo, así que cualquier Apple TV o cualquier Echo "cubría" el
+     aviso aunque fuera justo el que no sirve. */
+  const NO_TRAE_THREAD = {
+    echo: (m) => /3ª|más viejo/i.test(m ?? ''),
+    appleTv: (m) => /solo wifi/i.test(m ?? ''),
+  }
   const thread = conLink('thread')
-  if (thread.length > 0 && !inv.some((u) => POR_ID[u.id]?.border)) {
-    avisos.push({
-      nivel: 'falta',
-      titulo: `${piezas(thread)} piezas Thread y ningún router de borde`,
-      porque: `${nombres(thread)} necesitan una malla Thread que nadie está armando.`,
-      accion: 'Un HomePod mini, un Apple TV 4K de 128 GB, un Echo de 4ª generación o un Nest Hub de 2ª.',
-    })
+  if (thread.length > 0) {
+    const bordes = inv.filter((u) => POR_ID[u.id]?.border)
+    const bViejos = bordes.filter((u) => NO_TRAE_THREAD[u.id]?.(u.modelo))
+    const bDudosos = bordes.filter(
+      (u) => !bViejos.includes(u) && NO_TRAE_THREAD[u.id] && (!u.modelo || /no sé/i.test(u.modelo)),
+    )
+    const bSeguros = bordes.filter((u) => !bViejos.includes(u) && !bDudosos.includes(u))
+
+    if (bordes.length === 0) {
+      avisos.push({
+        nivel: 'falta',
+        titulo: `${piezas(thread)} piezas Thread y ningún router de borde`,
+        porque: `${nombres(thread)} necesitan una malla Thread que nadie está armando.`,
+        accion: 'Un HomePod mini, un Apple TV 4K de 128 GB, un Echo de 4ª generación o un Nest Hub de 2ª.',
+      })
+    } else if (bSeguros.length === 0 && bViejos.length > 0) {
+      avisos.push({
+        nivel: 'falta',
+        titulo: `${piezas(thread)} piezas Thread no van a funcionar`,
+        porque: `El único router de borde sería ${bViejos.map((u) => POR_ID[u.id]?.label).join(', ')}, y ese modelo NO trae radio Thread. Está confirmado, no es duda.`,
+        accion: 'Hay que rehacer esta parte del levantamiento: o se suma un router de borde de verdad, o esas piezas se cambian por su equivalente Matter sobre WiFi.',
+      })
+    } else if (bSeguros.length === 0) {
+      avisos.push({
+        nivel: 'ojo',
+        titulo: 'El router de borde Thread depende de un modelo sin confirmar',
+        porque: `Hay ${piezas(thread)} piezas Thread cotizadas y el router de borde sería ${bDudosos.map((u) => POR_ID[u.id]?.label).join(', ')}, con modelo sin definir. El Apple TV 4K sin Ethernet y el Echo de 3ª generación NO traen radio Thread.`,
+        accion: 'Confirmar el modelo exacto antes de comprar. Si resulta que no trae Thread, hay que sumar router de borde o cambiar las piezas a Matter sobre WiFi.',
+      })
+    }
   }
 
   /* ── Matter: ¿hay quién adopte? ── */
