@@ -325,8 +325,6 @@ export const linksDeCompra = (device) =>
    mano y se anota la fecha, que es lo que permite saber cuándo ya envejeció. */
 export const PRECIOS_VISTOS = {
   'sonoff-zbmini-l2': { prov: 'unit', precio: 221, como: 'ZBMINIL2 Interruptor Extreme Zigbee Sin Neutro', visto: '2026-08-22' },
-  'sonoff-m5': { prov: 'unit', precio: [311, 359], como: 'SwitchMan M5-120 US C2 y C3', visto: '2026-08-22' },
-  'sonoff-t6-120m': { prov: 'unit', precio: [352, 373], como: 'T6-120M 1C y 2C táctil Wi-Fi Matter', visto: '2026-08-22' },
   'sonoff-nspanel-pro': { prov: 'unit', precio: [2074, 2374], como: 'NSPanel Pro Panel de Control Inteligente', visto: '2026-08-22' },
   'sonoff-snzb-02p': { prov: 'unit', precio: 192, como: 'SNZB-02P Sensor de Humedad y Temperatura Zigbee', visto: '2026-08-22' },
   'sonoff-garage': { prov: 'unit', precio: 174, como: 'SwitchMan 5V Interruptor WiFi Cerradura Portón', visto: '2026-08-22' },
@@ -335,22 +333,220 @@ export const PRECIOS_VISTOS = {
      la marca: el foco Matter cuesta 158 comprado de a dos y 95 de a seis, y
      esa diferencia decide una casa entera. El rango dice eso, no una
      incertidumbre. */
-  'orein-a19-matter': { prov: 'amazon', precio: [122, 179], promo: 95, como: 'Orein Matter Focos Inteligentes — lista: 121.50 en pack de 6, 150 de 4, 179 de 2', visto: '2026-08-22' },
-  'enchufe-matter-15a': { prov: 'amazon', precio: [165, 212], promo: 157, como: 'Matter Smart Plug Mini 15 A pack de 4, lista 164.75 — 212 el Linkind de marca', visto: '2026-08-22' },
-  'tapo-tc70': { prov: 'amazon', precio: 529, promo: 499, como: 'Tapo TP-Link TC70 360° 1080p', visto: '2026-08-22' },
   'sonoff-minir4m': { prov: 'amazon', precio: 372, promo: 274, como: 'SONOFF Matter Smart Switch mini DIY, lista 372 — 274 en promoción de dos', visto: '2026-08-22' },
   'shelly-1mini': { prov: 'amazon', precio: 440, como: 'Shelly 1 Mini Gen4 Matter, Zigbee y Wi-Fi, 8 A', visto: '2026-08-22' },
   'aqara-th': { prov: 'amazon', precio: 664, como: 'Aqara Zigbee sensor de temperatura y humedad', visto: '2026-08-22' },
   'aqara-g5pro': { prov: 'amazon', precio: 4175, como: 'Aqara Hub cámara 4MP G5 Pro exterior', visto: '2026-08-22' },
   'ultraloq-bolt': { prov: 'amazon', precio: [2975, 3570], promo: 2618, como: 'ULTRALOQ Bolt SE Matter lista 2,975 — 3,570 la de huella WiFi', visto: '2026-08-22' },
-
-  /* Las dos piezas que se repiten en todos los espacios y que seguíamos
-     cotizando de memoria. Ninguna de las dos la vende UNIT: su línea es
-     componente y Sonoff, no tira decorativa ni multicontacto. */
   'tapo-l930': { prov: 'amazon', precio: 801, como: 'TP-Link Tapo L930-5 tira 5 m RGBW', visto: '2026-08-24' },
   'kasa-kp303': { prov: 'amazon', precio: 627, como: 'Kasa KP303 regleta 3 tomas inteligentes + 2 USB', visto: '2026-08-24' },
-  'regleta-smart': { prov: 'amazon', precio: [498, 873], como: 'de la EASYTAO con USB a la meross de 4 tomas y 4 USB', visto: '2026-08-24' },
   'adaptador-3-vias': { prov: 'amazon', precio: [85, 171], promo: 51, como: 'Extensor de Pared Plano de 3 Vías, giratorio 180° — 85 en paquete de 3, 171 el de tierra física; el de 2 estaba a 51 con 53% de descuento', visto: '2026-08-25' },
+
+  /* ── 28 de octubre: la lista del Carpio, completa ────────────────
+     Buscada en el orden en que se compra: UNIT primero, Amazon después, y
+     MercadoLibre solo para lo que ninguno de los dos trae —hoy MercadoLibre
+     no deja buscar sin cuenta, así que ningún precio de esta tanda sale de
+     ahí—. Cada uno con la liga exacta, el paquete en que se vende y QUIÉN lo
+     vende: "en Amazon" no es un vendedor, y con un tercero la garantía es
+     otra conversación. `nota` es lo que hay que decidir antes de comprar. */
+  'sonoff-t6-120m': {
+    prov: 'unit',
+    precio: [352, 476],
+    como: 'T6-120M táctil Wi-Fi Matter — 1 canal 352, 2 canales 373, 3 canales 476',
+    url: 'https://uelectronics.com/producto/sonoff-t6-120m-1c-2c-interruptores-de-pared-tactil-wi-fi-matter/',
+    vende: 'UNIT',
+    entrega: 'Cientos en existencia de cada uno',
+    visto: '2026-10-28',
+  },
+  'sonoff-m5': {
+    prov: 'unit',
+    precio: 359,
+    como: 'SwitchMan M5-3C-120W: el único M5 Matter que tiene UNIT, de 3 canales',
+    url: 'https://uelectronics.com/producto/sonoff-switchman-m5-120-us-c3/',
+    vende: 'UNIT',
+    entrega: 'Quedan 5',
+    nota: 'Los M5 de 1 y 2 canales de UNIT (289 y 301) son el M5-1C-120 y el M5-2C-120: eWeLink, NO Matter. Si el apagador es de 1 o 2 botones, el T6-120M sí es Matter, cuesta casi lo mismo y hay cientos.',
+    visto: '2026-10-28',
+  },
+  'nfc-tags': {
+    prov: 'unit',
+    precio: 30,
+    como: '6 etiquetas NTAG213 sueltas a 5 c/u — la NTAG215 es de 10',
+    url: 'https://uelectronics.com/producto/etiqueta-adhesiva-nfc-ntag13-15-16-13-56-mhz/',
+    vende: 'UNIT',
+    entrega: 'Miles en existencia',
+    visto: '2026-10-28',
+  },
+  'orein-a19-matter': {
+    prov: 'amazon',
+    precio: [121.5, 179],
+    promo: 94.64,
+    como: 'Orein Matter — hoy 567.84 el paquete de 6 (94.64 c/u), 473.79 el de 4, 358 el de 2. La lista del de 6 era 729.',
+    url: 'https://www.amazon.com.mx/dp/B0BJK8561K',
+    paquetes: [
+      { tam: 6, precio: 567.84 },
+      { tam: 4, precio: 473.79 },
+      { tam: 2, precio: 358 },
+    ],
+    vende: 'OREiN-US, lo envía Amazon',
+    entrega: '1–3 días',
+    visto: '2026-10-28',
+  },
+  'enchufe-matter-15a': {
+    prov: 'amazon',
+    precio: [164.75, 212],
+    promo: 157.25,
+    como: 'Matter Smart Plug Mini 15 A, paquete de 4 a 629 (157.25 c/u)',
+    url: 'https://www.amazon.com.mx/dp/B0C9HM3CNH',
+    paquetes: [{ tam: 4, precio: 629 }],
+    vende: 'JUNLIT GROUP, lo envía Amazon',
+    entrega: 'Al día siguiente',
+    visto: '2026-10-28',
+  },
+  'tapo-tc70': {
+    prov: 'amazon',
+    precio: 499,
+    promo: 399,
+    como: 'Tapo TC70 360° 1080p — lista 499, hoy 399. La TC71 de 3 MP está en 429.',
+    url: 'https://www.amazon.com.mx/dp/B09Y8LJ17S',
+    vende: 'Amazon México',
+    entrega: 'Al día siguiente',
+    visto: '2026-10-28',
+  },
+  /* La L3 Pro no la trae ni UNIT ni Amazon México. La que quedó escogida en
+     Compras es la tira GE Cync con Matter: se respeta esa. */
+  'sonoff-l3-pro': {
+    prov: 'amazon',
+    precio: 484.58,
+    como: 'GE Cync tira de luz con Matter, 16 pies (4.9 m) — la que ya estaba escogida en lugar de la L3 Pro',
+    url: 'https://www.amazon.com.mx/dp/B0DB69D1YJ',
+    vende: 'Amazon Estados Unidos (importada)',
+    entrega: 'Al día siguiente',
+    visto: '2026-10-28',
+  },
+  'regleta-smart': {
+    prov: 'amazon',
+    precio: [498, 873],
+    promo: 438.24,
+    como: 'EASYTAO multicontacto inteligente 1.5 m con USB, lista 498 y hoy 438.24 — la meross de 4 tomas y 4 USB es la de 873',
+    url: 'https://www.amazon.com.mx/dp/B0BHT3V741',
+    vende: 'EASYTAO, lo envía Amazon',
+    entrega: 'Al día siguiente',
+    nota: 'WiFi con Smart Life: llega a Alexa por su skill, NO es Matter. La UseeLink Matter de 4 tomas cuesta 778.62 y solo quedan 4.',
+    visto: '2026-10-28',
+  },
+  'sonoff-minirbs': {
+    prov: 'amazon',
+    precio: 370.5,
+    como: 'SONOFF MINI-RBS Matter para persiana',
+    url: 'https://www.amazon.com.mx/dp/B0F5413ST1',
+    vende: 'FullStockMX, lo envía Amazon',
+    entrega: '1–3 días',
+    visto: '2026-10-28',
+  },
+  'nanoleaf-triangles': {
+    prov: 'amazon',
+    precio: 4700.4,
+    como: 'Nanoleaf Shapes Triangles NEGROS, kit de 9',
+    url: 'https://www.amazon.com.mx/dp/B0BSVGX8HP',
+    vende: 'Amazon México',
+    entrega: 'Queda 1',
+    nota: 'El kit blanco solo llega de Alemania: 4,304.60 y hasta el 13 de noviembre.',
+    visto: '2026-10-28',
+  },
+  'sonoff-mini-dim': {
+    prov: 'amazon',
+    precio: 993.89,
+    como: 'SONOFF MINI DIM WiFi — solo desde Alemania',
+    url: 'https://www.amazon.com.mx/dp/B0GFM1NG9N',
+    vende: 'Amazon Europa',
+    entrega: 'Hasta el 13 de noviembre',
+    nota: 'No lo trae UNIT ni hay en México. El que sí está hoy en UNIT es el Sonoff D1 (398): atenúa igual, pero es WiFi con eWeLink —no Matter— y no cabe detrás de la placa.',
+    visto: '2026-10-28',
+  },
+  'sonoff-d1': {
+    prov: 'unit',
+    precio: 398,
+    como: 'Sonoff Dimer D1 WiFi',
+    url: 'https://uelectronics.com/producto/sonoff-dimer-d1-wifi/',
+    vende: 'UNIT',
+    entrega: 'Quedan 6',
+    visto: '2026-10-28',
+  },
+  /* El Carpio no tiene puente Zigbee —los Echo Dot de cuarta generación no
+     traen—, así que las tres piezas Zigbee de la lista no funcionarían. Se
+     anota cuánto cuesta seguir en Zigbee, y la ruta sin puente al lado. */
+  'sonoff-snzb-05p': {
+    prov: 'amazon',
+    precio: 565.92,
+    como: 'SONOFF SNZB-05P Zigbee — solo desde Alemania',
+    url: 'https://www.amazon.com.mx/dp/B0DFVY6HS9',
+    vende: 'Amazon Europa',
+    entrega: 'Hasta el 13 de noviembre',
+    nota: 'Zigbee: sin puente no funciona, y el Carpio no tiene (el Sonoff Bridge Pro está en 465). Sin puente: el Shelly Flood Gen4, que habla Matter directo con el Echo.',
+    visto: '2026-10-28',
+  },
+  'shelly-flood-gen4': {
+    prov: 'amazon',
+    precio: 695.71,
+    como: 'Shelly Flood Gen4 — Matter, WiFi, Zigbee y Bluetooth, cable sensor de 2 m',
+    url: 'https://www.amazon.com.mx/dp/B0FPG9SGLJ',
+    vende: 'Shelly USA, lo envía Amazon',
+    entrega: '1–3 días',
+    visto: '2026-10-28',
+  },
+  'gas-detector-lp': {
+    prov: 'amazon',
+    precio: 515,
+    promo: 489,
+    como: 'Sensor de gas LP y natural certificado, WiFi, con salida para válvula',
+    url: 'https://www.amazon.com.mx/dp/B0D8RG53KJ',
+    vende: 'Distribuidora Shopylife, lo envía Amazon',
+    entrega: '1–3 días',
+    nota: 'Es WiFi, no Zigbee: funciona sin puente.',
+    visto: '2026-10-28',
+  },
+  'valvula-gas': {
+    prov: 'amazon',
+    precio: 623,
+    como: 'Hilitand controlador de válvula WiFi con sensor',
+    url: 'https://www.amazon.com.mx/dp/B0GBNZTT41',
+    vende: 'Simangy (tercero, sin reseñas)',
+    entrega: 'Del 10 al 13 de noviembre',
+    nota: 'Es pieza de seguridad y es lo único que apareció rápido. No comprar sin que el gasero revise la llave y diga qué válvula pone él.',
+    visto: '2026-10-28',
+  },
+  'sirena-armada': {
+    prov: 'amazon',
+    precio: 242,
+    como: 'Sirena 12 V 120 dB (189, Amazon) más un eliminador de 12 V a 1 A (53, UNIT); se conecta a uno de los enchufes Matter del paquete de 4',
+    url: 'https://www.amazon.com.mx/dp/B07K7KBSLQ',
+    vende: 'Bamfive, lo envía Amazon · el eliminador en UNIT',
+    entrega: '1–3 días',
+    visto: '2026-10-28',
+  },
+  'sonoff-zbbridge-u': {
+    prov: 'amazon',
+    precio: 2551.44,
+    como: 'SONOFF Zigbee Bridge Ultra, el puente Zigbee con Matter — solo desde Alemania',
+    url: 'https://www.amazon.com.mx/dp/B0D5HTJ2CZ',
+    vende: 'Amazon Europa',
+    entrega: 'Hasta el 13 de noviembre',
+    nota: 'Solo si se sigue con piezas Zigbee. El que llega rápido es el Bridge Pro: 465, el 3 de noviembre, pero NO habla Matter (llega a Alexa por la skill de eWeLink) — https://www.amazon.com.mx/dp/B09ZQQZSQZ',
+    visto: '2026-10-28',
+  },
+}
+
+/** Lo que va en Compras al usar un precio visto: el de lista por pieza —el
+ *  más bajo del rango, que es el del paquete grande o el de un canal—, la
+ *  liga, y los paquetes tal como se venden. */
+export function compraDeVisto(v) {
+  if (!v) return null
+  return {
+    precio: Array.isArray(v.precio) ? v.precio[0] : v.precio,
+    url: v.url ?? null,
+    ...(v.paquetes?.length ? { paquetes: v.paquetes } : {}),
+  }
 }
 
 /* `promo` guarda lo que costaba el día que se vio con descuento. El catálogo

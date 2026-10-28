@@ -1046,6 +1046,12 @@ function EnlaceCliente({ proyectoId, nombre }) {
         ayuda="Mándale este enlace. Anexa lo suyo desde el teléfono y llega aquí solo — sin cuenta y sin que nadie transcriba nada. Solo abre su inventario: ni precios ni el resto del levantamiento."
       />
       <Compartir
+        destino={largo.replace('/#/mi-equipo?', '/#/mi-plano?')}
+        etiqueta={`Plano · ${nombre}`}
+        titulo="El plano de su casa"
+        ayuda="Sus espacios vistos desde arriba, con lo que va en cada uno. Lo puede acomodar desde el teléfono —mover un cuarto, corregir una medida, llevar un foco a donde va— y lo ves aquí en vivo. Sin precios ni tiendas."
+      />
+      <Compartir
         destino={largo.replace('/#/mi-equipo?', '/#/mi-casa?')}
         etiqueta={`Guía de la casa · ${nombre}`}
         titulo="La guía de su casa"

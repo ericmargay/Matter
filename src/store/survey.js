@@ -507,6 +507,38 @@ export const useSurvey = create((set, get) => ({
     despachar('device.borrar', s.activoId, { deviceId })
   },
 
+  /** Lo que se mueve en el plano aéreo. Va de inmediato y sin agrupar: quien
+   *  lo mira desde otro teléfono tiene que verlo moverse en cuanto se suelta,
+   *  no después de la pausa con que se agrupa lo que se teclea. Cada cambio
+   *  es de un espacio: su `plano` con solo los campos que tocó (pos, ancho,
+   *  largo, mapa) y, si una pieza se fue a otro espacio, sus cantidades. */
+  editarMapa: (cambios) => {
+    const s = get()
+    const p = s.proyectos.find((x) => x.id === s.activoId)
+    if (!p) return
+    for (const c of cambios) {
+      const cuarto = p.rooms.find((r) => r.id === c.cuartoId)
+      if (!cuarto) continue
+      if (c.plano) {
+        despachar('plano.editar', p.id, {
+          cuartoId: c.cuartoId,
+          cuartoNombre: cuarto.nombre,
+          plano: c.plano,
+          que: c.items ? 'Cambió una pieza de espacio en el plano aéreo' : 'Acomodó el plano aéreo',
+        })
+      }
+      for (const [deviceId, qty] of Object.entries(c.items ?? {})) {
+        despachar('equipo.cantidad', p.id, {
+          cuartoId: c.cuartoId,
+          cuartoNombre: cuarto.nombre,
+          deviceId,
+          qty: Math.max(0, qty),
+          anterior: cuarto.items?.[deviceId] ?? 0,
+        })
+      }
+    }
+  },
+
   setPlano: (cuartoId, plano, que) => {
     const s = get()
     const id = s.activoId
