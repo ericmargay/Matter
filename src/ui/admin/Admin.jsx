@@ -5,6 +5,7 @@ import { paramsDelHash, useProyecto, useSurvey } from '../../store/survey'
 import Logo from '../Logo'
 import Catalog from './Catalog'
 import Compras from './Compras'
+import PlanoProyecto from './PlanoProyecto'
 import Escuela from './Escuela'
 import Taller from './Taller'
 import { Avatar } from './Historial'
@@ -31,6 +32,7 @@ import Survey from './Survey'
 const SECCIONES = [
   { id: 'proyectos', label: 'Proyectos' },
   { id: 'levantamiento', label: 'Levantamiento', requiereProyecto: true },
+  { id: 'plano', label: 'Plano', requiereProyecto: true },
   { id: 'compras', label: 'Compras', requiereProyecto: true },
   /* No pide proyecto abierto: se consulta parado en la sala del cliente, con
      el teléfono, antes de haber creado nada. */
@@ -271,6 +273,8 @@ export default function Admin({ section = 'proyectos' }) {
           <SinProyecto />
         ) : tab === 'proyectos' ? (
           <Projects />
+        ) : tab === 'plano' ? (
+          <PlanoProyecto />
         ) : tab === 'compras' ? (
           <Compras />
         ) : tab === 'escuela' ? (

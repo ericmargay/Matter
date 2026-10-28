@@ -4,7 +4,8 @@ import express from 'express'
 
 import { MAX_EDAD_COOKIE, USERS, crearSesion, leerTokenCliente, tokenCliente, sesionDeCookies, verificar } from './auth.js'
 import { SOCIOS } from './socios.js'
-import { acortar, enlacesCortos, registrar, resolver, verEstado, verEventos } from './registro.js'
+import { acortar, alRegistrar, enlacesCortos, registrar, resolver, ultimoSeq, verEstado, verEventos } from './registro.js'
+import { DEVICE_BY_ID } from '../src/content/catalog.js'
 
 /**
  * La aplicación HTTP.
@@ -286,6 +287,158 @@ export function crearApp() {
       }))
     registrar({ tipo: 'perfil.editar', proyectoId: id, datos: { patch: { inv: limpio } } }, 'cliente')
     res.json({ ok: true, inv: limpio })
+  })
+
+  /* ── el plano aéreo del cliente ──
+     Mismo enlace firmado que el anexador. El cliente ve sus espacios desde
+     arriba y lo que va en cada uno, y los puede acomodar; nada de precios ni
+     de tiendas. Lo que mueve entra al registro como cualquier otro cambio, así
+     que el panel lo ve en vivo, y lo que se mueva en el panel le llega a él
+     por /vivo. */
+  const proyectoDeToken = (token) => {
+    const id = leerTokenCliente(token)
+    return id ? (verEstado().proyectos.find((p) => p.id === id) ?? null) : null
+  }
+
+  const planoDe = (pr) => {
+    const tarifas = verEstado().tarifas?.productos ?? {}
+    const propios = Object.fromEntries((pr.devices ?? []).map((d) => [d.id, d]))
+    const aparatos = {}
+    const espacios = (pr.rooms ?? []).map((r) => {
+      for (const [id, q] of Object.entries(r.items ?? {})) {
+        if (q <= 0 || aparatos[id]) continue
+        const d = DEVICE_BY_ID[id] ?? propios[id]
+        if (d) aparatos[id] = { nombre: tarifas[id]?.nombre || d.name, cat: d.cat, marca: d.brand ?? '' }
+      }
+      const pl = r.plano ?? {}
+      return { id: r.id, nombre: r.nombre, m2: r.m2, items: r.items ?? {}, plano: { pos: pl.pos, ancho: pl.ancho, largo: pl.largo, mapa: pl.mapa } }
+    })
+    // `sello`: el último cambio que esta foto ya incluye, para que el navegador
+    // no deje que una foto vieja deshaga lo que acaba de mover
+    return { proyecto: pr.nombre, espacios, aparatos, sello: ultimoSeq() }
+  }
+
+  app.get('/api/plano/:token', (req, res) => {
+    const pr = proyectoDeToken(req.params.token)
+    if (!pr) return res.status(404).json({ error: 'enlace inválido' })
+    res.json(planoDe(pr))
+  })
+
+  const numero = (v, max) => (typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= max ? Math.round(v * 100) / 100 : null)
+
+  app.post('/api/plano/:token', (req, res) => {
+    const pr = proyectoDeToken(req.params.token)
+    if (!pr) return res.status(404).json({ error: 'enlace inválido' })
+    const cambios = req.body?.cambios
+    // hasta un cambio por espacio: el primero fija también los que se acomodaban solos
+    if (!Array.isArray(cambios) || !cambios.length || cambios.length > Math.max(4, pr.rooms.length)) return res.status(400).json({ error: 'cambios inválidos' })
+
+    /* Lo que se acepta, y nada más: medidas y posiciones con números de casa,
+       y piezas que se MUEVEN. Desde el enlace se puede llevar un foco de un
+       cuarto a otro, no crear focos ni borrarlos —eso es levantamiento, y lo
+       hace un socio—: por eso la cuenta de cada aparato tiene que cuadrar. */
+    const limpios = []
+    const balance = {}
+    for (const c of cambios) {
+      const cuarto = pr.rooms.find((r) => r.id === c?.cuartoId)
+      if (!cuarto) return res.status(400).json({ error: 'espacio desconocido' })
+      const plano = {}
+      if (c.plano?.pos !== undefined) {
+        const x = numero(c.plano.pos?.[0], 500)
+        const z = numero(c.plano.pos?.[1], 500)
+        if (x === null || z === null) return res.status(400).json({ error: 'posición inválida' })
+        plano.pos = [x, z]
+      }
+      for (const k of ['ancho', 'largo']) {
+        if (c.plano?.[k] === undefined) continue
+        const v = numero(c.plano[k], 100)
+        if (v === null || v < 0.5) return res.status(400).json({ error: 'medida inválida' })
+        plano[k] = v
+      }
+      if (c.plano?.mapa !== undefined) {
+        if (!c.plano.mapa || typeof c.plano.mapa !== 'object' || Array.isArray(c.plano.mapa)) return res.status(400).json({ error: 'mapa inválido' })
+        const mapa = {}
+        for (const [id, lista] of Object.entries(c.plano.mapa).slice(0, 80)) {
+          if (!Array.isArray(lista) || lista.length > 200 || id.length > 60) return res.status(400).json({ error: 'mapa inválido' })
+          mapa[id] = lista.map((p) => [numero(p?.[0], 100) ?? 0, numero(p?.[1], 100) ?? 0])
+        }
+        plano.mapa = mapa
+      }
+      const items = {}
+      for (const [id, q] of Object.entries(c.items ?? {})) {
+        if (!Number.isInteger(q) || q < 0 || q > 999) return res.status(400).json({ error: 'cantidad inválida' })
+        items[id] = q
+        balance[id] = (balance[id] ?? 0) + q - (cuarto.items?.[id] ?? 0)
+      }
+      limpios.push({ cuarto, plano, items })
+    }
+    if (Object.values(balance).some((d) => d !== 0)) return res.status(400).json({ error: 'solo se pueden mover piezas' })
+
+    for (const { cuarto, plano, items } of limpios) {
+      if (Object.keys(plano).length) {
+        registrar(
+          {
+            tipo: 'plano.editar',
+            proyectoId: pr.id,
+            datos: { cuartoId: cuarto.id, cuartoNombre: cuarto.nombre, plano, que: Object.keys(items).length ? 'Cambió una pieza de espacio en el plano aéreo' : 'Acomodó el plano aéreo' },
+          },
+          'cliente',
+        )
+      }
+      for (const [deviceId, qty] of Object.entries(items)) {
+        registrar(
+          {
+            tipo: 'equipo.cantidad',
+            proyectoId: pr.id,
+            datos: { cuartoId: cuarto.id, cuartoNombre: cuarto.nombre, deviceId, qty, anterior: cuarto.items?.[deviceId] ?? 0 },
+          },
+          'cliente',
+        )
+      }
+    }
+    res.json(planoDe(verEstado().proyectos.find((p) => p.id === pr.id)))
+  })
+
+  /* En vivo: cada navegador con el enlace abierto se queda escuchando aquí.
+     Un gesto puede ser varios eventos —llevar un foco a otro cuarto son
+     cuatro—, así que se espera un momento y se manda UNA foto con todo, no
+     cuatro a medias que harían brincar la pantalla. */
+  const escuchas = new Map() // proyectoId → Set(res)
+  const pendientes = new Map() // proyectoId → timer
+  const TOCAN = new Set(['plano.editar', 'equipo.cantidad', 'equipo.vaciar', 'cuarto.agregar', 'cuarto.editar', 'cuarto.eliminar', 'cuartos.reordenar', 'device.crear'])
+  alRegistrar((ev) => {
+    if (!ev.proyectoId || !TOCAN.has(ev.tipo) || !escuchas.get(ev.proyectoId)?.size) return
+    clearTimeout(pendientes.get(ev.proyectoId))
+    pendientes.set(
+      ev.proyectoId,
+      setTimeout(() => {
+        pendientes.delete(ev.proyectoId)
+        const pr = verEstado().proyectos.find((p) => p.id === ev.proyectoId)
+        if (!pr) return
+        const foto = `data: ${JSON.stringify(planoDe(pr))}\n\n`
+        for (const r of escuchas.get(ev.proyectoId) ?? []) r.write(foto)
+      }, 120),
+    )
+  })
+
+  app.get('/api/plano/:token/vivo', (req, res) => {
+    const pr = proyectoDeToken(req.params.token)
+    if (!pr) return res.status(404).end()
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    })
+    res.write(': en vivo\n\n')
+    if (!escuchas.has(pr.id)) escuchas.set(pr.id, new Set())
+    escuchas.get(pr.id).add(res)
+    // los proxies cortan una conexión callada: un latido cada 25 segundos
+    const latido = setInterval(() => res.write(': latido\n\n'), 25000)
+    req.on('close', () => {
+      clearInterval(latido)
+      escuchas.get(pr.id)?.delete(res)
+    })
   })
 
   return app

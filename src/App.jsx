@@ -57,6 +57,7 @@ const Catalogo = lazy(() => import('./ui/Catalogo'))
  *  enlace que se manda por WhatsApp, y no arrastra nada de operaciones: su
  *  catálogo es el de lo que la gente YA tiene, no el de lo que vendemos. */
 const MiEquipo = lazy(() => import('./ui/MiEquipo'))
+const MiPlano = lazy(() => import('./ui/MiPlano'))
 
 /** La guía de qué le puede pedir a su casa. Se arma desde el levantamiento,
  *  así que no envejece: cambia cuando cambia la instalación. */
@@ -117,6 +118,16 @@ export default function App() {
     return (
       <Suspense fallback={<div className="min-h-screen bg-ink" />}>
         <MiEquipo token={t} />
+      </Suspense>
+    )
+  }
+
+  // #/mi-plano?t=<token> — su casa vista desde arriba, para acomodarla juntos
+  if (route.startsWith('#/mi-plano')) {
+    const t = new URLSearchParams(route.split('?')[1] ?? '').get('t') ?? ''
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-ink" />}>
+        <MiPlano token={t} />
       </Suspense>
     )
   }

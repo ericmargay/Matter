@@ -677,3 +677,23 @@ canvas {
     animation: none;
   }
 }
+
+/* El plano aéreo: lo que movió alguien más destella un momento y se apaga. */
+@keyframes plano-destello {
+  0% {
+    stroke-opacity: 1;
+    stroke-width: 6px;
+  }
+  100% {
+    stroke-opacity: 0.6;
+    stroke-width: 2.5px;
+  }
+}
+.plano-destello {
+  animation: plano-destello 1.4s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .plano-destello {
+    animation: none;
+  }
+}
