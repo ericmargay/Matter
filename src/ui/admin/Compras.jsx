@@ -6,6 +6,7 @@ import { quote, unitPrice } from '../../content/pricing'
 import { instalacionDelProyecto } from '../../content/instalacion'
 import { planCompra } from '../../content/paquetes'
 import { MATERIALES, precioMaterial } from '../../content/materiales'
+import { compraDeVisto, precioVisto, PROVEEDOR_BY_ID } from '../../content/opsCatalog'
 import DevicePhoto, { PhotoFrame } from '../catalog/DevicePhoto'
 
 /**
@@ -75,6 +76,15 @@ export default function Compras() {
   const precioDe = (dev) => tarifas.productos?.[dev.id]?.precio ?? legado[dev.id]?.precio ?? unitPrice(dev)
   const totalGeneral = filas.reduce((a, f) => a + precioDe(f.dev) * f.qty, 0)
 
+  /* Lo que se encontró buscando cada producto y todavía no está en uso. Solo
+     cuenta lo que no tiene una liga confirmada a mano: ésa ya la escogió
+     alguien, y "usar todo" no tiene por qué pisarla. */
+  const porUsar = filas.filter((f) => {
+    const s = compraDeVisto(precioVisto(f.dev))
+    const o = efectivoDe(f.id)
+    return s && !o.url && o.precio !== s.precio
+  })
+
   /* La misma fórmula que arma la cotización oficial, aquí solo para poder
      editar el costo de cada servicio con el mismo gesto que un producto. */
   const q = quote({
@@ -124,6 +134,15 @@ export default function Compras() {
               <strong className="text-ember">${Math.round(totalGeneral).toLocaleString('es-MX')}</strong> equipo
             </span>
           )}
+          {porUsar.length > 0 && (
+            <button
+              onClick={() => porUsar.forEach((f) => editarProductoGlobal(f.id, compraDeVisto(precioVisto(f.dev))))}
+              title="Pone el precio de lista, la liga y los paquetes que se encontraron. No toca las ligas que ya se confirmaron a mano."
+              className="rounded-lg bg-thread px-2.5 py-1 text-[11px] font-medium text-ink hover:bg-thread-2"
+            >
+              Usar {porUsar.length} precio{porUsar.length === 1 ? '' : 's'} encontrado{porUsar.length === 1 ? '' : 's'}
+            </button>
+          )}
           <button
             onClick={() => setAgregando(true)}
             className="rounded-lg border border-line px-2.5 py-1 text-[11px] text-cream-2 hover:border-ember/60 hover:text-cream"
@@ -154,6 +173,8 @@ export default function Compras() {
               const cat = CATEGORIES.find((c) => c.id === f.dev.cat)
               const alternativas = DEVICES.filter((d) => d.cat === f.dev.cat && d.id !== f.id)
               const plan = over.paquetes?.length ? planCompra(f.qty, over.paquetes) : null
+              const visto = precioVisto(f.dev)
+              const sugerida = compraDeVisto(visto)
               return (
                 <div key={f.id} className="flex gap-3 rounded-xl border border-line bg-ink p-3">
                   <PhotoFrame className="h-20 w-20 flex-none rounded-lg">
@@ -342,6 +363,15 @@ export default function Compras() {
                         </a>
                       )}
                     </div>
+
+                    {visto && (
+                      <Encontrado
+                        visto={visto}
+                        enUso={over.url === sugerida.url && over.precio === sugerida.precio}
+                        otraConfirmada={!!over.url && over.url !== sugerida.url}
+                        onUsar={() => editarProductoGlobal(f.id, sugerida)}
+                      />
+                    )}
                   </div>
                 </div>
               )
@@ -646,6 +676,58 @@ function AgregarMaterial({ onCerrar, onCrear }) {
  *  Amazon casi nunca vende un aparato de smart home suelto y a granel: viene
  *  en 2, 4, 6 — y el precio por pieza cambia entre paquetes. Sin esto no hay
  *  con qué calcular `planCompra`. */
+/**
+ * Lo que se encontró al buscar este producto: en qué tienda, a cuánto, en
+ * qué paquete, quién lo vende y cuándo se vio.
+ *
+ * No se aplica solo, por dos razones. El precio de Compras alimenta la
+ * cotización del cliente, así que cambiarlo es una decisión, no un efecto
+ * secundario de abrir la pantalla. Y si alguien ya confirmó una liga a mano
+ * —la de la caja que llegó, la del vendedor de confianza—, la que se
+ * encontró buscando no tiene por qué pisarla: se dice que es otra y se deja
+ * escoger.
+ */
+function Encontrado({ visto, enUso, otraConfirmada, onUsar }) {
+  const prov = PROVEEDOR_BY_ID[visto.prov]
+  const $ = (n) => `$${n.toLocaleString('es-MX', { maximumFractionDigits: 2 })}`
+  const precio = Array.isArray(visto.precio) ? `${$(visto.precio[0])}–${$(visto.precio[1])}` : $(visto.precio)
+  const fecha = new Date(`${visto.visto}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+  return (
+    <div className="mt-2 rounded-lg border border-thread/25 bg-thread/[0.05] px-2.5 py-2 text-[11px] leading-snug">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="font-medium text-thread-2">{prov?.nombre ?? visto.prov}</span>
+        <span className="tabular-nums text-cream">{precio}</span>
+        {visto.promo != null && <span className="tabular-nums text-cream-2">hoy {$(visto.promo)}</span>}
+        <span className="text-cream-3">· visto el {fecha}</span>
+        {visto.url && (
+          <a href={visto.url} target="_blank" rel="noopener noreferrer" className="text-cream-3 hover:text-cream">
+            abrir ↗
+          </a>
+        )}
+        <span className="ml-auto">
+          {enUso ? (
+            <span className="text-thread-2">✓ en uso</span>
+          ) : (
+            <button
+              onClick={onUsar}
+              title="Pone este precio de lista, la liga y los paquetes. Aplica a todos los proyectos."
+              className="rounded-full border border-thread/50 px-2 py-0.5 text-[10.5px] text-thread-2 hover:bg-thread/10"
+            >
+              {otraConfirmada ? 'usar en lugar de la liga confirmada' : 'usar'}
+            </button>
+          )}
+        </span>
+      </div>
+      <p className="mt-0.5 text-cream-3">
+        {visto.como}
+        {visto.vende ? ` · vende ${visto.vende}` : ''}
+        {visto.entrega ? ` · ${visto.entrega}` : ''}
+      </p>
+      {visto.nota && <p className="mt-1 text-ember-2">{visto.nota}</p>}
+    </div>
+  )
+}
+
 function EditorPaquetes({ paquetes, onCambiar, onCerrar }) {
   const set = (i, campo, valor) => {
     const copia = paquetes.map((p, j) => (j === i ? { ...p, [campo]: valor } : p))
