@@ -257,6 +257,43 @@ export const useSurvey = create((set, get) => ({
     return proyecto.id
   },
 
+  /**
+   * Una alternativa: el proyecto entero —espacios, piezas, plano, compras—
+   * copiado a uno nuevo para ver "qué pasa si" sin tocar el original. No es
+   * `duplicarProyecto`, que deja los cuartos vacíos para otra casa: esto es
+   * la MISMA casa con otra decisión, y por eso se queda ligada al original
+   * con `base` —el plano las enseña juntas y compara lo que cuesta cada una—.
+   *
+   * @param ajustar  (rooms) => rooms, lo que la alternativa cambia de entrada
+   */
+  crearAlternativa: (id, { nombre, ajustar } = {}) => {
+    const orig = get().proyectos.find((p) => p.id === id)
+    if (!orig) return null
+    const copia = structuredClone(orig)
+    const rooms = copia.rooms.map((r) => ({ ...r, id: uid('r') }))
+    const proyecto = {
+      ...copia,
+      id: uid('p'),
+      folio: nuevoFolio(),
+      nombre: nombre?.trim() || `${orig.nombre} · alternativa`,
+      base: orig.base ?? orig.id,
+      estado: 'levantamiento',
+      archivado: false,
+      rooms: ajustar ? ajustar(rooms) : rooms,
+    }
+    despachar('proyecto.crear', proyecto.id, { proyecto })
+    set({ activoId: proyecto.id, activeRoom: null })
+    return proyecto.id
+  },
+
+  /** Qué deja ver y hacer el enlace del plano: `{ compras: false }` lo
+   *  vuelve solo la casa, sin precios ni cambios a la lista. */
+  setEnlace: (patch) => {
+    const s = get()
+    const p = s.proyectos.find((x) => x.id === s.activoId)
+    if (p) despachar('proyecto.editar', p.id, { patch: { enlace: { ...(p.enlace ?? {}), ...patch } } })
+  },
+
   /* ── levantamiento del proyecto abierto ── */
 
   setCliente: (patch) => {

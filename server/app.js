@@ -5,7 +5,7 @@ import express from 'express'
 import { MAX_EDAD_COOKIE, USERS, crearSesion, leerTokenCliente, tokenCliente, sesionDeCookies, verificar } from './auth.js'
 import { SOCIOS } from './socios.js'
 import { acortar, alRegistrar, enlacesCortos, registrar, resolver, ultimoSeq, verEstado, verEventos } from './registro.js'
-import { DEVICE_BY_ID } from '../src/content/catalog.js'
+import { catalogoDeCompra, compraDe, desembolso, fichaDe } from '../src/content/compraDe.js'
 
 /**
  * La aplicación HTTP.
@@ -291,37 +291,81 @@ export function crearApp() {
 
   /* ── el plano aéreo del cliente ──
      Mismo enlace firmado que el anexador. El cliente ve sus espacios desde
-     arriba y lo que va en cada uno, y los puede acomodar; nada de precios ni
-     de tiendas. Lo que mueve entra al registro como cualquier otro cambio, así
-     que el panel lo ve en vivo, y lo que se mueva en el panel le llega a él
-     por /vivo. */
+     arriba y lo que va en cada uno, y los puede acomodar. Lo que mueve entra
+     al registro como cualquier otro cambio, así que el panel lo ve en vivo, y
+     lo que se mueva en el panel le llega a él por /vivo.
+
+     Con las compras abiertas —así nace cada proyecto mientras dura el piloto;
+     se cierran desde el panel— el enlace también enseña precio, tienda y liga
+     de cada cosa, y deja agregar, quitar y cambiar productos: es la lista de
+     compras que se revisa junto con el cliente. Cerradas, es solo la casa:
+     se acomoda, pero la cuenta de cada aparato tiene que cuadrar. */
   const proyectoDeToken = (token) => {
     const id = leerTokenCliente(token)
     return id ? (verEstado().proyectos.find((p) => p.id === id) ?? null) : null
   }
 
+  const conCompras = (pr) => pr.enlace?.compras !== false
+  const contexto = (pr) => ({
+    tarifas: verEstado().tarifas?.productos ?? {},
+    legado: pr.compras?.productos ?? {},
+    propios: Object.fromEntries((pr.devices ?? []).map((d) => [d.id, d])),
+  })
+
+  /* El proyecto y sus alternativas —una copia para ver "qué pasa si"— son una
+     familia: el cliente pasa de una a otra sin otro enlace, y ve cuánto cuesta
+     cada una. */
+  const familiaDe = (pr) => {
+    const raiz = pr.base ?? pr.id
+    // el original primero; las alternativas en el orden en que se crearon
+    return verEstado()
+      .proyectos.filter((p) => !p.archivado && (p.id === raiz || p.base === raiz))
+      .sort((a, b) => (a.id === raiz ? -1 : b.id === raiz ? 1 : a.folio < b.folio ? -1 : 1))
+  }
+
   const planoDe = (pr) => {
-    const tarifas = verEstado().tarifas?.productos ?? {}
-    const propios = Object.fromEntries((pr.devices ?? []).map((d) => [d.id, d]))
+    const ctx = contexto(pr)
+    const compras = conCompras(pr)
     const aparatos = {}
+    const precios = {}
     const espacios = (pr.rooms ?? []).map((r) => {
       for (const [id, q] of Object.entries(r.items ?? {})) {
         if (q <= 0 || aparatos[id]) continue
-        const d = DEVICE_BY_ID[id] ?? propios[id]
-        if (d) aparatos[id] = { nombre: tarifas[id]?.nombre || d.name, cat: d.cat, marca: d.brand ?? '' }
+        const f = fichaDe(id, ctx)
+        if (!f) continue
+        aparatos[id] = f
+        if (compras) precios[id] = compraDe(id, ctx)
       }
       const pl = r.plano ?? {}
       return { id: r.id, nombre: r.nombre, m2: r.m2, items: r.items ?? {}, plano: { pos: pl.pos, ancho: pl.ancho, largo: pl.largo, mapa: pl.mapa } }
     })
-    // `sello`: el último cambio que esta foto ya incluye, para que el navegador
-    // no deje que una foto vieja deshaga lo que acaba de mover
-    return { proyecto: pr.nombre, espacios, aparatos, sello: ultimoSeq() }
+    const familia = compras ? familiaDe(pr) : []
+    return {
+      proyecto: pr.nombre,
+      espacios,
+      aparatos,
+      modo: compras ? 'compras' : 'casa',
+      ...(compras && { compras: precios }),
+      ...(familia.length > 1 && {
+        familia: familia.map((p) => ({ token: tokenCliente(p.id), nombre: p.nombre, actual: p.id === pr.id, total: desembolso(p.rooms, contexto(p)) })),
+      }),
+      // `sello`: el último cambio que esta foto ya incluye, para que el navegador
+      // no deje que una foto vieja deshaga lo que acaba de mover
+      sello: ultimoSeq(),
+    }
   }
 
   app.get('/api/plano/:token', (req, res) => {
     const pr = proyectoDeToken(req.params.token)
     if (!pr) return res.status(404).json({ error: 'enlace inválido' })
     res.json(planoDe(pr))
+  })
+
+  // lo que se puede escoger al agregar o cambiar un producto; solo con las compras abiertas
+  app.get('/api/plano/:token/catalogo', (req, res) => {
+    const pr = proyectoDeToken(req.params.token)
+    if (!pr || !conCompras(pr)) return res.status(404).json({ error: 'enlace inválido' })
+    res.json({ aparatos: catalogoDeCompra(contexto(pr)) })
   })
 
   const numero = (v, max) => (typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= max ? Math.round(v * 100) / 100 : null)
@@ -334,9 +378,11 @@ export function crearApp() {
     if (!Array.isArray(cambios) || !cambios.length || cambios.length > Math.max(4, pr.rooms.length)) return res.status(400).json({ error: 'cambios inválidos' })
 
     /* Lo que se acepta, y nada más: medidas y posiciones con números de casa,
-       y piezas que se MUEVEN. Desde el enlace se puede llevar un foco de un
-       cuarto a otro, no crear focos ni borrarlos —eso es levantamiento, y lo
-       hace un socio—: por eso la cuenta de cada aparato tiene que cuadrar. */
+       y cantidades de aparatos que existen. Con las compras cerradas solo se
+       MUEVEN piezas —llevar un foco de un cuarto a otro, no crearlo ni
+       borrarlo—, así que la cuenta de cada aparato tiene que cuadrar. */
+    const ctx = contexto(pr)
+    const compras = conCompras(pr)
     const limpios = []
     const balance = {}
     for (const c of cambios) {
@@ -367,23 +413,19 @@ export function crearApp() {
       const items = {}
       for (const [id, q] of Object.entries(c.items ?? {})) {
         if (!Number.isInteger(q) || q < 0 || q > 999) return res.status(400).json({ error: 'cantidad inválida' })
+        if (!fichaDe(id, ctx)) return res.status(400).json({ error: 'aparato desconocido' })
         items[id] = q
         balance[id] = (balance[id] ?? 0) + q - (cuarto.items?.[id] ?? 0)
       }
       limpios.push({ cuarto, plano, items })
     }
-    if (Object.values(balance).some((d) => d !== 0)) return res.status(400).json({ error: 'solo se pueden mover piezas' })
+    const cuadra = Object.values(balance).every((d) => d === 0)
+    if (!compras && !cuadra) return res.status(400).json({ error: 'solo se pueden mover piezas' })
 
     for (const { cuarto, plano, items } of limpios) {
       if (Object.keys(plano).length) {
-        registrar(
-          {
-            tipo: 'plano.editar',
-            proyectoId: pr.id,
-            datos: { cuartoId: cuarto.id, cuartoNombre: cuarto.nombre, plano, que: Object.keys(items).length ? 'Cambió una pieza de espacio en el plano aéreo' : 'Acomodó el plano aéreo' },
-          },
-          'cliente',
-        )
+        const que = !Object.keys(items).length ? 'Acomodó el plano aéreo' : cuadra ? 'Cambió una pieza de espacio en el plano aéreo' : 'Cambió la lista de compras desde el plano aéreo'
+        registrar({ tipo: 'plano.editar', proyectoId: pr.id, datos: { cuartoId: cuarto.id, cuartoNombre: cuarto.nombre, plano, que } }, 'cliente')
       }
       for (const [deviceId, qty] of Object.entries(items)) {
         registrar(
@@ -402,23 +444,49 @@ export function crearApp() {
   /* En vivo: cada navegador con el enlace abierto se queda escuchando aquí.
      Un gesto puede ser varios eventos —llevar un foco a otro cuarto son
      cuatro—, así que se espera un momento y se manda UNA foto con todo, no
-     cuatro a medias que harían brincar la pantalla. */
+     cuatro a medias que harían brincar la pantalla.
+
+     Un cambio en un proyecto le llega también a su familia —el total de la
+     alternativa se ve desde el original—, y una tarifa o una alternativa
+     nueva, a todos los que estén escuchando. */
   const escuchas = new Map() // proyectoId → Set(res)
   const pendientes = new Map() // proyectoId → timer
-  const TOCAN = new Set(['plano.editar', 'equipo.cantidad', 'equipo.vaciar', 'cuarto.agregar', 'cuarto.editar', 'cuarto.eliminar', 'cuartos.reordenar', 'device.crear'])
-  alRegistrar((ev) => {
-    if (!ev.proyectoId || !TOCAN.has(ev.tipo) || !escuchas.get(ev.proyectoId)?.size) return
-    clearTimeout(pendientes.get(ev.proyectoId))
+  const TOCAN = new Set([
+    'plano.editar',
+    'equipo.cantidad',
+    'equipo.vaciar',
+    'cuarto.agregar',
+    'cuarto.editar',
+    'cuarto.eliminar',
+    'cuartos.reordenar',
+    'device.crear',
+    'compras.editar',
+    'proyecto.editar',
+    'proyecto.eliminar',
+  ])
+  const A_TODOS = new Set(['tarifas.editar', 'proyecto.crear'])
+  const enviar = (proyectoId) => {
+    clearTimeout(pendientes.get(proyectoId))
     pendientes.set(
-      ev.proyectoId,
+      proyectoId,
       setTimeout(() => {
-        pendientes.delete(ev.proyectoId)
-        const pr = verEstado().proyectos.find((p) => p.id === ev.proyectoId)
+        pendientes.delete(proyectoId)
+        const pr = verEstado().proyectos.find((p) => p.id === proyectoId)
         if (!pr) return
         const foto = `data: ${JSON.stringify(planoDe(pr))}\n\n`
-        for (const r of escuchas.get(ev.proyectoId) ?? []) r.write(foto)
+        for (const r of escuchas.get(proyectoId) ?? []) r.write(foto)
       }, 120),
     )
+  }
+  alRegistrar((ev) => {
+    if (!escuchas.size) return
+    let ids = []
+    if (A_TODOS.has(ev.tipo)) ids = [...escuchas.keys()]
+    else if (ev.proyectoId && TOCAN.has(ev.tipo)) {
+      const pr = verEstado().proyectos.find((p) => p.id === ev.proyectoId)
+      ids = [ev.proyectoId, ...(pr ? familiaDe(pr).map((p) => p.id) : [])]
+    }
+    for (const id of ids) if (escuchas.get(id)?.size) enviar(id)
   })
 
   app.get('/api/plano/:token/vivo', (req, res) => {

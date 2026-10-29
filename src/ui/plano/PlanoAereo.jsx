@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { costoCompra } from '../../content/paquetes'
 import { trazoDe } from '../iconos'
 import {
   aPaso,
@@ -35,9 +36,19 @@ import {
  * —`plano` con solo los campos que cambiaron, `items` con las cantidades
  * nuevas cuando una pieza se fue a otro espacio—.
  *
+ * Con `compra` la hoja es también la lista de compras —por espacio, con foto,
+ * precio y tienda— y con `catalogo` además se edita: cantidades, agregar,
+ * cambiar un producto por otro, quitar. Agregar o quitar es un cambio de
+ * `items` como cualquier otro; el que recibe `onCambios` decide si lo acepta.
+ *
  * @param espacios   [{ id, nombre, m2, plano, items }]
- * @param aparato    deviceId → { nombre, cat, marca } (o null si no se conoce)
- * @param compra     deviceId → { precio, tienda, url, nota } — solo en el panel
+ * @param aparato    deviceId → { nombre, cat, marca, foto } (o null si no se conoce)
+ * @param compra     deviceId → { precio, tienda, url, nota, paquetes }, o nada
+ *                   si quien mira no debe ver precios
+ * @param catalogo   () => Promise<[{ id, nombre, cat, marca, foto, precio, tienda }]>
+ *                   lo que se puede agregar o poner en lugar de otro
+ * @param familia    [{ id, nombre, actual, total }] las alternativas de esta casa
+ * @param onFamilia  (alternativa) => void, para pasar a otra
  * @param onCambios  (cambios) => void
  * @param editable   false para solo mirar
  * @param estado     un nodo chico para la barra: "en vivo", "guardando"…
@@ -51,7 +62,7 @@ const dinero = (n) =>
   `$${n.toLocaleString('es-MX', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`
 const metros = (n) => n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-export default function PlanoAereo({ espacios, aparato, compra, onCambios, editable = true, estado }) {
+export default function PlanoAereo({ espacios, aparato, compra, catalogo, familia, onFamilia, onCambios, editable = true, estado }) {
   const caja = useRef(null)
   const lienzo = useRef(null)
   const [tam, setTam] = useState({ w: 0, h: 0 })
@@ -443,6 +454,58 @@ export default function PlanoAereo({ espacios, aparato, compra, onCambios, edita
     setSel({ tipo: 'pieza', key: `${destino}|${deviceId}|${yaHay}` })
   }
 
+  /* ── la lista de compras, desde el plano ──
+     Cantidades, agregar, cambiar y quitar van por el mismo camino que mover
+     una pieza: un cambio por espacio con las cantidades nuevas y el mapa ya
+     acomodado. Las piezas que sobran se van de la última hacia atrás; las que
+     llegan se acomodan solas hasta que alguien las mueva. */
+  const ponerCantidad = (cuartoId, deviceId, qty) => {
+    const q = Math.max(0, qty)
+    const actual = porId[cuartoId]?.items?.[deviceId] ?? 0
+    if (q === actual) return
+    const quedan = (listas[cuartoId] ?? []).filter((p) => p.deviceId !== deviceId || p.i < q)
+    confirmar([{ cuartoId, plano: { mapa: mapaDe(quedan) }, items: { [deviceId]: q } }])
+    // si la pieza escogida fue una de las que se fueron, se vuelve al espacio
+    if (sel?.tipo === 'pieza' && sel.key.startsWith(`${cuartoId}|${deviceId}|`) && Number(sel.key.split('|')[2]) >= q) setSel({ tipo: 'espacio', id: cuartoId })
+  }
+
+  const quitarPieza = (key) => {
+    const [cuartoId, deviceId] = key.split('|')
+    let n = 0
+    const quedan = (listas[cuartoId] ?? []).filter((p) => p.key !== key).map((p) => (p.deviceId === deviceId ? { ...p, i: n++ } : p))
+    confirmar([{ cuartoId, plano: { mapa: mapaDe(quedan) }, items: { [deviceId]: Math.max(0, (porId[cuartoId]?.items?.[deviceId] ?? 1) - 1) } }])
+    setSel({ tipo: 'espacio', id: cuartoId })
+  }
+
+  // otro aparato en el lugar del que había, en los espacios que se digan
+  const cambiarAparato = (viejo, nuevo, cuartos) => {
+    if (!nuevo || viejo === nuevo) return
+    const cambios = []
+    for (const cuartoId of cuartos) {
+      const qV = porId[cuartoId]?.items?.[viejo] ?? 0
+      if (!qV) continue
+      const qN = porId[cuartoId]?.items?.[nuevo] ?? 0
+      let n = qN
+      const lista = (listas[cuartoId] ?? []).map((p) => (p.deviceId === viejo ? { ...p, deviceId: nuevo, i: n++ } : p))
+      cambios.push({ cuartoId, plano: { mapa: mapaDe(lista) }, items: { [viejo]: 0, [nuevo]: qN + qV } })
+    }
+    if (cambios.length) confirmar(cambios)
+  }
+
+  const listaEditable = editable && !!compra && !!catalogo
+
+  /* Lo que sale de la bolsa por toda la casa: por paquete donde se vende así
+     —once focos son dos paquetes de seis—, que no es lo mismo que sumar el
+     precio por pieza. */
+  const totalCompra = useMemo(() => {
+    if (!compra) return null
+    const cuenta = {}
+    for (const e of espacios) for (const [id, q] of Object.entries(e.items ?? {})) if (q > 0) cuenta[id] = (cuenta[id] ?? 0) + q
+    let t = 0
+    for (const [id, q] of Object.entries(cuenta)) t += costoCompra(q, compra(id)).costo
+    return t
+  }, [espacios, compra])
+
   const elegir = (s) => {
     setSel(s)
     setHoja((h) => (h === 'cerrada' ? 'media' : h))
@@ -642,8 +705,16 @@ export default function PlanoAereo({ espacios, aparato, compra, onCambios, edita
         piezaSel={piezaSel}
         aparato={aparato}
         compra={compra}
+        catalogo={catalogo}
+        familia={familia}
+        onFamilia={onFamilia}
         editable={editable}
+        listaEditable={listaEditable}
         totalPiezas={totalPiezas}
+        totalCompra={totalCompra}
+        onCantidad={ponerCantidad}
+        onQuitarPieza={quitarPieza}
+        onCambiar={cambiarAparato}
         onElegir={(s) => {
           elegir(s)
           if (s?.tipo === 'espacio' && vista) {
@@ -716,11 +787,40 @@ function Manijas({ g, px }) {
 
 /* ── la hoja: el resumen, un espacio o una pieza ──
    En el teléfono sube desde abajo y tiene tres alturas; en la computadora es
-   una columna a la derecha. Lo que dice es lo mismo. */
-function Hoja({ refHoja, hoja, setHoja, espacios, geo, malos, sel, piezaSel, aparato, compra, editable, totalPiezas, onElegir, onMedidas, onMover }) {
+   una columna a la derecha. Lo que dice es lo mismo. Con precios a la vista
+   es también la lista de compras —por espacio, con foto, precio y tienda— y,
+   si se puede editar, ahí mismo se agrega, se cambia y se quita. */
+function Hoja({
+  refHoja,
+  hoja,
+  setHoja,
+  espacios,
+  geo,
+  malos,
+  sel,
+  piezaSel,
+  aparato,
+  compra,
+  catalogo,
+  familia,
+  onFamilia,
+  editable,
+  listaEditable,
+  totalPiezas,
+  totalCompra,
+  onElegir,
+  onMedidas,
+  onMover,
+  onCantidad,
+  onQuitarPieza,
+  onCambiar,
+}) {
   const porId = Object.fromEntries(espacios.map((e) => [e.id, e]))
   const alto = hoja === 'cerrada' ? 'max-md:h-[64px]' : hoja === 'media' ? 'max-md:h-[44%]' : 'max-md:h-[82%]'
   const siguiente = { cerrada: 'media', media: 'abierta', abierta: 'cerrada' }[hoja]
+  const [escoger, setEscoger] = useState(null) // { modo: 'agregar' | 'cambiar', deviceId, cat }
+  // al pasar a otro espacio o pieza, el catálogo abierto ya no viene al caso
+  useEffect(() => setEscoger(null), [sel?.tipo, sel?.id, sel?.key])
 
   const lineas = (items) =>
     Object.entries(items ?? {})
@@ -760,15 +860,56 @@ function Hoja({ refHoja, hoja, setHoja, espacios, geo, malos, sel, piezaSel, apa
             Se encima con {malos[sel.id].map((m) => `${porId[m.con]?.nombre} (${metros(m.cuanto)} m)`).join(' y ')}.
           </p>
         )}
-        <p className="text-[10.5px] tracking-[0.12em] text-cream-3 uppercase">{compra ? 'Lista de compras de este espacio' : 'Lo que se instala aquí'}</p>
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-[10.5px] tracking-[0.12em] text-cream-3 uppercase">{compra ? 'Lista de compras de este espacio' : 'Lo que se instala aquí'}</p>
+          {listaEditable && escoger?.modo !== 'agregar' && (
+            <button type="button" onClick={() => setEscoger({ modo: 'agregar' })} className="text-[12px] font-semibold whitespace-nowrap text-ember-2 hover:underline">
+              + Agregar
+            </button>
+          )}
+        </div>
+        {escoger?.modo === 'agregar' && (
+          <Escoger
+            catalogo={catalogo}
+            titulo={`Agregar a ${e.nombre}`}
+            onEscoger={(id) => {
+              onCantidad(sel.id, id, (e.items?.[id] ?? 0) + 1)
+              setEscoger(null)
+            }}
+            onCerrar={() => setEscoger(null)}
+          />
+        )}
         {ls.length ? (
-          <ul className="space-y-2.5">
+          <ul className="space-y-3">
             {ls.map((l) => (
-              <Linea key={l.id} l={l} />
+              <Linea
+                key={l.id}
+                l={l}
+                editable={listaEditable}
+                escogiendo={escoger?.modo === 'cambiar' && escoger.deviceId === l.id}
+                onCantidad={(q) => onCantidad(sel.id, l.id, q)}
+                onCambiar={() => setEscoger({ modo: 'cambiar', deviceId: l.id, cat: l.ap?.cat })}
+              />
             ))}
           </ul>
         ) : (
-          <p className="text-[12.5px] text-cream-3">Nada todavía. {editable ? 'Arrastra aquí una pieza desde otro espacio.' : ''}</p>
+          <p className="text-[12.5px] text-cream-3">
+            Nada todavía. {listaEditable ? 'Agrega algo del catálogo o arrastra aquí una pieza desde otro espacio.' : editable ? 'Arrastra aquí una pieza desde otro espacio.' : ''}
+          </p>
+        )}
+        {escoger?.modo === 'cambiar' && (
+          <Escoger
+            catalogo={catalogo}
+            titulo={`En lugar de ${aparato(escoger.deviceId)?.nombre ?? escoger.deviceId}`}
+            cat={escoger.cat}
+            excluir={escoger.deviceId}
+            todaLaCasa={espacios.some((x) => x.id !== sel.id && (x.items?.[escoger.deviceId] ?? 0) > 0)}
+            onEscoger={(id, todos) => {
+              onCambiar(escoger.deviceId, id, todos ? espacios.map((x) => x.id) : [sel.id])
+              setEscoger(null)
+            }}
+            onCerrar={() => setEscoger(null)}
+          />
         )}
         {compra && ls.length > 0 && (
           <p className="flex justify-between border-t border-line pt-2.5 text-[13.5px] font-semibold text-cream tabular-nums">
@@ -805,21 +946,38 @@ function Hoja({ refHoja, hoja, setHoja, espacios, geo, malos, sel, piezaSel, apa
         ) : (
           <p className="text-[12.5px] text-cream-3">En {porId[piezaSel.cuartoId]?.nombre}.</p>
         )}
-        <button type="button" onClick={() => onElegir({ tipo: 'espacio', id: piezaSel.cuartoId })} className="justify-self-start text-[12.5px] text-ember-2 hover:underline">
-          Ver todo lo de {porId[piezaSel.cuartoId]?.nombre} →
-        </button>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <button type="button" onClick={() => onElegir({ tipo: 'espacio', id: piezaSel.cuartoId })} className="text-[12.5px] text-ember-2 hover:underline">
+            Ver todo lo de {porId[piezaSel.cuartoId]?.nombre} →
+          </button>
+          {listaEditable && (
+            <button type="button" onClick={() => onQuitarPieza(piezaSel.key)} className="text-[12.5px] text-cream-3 hover:text-red-300">
+              Quitar esta pieza
+            </button>
+          )}
+        </div>
       </>
     )
   } else {
     titulo = 'Todos los espacios'
     const todos = espacios.map((e) => ({ e, ls: lineas(e.items) }))
-    const total = todos.reduce((t, x) => t + subtotal(x.ls), 0)
+    const porPieza = todos.reduce((t, x) => t + subtotal(x.ls), 0)
     cuerpo = (
       <>
         <p className="text-[12.5px] leading-snug text-cream-2">
-          {espacios.length} espacios · {totalPiezas} piezas{compra ? ` · ${dinero(Math.round(total))} a precio de lista` : ''}.{' '}
-          {editable ? 'Toca un espacio para ver lo suyo; arrastra una pieza para llevarla a donde va.' : 'Toca un espacio para ver lo que se instala en él.'}
+          {espacios.length} espacios · {totalPiezas} piezas{compra ? ` · ${dinero(Math.round(totalCompra ?? porPieza))} a comprar` : ''}.{' '}
+          {listaEditable
+            ? 'Toca un espacio para ver su lista: ahí se agrega, se cambia y se quita.'
+            : editable
+              ? 'Toca un espacio para ver lo suyo; arrastra una pieza para llevarla a donde va.'
+              : 'Toca un espacio para ver lo que se instala en él.'}
         </p>
+        {compra && totalCompra != null && Math.abs(totalCompra - porPieza) >= 1 && (
+          <p className="-mt-2 text-[11.5px] leading-snug text-cream-3">
+            Comprando por paquete donde se vende así; por pieza sumaría {dinero(Math.round(porPieza))}.
+          </p>
+        )}
+        {familia?.length > 1 && <Alternativas familia={familia} onFamilia={onFamilia} />}
         <ul className="-mx-2 space-y-0.5">
           {todos.map(({ e, ls }) => {
             const n = ls.reduce((t, l) => t + l.q, 0)
@@ -874,18 +1032,31 @@ function Hoja({ refHoja, hoja, setHoja, espacios, geo, malos, sel, piezaSel, apa
   )
 }
 
-function Linea({ l }) {
+/* La foto del producto o, si no la hay, su categoría en color: la misma
+   pastilla que lo representa en el plano, para que se reconozcan. */
+function Foto({ src, cat, tam = 40 }) {
+  const [rota, setRota] = useState(false)
+  useEffect(() => setRota(false), [src])
+  if (src && !rota) {
+    return <img src={src} alt="" loading="lazy" decoding="async" onError={() => setRota(true)} className="shrink-0 rounded-md bg-[#f4efe7] object-contain" style={{ width: tam, height: tam }} />
+  }
+  return (
+    <span className="grid shrink-0 place-items-center rounded-md" style={{ width: tam, height: tam, background: COLOR_CAT[cat] ?? '#c2ccdd' }} aria-hidden="true">
+      <svg width={tam * 0.5} height={tam * 0.5} viewBox="0 0 24 24">
+        <path d={trazoDe(ICONO_CAT[cat] ?? cat)} fill="none" stroke="#0a0e17" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  )
+}
+
+function Linea({ l, editable, escogiendo, onCantidad, onCambiar }) {
   const cat = l.ap?.cat ?? 'hubs'
   return (
-    <li className="grid grid-cols-[auto_1fr_auto] items-start gap-x-2.5 gap-y-0.5">
-      <span className="mt-0.5 grid h-6 w-6 place-items-center rounded-full" style={{ background: COLOR_CAT[cat] ?? '#c2ccdd' }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
-          <path d={trazoDe(ICONO_CAT[cat] ?? cat)} fill="none" stroke="#0a0e17" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
+    <li className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1 ${escogiendo ? '-mx-1.5 rounded-lg bg-ember/10 px-1.5 py-1.5' : ''}`}>
+      <Foto src={l.ap?.foto} cat={cat} />
       <span className="min-w-0 text-[13.5px] leading-snug font-medium text-cream">
         {l.ap?.nombre ?? l.id}
-        {l.q > 1 && <span className="text-cream-3"> × {l.q}</span>}
+        {!editable && l.q > 1 && <span className="text-cream-3"> × {l.q}</span>}
       </span>
       {l.c?.precio != null ? (
         <span className="text-[13px] font-semibold whitespace-nowrap text-cream tabular-nums">{dinero(Math.round(l.c.precio * l.q * 100) / 100)}</span>
@@ -893,7 +1064,7 @@ function Linea({ l }) {
         <span />
       )}
       {(l.c || l.ap?.marca) && (
-        <span className="col-span-2 col-start-2 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11.5px] text-cream-3">
+        <span className="col-span-2 col-start-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11.5px] text-cream-3">
           {l.c?.tienda && <span className="font-semibold text-thread-2">{l.c.tienda}</span>}
           {l.c?.precio != null && l.q > 1 && <span className="tabular-nums">{dinero(l.c.precio)} c/u</span>}
           {!l.c && l.ap?.marca && <span>{l.ap.marca}</span>}
@@ -904,8 +1075,132 @@ function Linea({ l }) {
           )}
         </span>
       )}
+      {editable && (
+        <span className="col-span-2 col-start-2 flex items-center gap-x-3 text-[11.5px] text-cream-3">
+          <span className="inline-flex items-center overflow-hidden rounded-md border border-line">
+            <button type="button" onClick={() => onCantidad(l.q - 1)} aria-label="Una menos" className="h-7 w-7 text-[15px] text-cream-2 hover:bg-cream/10">
+              −
+            </button>
+            <span className="min-w-6 text-center text-[12.5px] text-cream tabular-nums">{l.q}</span>
+            <button type="button" onClick={() => onCantidad(l.q + 1)} aria-label="Una más" className="h-7 w-7 text-[15px] text-cream-2 hover:bg-cream/10">
+              +
+            </button>
+          </span>
+          <button type="button" onClick={onCambiar} className="text-cream-2 hover:text-cream">
+            cambiar
+          </button>
+          <button type="button" onClick={() => onCantidad(0)} className="hover:text-red-300">
+            quitar
+          </button>
+        </span>
+      )}
       {l.c?.nota && <span className="col-span-2 col-start-2 text-[11.5px] leading-snug text-ember-2">{l.c.nota}</span>}
     </li>
+  )
+}
+
+/* ── escoger del catálogo: para agregar, o para poner otro en lugar de uno ── */
+function Escoger({ catalogo, titulo, cat, excluir, todaLaCasa, onEscoger, onCerrar }) {
+  const [lista, setLista] = useState(null)
+  const [q, setQ] = useState('')
+  const [solo, setSolo] = useState(!!cat) // solo de la misma familia
+  const [todos, setTodos] = useState(false) // en toda la casa, no solo aquí
+  useEffect(() => {
+    let vivo = true
+    Promise.resolve()
+      .then(() => catalogo?.())
+      .then((l) => vivo && setLista(l ?? []))
+      .catch(() => vivo && setLista([]))
+    return () => {
+      vivo = false
+    }
+  }, [catalogo])
+  const texto = q.trim().toLowerCase()
+  const vistos = (lista ?? [])
+    .filter((d) => d.id !== excluir && (!solo || d.cat === cat) && (!texto || `${d.nombre} ${d.marca}`.toLowerCase().includes(texto)))
+    .slice(0, 40)
+  const chip = (on) => `rounded-full border px-2.5 py-1 ${on ? 'border-ember bg-ember/12 text-cream' : 'border-line text-cream-3 hover:text-cream-2'}`
+  return (
+    <div className="grid gap-2 rounded-xl border border-line bg-ink p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="min-w-0 truncate text-[12.5px] text-cream">{titulo}</p>
+        <button type="button" onClick={onCerrar} className="text-[11.5px] text-cream-3 hover:text-cream">
+          cerrar
+        </button>
+      </div>
+      <input
+        autoFocus
+        placeholder="Buscar por nombre o marca…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        className="h-[36px] w-full min-w-0 rounded-lg border border-line bg-ink-2 px-2.5 text-[13.5px] text-cream outline-none placeholder:text-cream-3/60 focus:border-ember/60"
+      />
+      {(cat || todaLaCasa) && (
+        <div className="flex flex-wrap gap-1.5 text-[11px]">
+          {cat && (
+            <button type="button" onClick={() => setSolo((s) => !s)} className={chip(solo)}>
+              Solo {(NOMBRE_CAT[cat] ?? cat).toLowerCase()}
+            </button>
+          )}
+          {todaLaCasa && (
+            <button type="button" onClick={() => setTodos((t) => !t)} className={chip(todos)}>
+              En toda la casa
+            </button>
+          )}
+        </div>
+      )}
+      {lista === null ? (
+        <p className="text-[12px] text-cream-3">Cargando el catálogo…</p>
+      ) : vistos.length === 0 ? (
+        <p className="text-[12px] text-cream-3">Nada con ese nombre{solo ? ' en esta familia' : ''}.</p>
+      ) : (
+        <ul className="-mx-1 max-h-[38vh] overflow-y-auto">
+          {vistos.map((d) => (
+            <li key={d.id}>
+              <button type="button" onClick={() => onEscoger(d.id, todos)} className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 rounded-lg px-1 py-1.5 text-left hover:bg-cream/[0.05]">
+                <Foto src={d.foto} cat={d.cat} tam={34} />
+                <span className="min-w-0">
+                  <span className="block truncate text-[13px] text-cream">{d.nombre}</span>
+                  <span className="block truncate text-[11px] text-cream-3">
+                    {d.marca}
+                    {d.tienda ? ` · ${d.tienda}` : ''}
+                  </span>
+                </span>
+                {d.precio != null && <span className="text-[12.5px] whitespace-nowrap text-cream-2 tabular-nums">{dinero(d.precio)}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/* ── las alternativas de la casa, con lo que cuesta cada una ── */
+function Alternativas({ familia, onFamilia }) {
+  const actual = familia.find((f) => f.actual)
+  return (
+    <div className="grid gap-1.5">
+      <p className="text-[10.5px] tracking-[0.12em] text-cream-3 uppercase">Alternativas de esta casa</p>
+      {familia.map((f) => {
+        const dif = actual ? f.total - actual.total : 0
+        return (
+          <button
+            key={f.id ?? f.token}
+            type="button"
+            disabled={f.actual}
+            onClick={() => onFamilia?.(f)}
+            className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 rounded-lg border px-3 py-2 text-left ${f.actual ? 'border-ember/60 bg-ember/10' : 'border-line hover:border-cream/30'}`}
+          >
+            <span className="truncate text-[13px] text-cream">{f.nombre}</span>
+            <span className="text-[13px] whitespace-nowrap text-cream tabular-nums">{dinero(Math.round(f.total))}</span>
+            <span className={`col-span-2 text-[11px] tabular-nums ${!f.actual && dif < -0.5 ? 'text-thread-2' : 'text-cream-3'}`}>
+              {f.actual ? 'La que estás viendo' : Math.abs(dif) < 1 ? 'Cuesta lo mismo' : dif < 0 ? `${dinero(Math.round(-dif))} menos` : `${dinero(Math.round(dif))} más`}
+            </span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 

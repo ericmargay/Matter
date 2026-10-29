@@ -66,3 +66,15 @@ export function planCompra(necesarias, paquetes = []) {
     combo: [...combo.values()].sort((a, b) => b.tam - a.tam),
   }
 }
+
+/**
+ * Lo que de verdad sale de la bolsa por `cantidad` piezas de un producto:
+ * por paquete si se vende así, por pieza si no.
+ *
+ * @param compra  { precio, paquetes } — el precio por pieza y, si los hay, los paquetes
+ * @returns { costo, plan } — `plan` es el de planCompra(), o null si se compra suelto
+ */
+export function costoCompra(cantidad, compra) {
+  const plan = compra?.paquetes?.length ? planCompra(cantidad, compra.paquetes) : null
+  return { costo: plan ? plan.costoTotal : (compra?.precio ?? 0) * cantidad, plan }
+}

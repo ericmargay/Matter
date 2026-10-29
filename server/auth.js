@@ -86,8 +86,9 @@ export const MAX_EDAD_COOKIE = HORAS * 3600e3
 /* ── enlace del cliente ──────────────────────────────────────────
    El cliente no tiene cuenta ni la va a tener. El enlace ES la credencial:
    un HMAC del id del proyecto con el mismo secreto de las sesiones. No hay
-   que guardar nada, no caduca, y solo abre UN proyecto y solo su inventario
-   —no el levantamiento, no los precios, no el catálogo de operaciones—. */
+   que guardar nada, no caduca, y solo abre UN proyecto y solo lo de su
+   casa: su inventario, su plano y, mientras el proyecto las tenga abiertas,
+   sus compras —nunca las tarifas de servicio ni los márgenes—. */
 
 export function tokenCliente(proyectoId) {
   return `${proyectoId}.${firmar(`inv:${proyectoId}`)}`
