@@ -1,7 +1,7 @@
 // Con extensión a propósito: además del panel lo importa el servidor, que
 // corre en Node sin Vite y no resuelve rutas sin `.js`.
 import { DEVICES, DEVICE_BY_ID, refPrice } from './catalog.js'
-import { precioVisto, PROVEEDOR_BY_ID } from './opsCatalog.js'
+import { compraDeVisto, precioVisto, PROVEEDOR_BY_ID } from './opsCatalog.js'
 import { costoCompra } from './paquetes.js'
 import { photoOf } from './photos.js'
 
@@ -37,26 +37,36 @@ export function tiendaDeUrl(url) {
 const aparatoDe = (id, ctx) => DEVICE_BY_ID[id] ?? ctx?.propios?.[id] ?? null
 const ajusteDe = (id, ctx) => ({ ...(ctx?.legado?.[id] ?? {}), ...(ctx?.tarifas?.[id] ?? {}) })
 
-/** Nombre, categoría, marca y foto: lo que se enseña de un aparato. */
+/** Nombre, categoría, marca y foto: lo que se enseña de un aparato. La foto
+ *  del catálogo, y si el catálogo no tiene —los genéricos no la llevan,
+ *  porque cambian de vendedor—, la de la ficha de la liga encontrada: es la
+ *  del producto que de verdad se va a comprar. */
 export function fichaDe(id, ctx) {
   const d = aparatoDe(id, ctx)
   if (!d) return null
   const t = ajusteDe(id, ctx)
-  return { nombre: t.nombre || d.name, cat: d.cat, marca: d.brand ?? '', foto: t.foto || photoOf(id) }
+  return { nombre: t.nombre || d.name, cat: d.cat, marca: d.brand ?? '', foto: t.foto || photoOf(id) || precioVisto(d)?.foto || null }
 }
 
-/** Precio por pieza, liga, tienda, la nota de la búsqueda y los paquetes. */
+/** Precio por pieza, liga, tienda, la nota de la búsqueda y los paquetes.
+ *
+ *  Aquí no se espera a que alguien confirme el precio encontrado (eso es lo
+ *  que pide Compras antes de tocar la cotización): si el plano enseña la liga
+ *  de lo que se encontró, enseña también su precio y sus paquetes. Si no, la
+ *  sirena salía en el estimado de catálogo —710— junto a una liga que la
+ *  vende en 242. */
 export function compraDe(id, ctx) {
   const d = aparatoDe(id, ctx)
   if (!d) return null
   const t = ajusteDe(id, ctx)
   const visto = precioVisto(d)
+  const sugerida = t.precio == null ? compraDeVisto(visto) : null
   return {
-    precio: t.precio ?? (d.price ? refPrice(d) : null),
+    precio: t.precio ?? sugerida?.precio ?? (d.price ? refPrice(d) : null),
     url: t.url || visto?.url || null,
     tienda: t.url ? tiendaDeUrl(t.url) : visto ? (PROVEEDOR_BY_ID[visto.prov]?.nombre ?? null) : null,
     nota: t.url ? null : (visto?.nota ?? null),
-    paquetes: t.paquetes?.length ? t.paquetes : null,
+    paquetes: t.paquetes?.length ? t.paquetes : (sugerida?.paquetes ?? null),
   }
 }
 

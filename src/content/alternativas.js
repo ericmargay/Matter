@@ -13,6 +13,17 @@
 
 const sinAcentos = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
+/* El espacio que se llama como alguno de los nombres —en el orden en que se
+   dan—. Lo que tiene que ir sí o sí (el hub) cae en el primer espacio si no
+   hay uno así; un sensor de baño en una casa sin baño levantado, no va. */
+function espacioDe(rooms, nombres, siempre) {
+  for (const n of [nombres].flat()) {
+    const r = rooms.find((x) => sinAcentos(x.nombre).includes(sinAcentos(n)))
+    if (r) return r
+  }
+  return siempre ? rooms[0] : null
+}
+
 /** Aplica una receta a los espacios de un proyecto y devuelve los nuevos. */
 export function aplicarReceta(rooms, { cambia = {}, agrega = [], quita = [] }) {
   const nuevos = rooms.map((r) => {
@@ -31,12 +42,36 @@ export function aplicarReceta(rooms, { cambia = {}, agrega = [], quita = [] }) {
     }
     return { ...r, items, plano: r.plano ? { ...r.plano, mapa } : r.plano }
   })
-  for (const { id, qty = 1, espacio } of agrega) {
-    const donde = nuevos.find((r) => espacio && sinAcentos(r.nombre).includes(sinAcentos(espacio))) ?? nuevos[0]
+  for (const { id, qty = 1, espacio, siempre = false } of agrega) {
+    const donde = espacioDe(nuevos, espacio, siempre)
     if (!donde) continue
     donde.items = { ...donde.items, [id]: (donde.items[id] ?? 0) + qty }
   }
   return nuevos
 }
 
-export const ALTERNATIVAS = []
+export const ALTERNATIVAS = [
+  {
+    id: 'echo-hub-zigbee',
+    nombre: 'con Echo Dot Max',
+    /* El Echo que trae hub Zigbee, y lo que ese hub abre de verdad: sensores
+       de pila que disparan rutinas. No cambia lo que ya estaba —focos,
+       enchufes y apagadores Matter siguen siendo lo más barato en México, y
+       la fuga, el gas, la sirena y la válvula Zigbee no los soporta el hub
+       de Alexa—. */
+    ajustar: (rooms) =>
+      aplicarReceta(rooms, {
+        // la fuga Zigbee no entra al hub de Alexa: la que avisa es la Matter
+        cambia: { 'sonoff-snzb-05p': 'shelly-flood-gen4' },
+        agrega: [
+          { id: 'echo-dot-max', espacio: ['sala', 'estancia', 'estar'], siempre: true },
+          // la luz que se prende sola al entrar, donde nadie se queda quieto
+          { id: 'thirdreality-motion', espacio: ['baño principal', 'baño'] },
+          { id: 'thirdreality-motion', espacio: ['zotehuela', 'lavado', 'servicio'] },
+          { id: 'thirdreality-motion', espacio: ['recibidor', 'entrada', 'vestíbulo'] },
+          // "la puerta quedó abierta" y la escena de llegada
+          { id: 'thirdreality-contact', espacio: ['recibidor', 'entrada', 'vestíbulo'] },
+        ],
+      }),
+  },
+]

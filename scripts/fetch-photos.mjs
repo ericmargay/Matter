@@ -142,6 +142,16 @@ const FUENTES = {
      No es Shopify, pero su CDN publica la foto oficial y la página la declara
      en og:image. Se apunta a mano porque es la única forma de asegurar que la
      foto sea de ESE modelo y no del hermano de la misma familia. */
+  /* La lista del Carpio y su plano B (oct 2026): marca de fabricante, pero
+     sin tienda que se pueda leer. La foto es la de la ficha de Amazon México,
+     la del fabricante sobre fondo blanco — no la lámina de presentación. Los
+     genéricos de esa misma lista se quedan sin foto aquí (ver abajo): la suya
+     viaja con la liga encontrada, en PRECIOS_VISTOS. */
+  'echo-dot-max': { url: 'https://m.media-amazon.com/images/I/713I4BW4fBL._AC_SL1500_.jpg', credito: 'Amazon' },
+  'thirdreality-motion': { url: 'https://m.media-amazon.com/images/I/417jQeyeigL._AC_SL1500_.jpg', credito: 'ThirdReality · Amazon México' },
+  'thirdreality-contact': { url: 'https://m.media-amazon.com/images/I/41-tjH1nx-L._AC_SL1500_.jpg', credito: 'ThirdReality · Amazon México' },
+  'sirena-armada': { url: 'https://m.media-amazon.com/images/I/51i2nQI+htL._AC_SL1001_.jpg', credito: 'Amazon México' },
+  'shelly-flood-gen4': { url: 'https://m.media-amazon.com/images/I/715R3exmYOL._AC_SL1500_.jpg', credito: 'Shelly · Amazon México' },
   'tapo-l930': { url: 'https://static.tp-link.com/upload/image-line/Tapo-L930-5_overview_01_large_20250523062414d_large_20251028222715y.jpg', credito: 'TP-Link' },
   'kasa-kp303': { url: 'https://static.tp-link.com/KP303_Set-up-Images_01_large_1571309610330o.png', credito: 'TP-Link' },
   'tapo-tc70': { sinFoto: 'tp-link.com no publica ficha del TC70 en México; la foto del C200 es otro modelo' },
