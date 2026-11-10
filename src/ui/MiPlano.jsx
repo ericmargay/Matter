@@ -12,8 +12,10 @@ import PlanoAereo from './plano/PlanoAereo'
  * foco al cuarto donde de verdad va. Lo que mueve llega al panel en vivo, y
  * lo que mueve el socio desde el panel le llega a él igual.
  *
- * Sin precios ni tiendas, igual que los otros enlaces: esto es la casa, no la
- * cotización.
+ * Mientras el proyecto tenga las compras abiertas —así nacen todos durante el
+ * piloto— es también la lista de compras que se revisa juntos: con foto,
+ * precio, tienda y liga de cada cosa, y con qué agregar, cambiar o quitar.
+ * Con las compras cerradas es solo la casa: ni precios ni tiendas.
  */
 
 function aplicar(datos, cambios) {
@@ -38,6 +40,10 @@ export default function MiPlano({ token }) {
 
   useEffect(() => {
     let vigente = true
+    // otro enlace es otra casa (o la misma con otra decisión): se parte de cero
+    setDatos(null)
+    setError(null)
+    ultimo.current = 0
     fetch(url)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 404 ? 'enlace' : 'servidor'))))
       .then((d) => vigente && setDatos(d))
@@ -65,6 +71,15 @@ export default function MiPlano({ token }) {
   }, [url])
 
   const aparato = useCallback((id) => datos?.aparatos?.[id] ?? null, [datos?.aparatos])
+  const conCompras = datos?.modo === 'compras'
+  const compra = useCallback((id) => datos?.compras?.[id] ?? null, [datos?.compras])
+  const catalogo = useCallback(
+    () =>
+      fetch(`${url}/catalogo`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('no'))))
+        .then((d) => d.aparatos),
+    [url],
+  )
 
   const onCambios = useCallback(
     (cambios) => {
@@ -113,13 +128,20 @@ export default function MiPlano({ token }) {
         <Logo size={26} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[10px] tracking-[0.14em] text-cream-3 uppercase">{datos.proyecto}</p>
-          <h1 className="display truncate text-[20px] leading-tight text-cream">El plano de tu casa</h1>
+          <h1 className="display truncate text-[20px] leading-tight text-cream">{conCompras ? 'El plano y las compras de tu casa' : 'El plano de tu casa'}</h1>
         </div>
       </header>
       <div className="min-h-0 flex-1">
         <PlanoAereo
+          key={token}
           espacios={datos.espacios}
           aparato={aparato}
+          compra={conCompras ? compra : undefined}
+          catalogo={conCompras ? catalogo : undefined}
+          familia={datos.familia}
+          onFamilia={(f) => {
+            window.location.hash = `#/mi-plano?t=${f.token}`
+          }}
           onCambios={onCambios}
           estado={
             <span className="ml-1 inline-flex items-center gap-1.5 border-l border-line pl-2.5">

@@ -218,6 +218,14 @@ function Fila({ proyecto, abierto, fechas }) {
                 Abierto
               </span>
             )}
+            {proyecto.base && (
+              <span
+                title="Una copia de otro proyecto, para ver qué pasa con otra decisión"
+                className="rounded-full border border-thread/50 px-1.5 py-0.5 text-[9px] tracking-[0.1em] text-thread-2 uppercase"
+              >
+                Alternativa
+              </span>
+            )}
           </div>
           <div className="mt-0.5 text-[11.5px] text-cream-3">
             {proyecto.cliente.nombre || 'Sin contacto'}
